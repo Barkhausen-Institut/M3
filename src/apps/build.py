@@ -20,6 +20,7 @@ dirs = [
     'noop',
     'parchksum',
     'ping',
+    'pipeline',
     'plasma',
     'queue',
     'rusthello',

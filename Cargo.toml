@@ -16,6 +16,8 @@ members = [
     "src/apps/msgchan/msgchansnd",
     "src/apps/netechoserver",
     "src/apps/ping",
+    "src/apps/pipeline/plstep1",
+    "src/apps/pipeline/plstep2",
     "src/apps/rusthello",
     "src/apps/rustnettests",
     "src/apps/ruststandalone/stdareceiver",
