@@ -19,6 +19,7 @@ dirs = [
     'noop',
     'parchksum',
     'ping',
+    'pipeline',
     'queue',
     'resmngtest',
     'rusthello',
