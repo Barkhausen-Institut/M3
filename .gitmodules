@@ -16,3 +16,6 @@
 [submodule "src/libs/llvmprofile"]
 	path = src/libs/llvmprofile
 	url = ../m3-llvmprofile.git
+[submodule "src/libs/openssl"]
+	path = src/libs/openssl
+	url = ../m3-openssl.git

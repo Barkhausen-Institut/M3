@@ -12,6 +12,7 @@ dirs = [
     'm3',
     'memory',
     'musl',
+    'openssl',
     'pci',
     'rust',
     'support',
