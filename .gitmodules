@@ -19,3 +19,6 @@
 [submodule "src/libs/openssl"]
 	path = src/libs/openssl
 	url = ../m3-openssl.git
+[submodule "src/libs/tss"]
+	path = src/libs/tss
+	url = ../m3-tss.msr.git

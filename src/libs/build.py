@@ -17,6 +17,7 @@ dirs = [
     'rust',
     'support',
     'thread',
+    'tss',
 ]
 
 def build(gen, env):
