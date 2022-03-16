@@ -20,6 +20,7 @@ dirs = [
     'ping',
     'plasma',
     'queue',
+    'ratls',
     'rusthello',
     'rustnettests',
     'ruststandalone',
