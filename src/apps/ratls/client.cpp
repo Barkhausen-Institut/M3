@@ -28,7 +28,7 @@
 using namespace Err;
 using namespace TpmCpp;
 
-RATLS::TpmRoT *tpmRoT;
+RATLS::TpmRoT *tpmRoT = nullptr;
 
 SSL_SESSION *currentSession = nullptr;
 
@@ -39,7 +39,7 @@ TpmCpp::ByteVec sealAuthValue = { 4,  43 ,1 , 34 };
 // for testing purposes, client and server use the same PCR slots:
 //  - PCR7: trusted computing base / OS
 //  - PCR23: the app (either client or server)
-std::vector<int> pcrSlotsToAttest = { 7, 23 };
+std::vector<uint32_t> pcrSlotsToAttest = { 7, 23 };
 
 std::vector<TPM2B_DIGEST> expectedPcrValues = {
     TPM2B_DIGEST({0x2b, 0x13, 0xad, 0xc4, 0xb1, 0xd4, 0x10, 0x79, 0x06, 0x9e, 0x99, 0x1c, 0x99,
@@ -49,12 +49,16 @@ std::vector<TPM2B_DIGEST> expectedPcrValues = {
                   0xfc, 0xb5, 0x5b, 0x30, 0x37, 0x80, 0xb5, 0x61, 0x06, 0x99, 0x2c, 0x23, 0x51,
                   0x0a, 0xd2, 0x07, 0x31, 0xfa, 0x1c})
 };
+/*std::vector<TPM2B_DIGEST> expectedPcrValues = {
+    TPM2B_DIGEST({0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00}),
+    TPM2B_DIGEST({0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+                  0x00, 0x00, 0x00, 0x00, 0x00, 0x00})
+};*/
 
-std::vector<UINT32> sealingPcrSlots = { 7, 23 };
-
-std::vector<long> benchmarks;
-
-std::vector<long> benchmarks2;
+std::vector<uint32_t> sealingPcrSlots = { 7, 23 };
 
 SOCKET openConnection(char const *hostname, int port) {
     
@@ -88,14 +92,16 @@ int verifyCB(int preverifyOk, X509_STORE_CTX *ctx) {
     return 1;
 }
 
-void doConnection(char const *serverAddress, SSL_CTX *ctx, SSL_SESSION *session = nullptr) {
-    printf("\n\n=================================\n");
+void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SESSION *session = nullptr) {
+    //printf("\n\n=================================\n");
 
     SSL *ssl = SSL_new(ctx);
 
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Connecting);
     BI::demoClient.setTlsStatus(BI::DemoStatus::Connecting, "");
     BI::demoClient.setAttestationStatus(BI::DemoStatus::Connecting, "", "", "");
+
+    Benchmarking::startMeasure(Benchmarking::OpType::TCP);
 
     SOCKET connectSocket;
     try {
@@ -105,6 +111,8 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, SSL_SESSION *session 
         BI::demoClient.setConnectionStatus(BI::DemoStatus::Error);
         throw std::runtime_error(std::string("cannot connect to server: ") + e.what());
     }
+
+    Benchmarking::stopMeasure(Benchmarking::OpType::TCP);
 
     SSL_set_fd(ssl, connectSocket);
 
@@ -119,16 +127,23 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, SSL_SESSION *session 
         resume = true;
     }
 
-    std::chrono::steady_clock::time_point ts = std::chrono::steady_clock::now();
+    if(attested)Benchmarking::measureSingleValue(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+    else Benchmarking::measureSingleValue(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
+
+    if(attested)Benchmarking::startMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+    else Benchmarking::startMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
+
     int status = SSL_connect(ssl);
     if (status != 1) {
+        if(attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+        else Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
+
         printf("%s\n", ERR_error_string(SSL_get_error(ssl, status), NULL));
         ERR_print_errors_fp(stderr);
         return;
     }
-    if (resume) {
-        benchmarks2.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ts).count());
-    } else benchmarks.push_back(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - ts).count());
+    if(attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+    else Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
 
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Ok);
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Active);
@@ -163,13 +178,17 @@ uint8_t *createRequestCB(size_t *outLen) {
     return out;
 }
 
-RATLS::RAQuote remoteAttestCB(uint8_t *nonce, size_t nonceLen) {
-    uint64_t pcrSlotMask = 0;
-    for (int pcr : pcrSlotsToAttest) {
-        pcrSlotMask |= ((uint64_t)1 << (uint64_t)pcr);
+RATLS::RAQuote* remoteAttestCB(uint8_t *nonce, size_t nonceLen) {
+    if (BI::demoClient.clientIsDemo()) {
+#ifdef RATLS_DEBUG_OUTPUT
+        printf("[INFO: %d] Client, remoteAttestCB: fake attestation [DEMO_CLIENT]\n", __LINE__);
+#endif
+        RATLS::RAQuote* quoteRA = new RATLS::RAQuote();
+        quoteRA->quoteData = new uint8_t[42];
+        quoteRA->quoteDataLen = 42;
+        return quoteRA;
     }
-
-    return tpmRoT->remoteAttest(pcrSlotMask, nonce, nonceLen);
+    return tpmRoT->remoteAttest(pcrSlotsToAttest, nonce, nonceLen);
 }
 
 bool checkQuoteCB(RATLS::RAQuote &raQuote, uint8_t *nonceExpected, size_t nonceExpectedLen) {
@@ -199,24 +218,45 @@ bool checkQuoteCB(RATLS::RAQuote &raQuote, uint8_t *nonceExpected, size_t nonceE
 }
 
 uint8_t *sealSessionSecretCB(uint32_t sessionSecret, size_t *sealingDataLength) {
+    if (BI::demoClient.clientIsDemo()) {
+#ifdef RATLS_DEBUG_OUTPUT
+        printf("[INFO: %d] Client, sealSessionSecretCB: fake seal [DEMO_CLIENT]\n", __LINE__);
+#endif
+        uint8_t *sealedData = new uint8_t[sizeof(sessionSecret)];
+        memcpy(sealedData, &sessionSecret, sizeof(sessionSecret));
+        *sealingDataLength = sizeof(sessionSecret);
+        return sealedData;
+    }
     return tpmRoT->seal(sealAuthValue, sealingPcrSlots, &sessionSecret, sizeof(uint32_t), sealingDataLength);
 }
 
 uint8_t *unsealSessionSecretCB(uint8_t *sealingData, size_t sealingDataLength, size_t *unsealedDataLength) {
+    if (BI::demoClient.clientIsDemo()) {
+#ifdef RATLS_DEBUG_OUTPUT
+        printf("[INFO: %d] Client, unsealSessionSecretCB: fake unseal [DEMO_CLIENT]\n", __LINE__);
+#endif
+        uint8_t *UnealedData = new uint8_t[sealingDataLength];
+        memcpy(UnealedData, sealingData, sealingDataLength);
+        *unsealedDataLength = sealingDataLength;
+        return UnealedData;
+    }
     return tpmRoT->unseal(sealAuthValue, sealingPcrSlots, sealingData, sealingDataLength, unsealedDataLength);
 }
 
-int main(int argc, char **argv) {
+int main(int argc, char const *argv[]) {
     try {
+        Benchmarking::startMeasure(Benchmarking::OpType::Setup);
         RATLS::TpmDevInfo tpmDevInfo = RATLS::TpmRoT::parseCommandLine(argc, argv);
         chk(tpmDevInfo.initMode != RATLS::TpmInitMode::Invalid, "no or invalid tpm init mode on command line");
         
         tpmRoT = chk(new RATLS::TpmRoT(tpmDevInfo, "ratls-test"), "init TPM");
 
-        chk(argc > 3, "No server address specified");
-        char const *serverAddress = argv[3];
+        chk(argc > 1, "No server address specified");
+        char const *serverAddress = argv[1];
 
         srand(time(0));
+
+        Benchmarking::BenchmarkSetupData benchmarkData = Benchmarking::parseCommandLine(argc, argv);
 
         OpenSSL_add_all_algorithms();
         OpenSSL_add_all_ciphers();
@@ -251,7 +291,7 @@ int main(int argc, char **argv) {
                     if (i == 1) {
                         char subject[1024];
                         X509_NAME_oneline(X509_get_subject_name(x509), subject, sizeof(subject));
-                        std::cout << "Root certificate added " << subject << std::endl;
+                        //std::cout << "Root certificate added " << subject << std::endl;
                     }
                     X509_free(x509);
                 }
@@ -269,12 +309,12 @@ int main(int argc, char **argv) {
         fclose(server_cert_file);
         
         chk(X509_STORE_add_cert(store, server_cert) == 1, "add server cert");
-        X509_print_fp(stdout, server_cert);
+        //X509_print_fp(stdout, server_cert);
         char subject[1024];
         X509_NAME_oneline(X509_get_subject_name(server_cert), subject, sizeof(subject));
 
-        std::cout << "Root certificate added " << subject << std::endl;
-        printf("\n\n=================================\n");
+        //std::cout << "Root certificate added " << subject << std::endl;
+        //printf("\n\n=================================\n");
 
         X509_free(server_cert);
 #endif
@@ -283,16 +323,6 @@ int main(int argc, char **argv) {
 
         long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1_2 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1 | SSL_OP_NO_COMPRESSION;
         SSL_CTX_set_options(ctx, flags);
-
-        raContext.customVerifyCallback = verifyCB;
-        raContext.createRequestCB = createRequestCB;
-        raContext.remoteAttestCB = remoteAttestCB;
-        raContext.checkQuoteCB = checkQuoteCB;
-        raContext.sealSessionSecretCB = sealSessionSecretCB;
-        raContext.unsealSessionSecretCB = unsealSessionSecretCB;
-        raContext.maxSessionTicketsNum = 2;
-        raContext.customNewSession = callbackNewSession;
-        RATLS::enableClientRemoteAttestation(&raContext, ctx);
         
         SSL_CTX_set_ecdh_auto(ctx, 1);
 
@@ -308,38 +338,99 @@ int main(int argc, char **argv) {
 
         SSL_CTX_use_certificate_chain_file(ctx, "data/fullchain.pem");
 
+        BI::demoClient.parseCommandLine(argc, argv);
         BI::demoClient.init("127.0.0.1", 5000);
         BI::demoClient.setVerbose(false);
 
-        int numSamples = 10;
-        for (int i = 0; i < numSamples; i++) {
-            doConnection(serverAddress, ctx);
-            doConnection(serverAddress, ctx, currentSession);
-            std::cout << i  << " / " << numSamples << std::endl;
+        if(benchmarkData.performBenchmarking) {
+            printf("Running client benchmark with %d samples\n", benchmarkData.numSamples);
+            printf("   %d attested hanndshakes\n", benchmarkData.numSamples);
+            if(benchmarkData.resumeSessions) {
+                printf(" + %d resumed handshakes\n", benchmarkData.numSamples);
+            }
+            if(benchmarkData.performPureSSLHandshakes) {
+                printf(" + %d pure ssl handshakes\n", benchmarkData.numSamples);
+            }
+            if(benchmarkData.performPureSSLHandshakes && benchmarkData.resumeSessions) {
+                printf(" + %d resumed pure ssl handshakes\n", benchmarkData.numSamples);
+            }
         }
 
-        double timeTook = 0;
-        for (size_t i = 0; i < benchmarks.size(); i++) {
-            timeTook += benchmarks[i];
-        }
-        timeTook /= (double)numSamples;
-        std::cout << numSamples << " raw tls handshake samples with around " << timeTook << " per handshake " << std::endl;
+        Benchmarking::stopMeasure(Benchmarking::OpType::Setup);
 
-        double timeTook2 = 0; 
-        for (size_t i = 0; i < benchmarks2.size(); i++) {
-            timeTook2 += benchmarks2[i];
-        }
-        timeTook2 /= (double)numSamples;
-        std::cout << numSamples << " resumed tls handshake samples with around " << timeTook2 << " per handshake " << std::endl;
+        if(benchmarkData.performBenchmarking) {
+            SSL_CTX_sess_set_new_cb(ctx, callbackNewSession);
+            if(benchmarkData.performPureSSLHandshakes) {
+                for (uint32_t i = 0; i < benchmarkData.numSamples; i++) {
+                    doConnection(serverAddress, ctx, false);
+                    if(benchmarkData.resumeSessions) {
+                        doConnection(serverAddress, ctx, false, currentSession);
+                    }
+                }
+            }
 
-        printf("%7.3f ms RA\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::RemoteAttest));
-        printf("%7.3f ms CHECK QUOTE\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::CheckQuote));
-        printf("%7.3f ms SEAL\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::Seal));
-        printf("%7.3f ms UNSEAL\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::Unseal));
+            raContext.onlyAllowRemoteAttestedSessionResumption = true;
+            raContext.customVerifyCallback = verifyCB;
+            raContext.createRequestCB = createRequestCB;
+            raContext.remoteAttestCB = remoteAttestCB;
+            raContext.checkQuoteCB = checkQuoteCB;
+            raContext.sealSessionSecretCB = sealSessionSecretCB;
+            raContext.unsealSessionSecretCB = unsealSessionSecretCB;
+            raContext.maxSessionTicketsNum = 200;
+            raContext.customNewSession = callbackNewSession;
+            RATLS::enableClientRemoteAttestation(&raContext, ctx);
+
+            ///printf("Performing Benchmark ... \n");
+            for (uint32_t i = 0; i < benchmarkData.numSamples; i++) {
+                doConnection(serverAddress, ctx, true);
+                if(benchmarkData.resumeSessions) {
+                    doConnection(serverAddress, ctx, true, currentSession);
+                }
+                //printf("Benchmark: %d/%d\n", i, benchmarkData.numSamples);
+            }
+
+            printf("\n    %7.3f ms SETUP\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::Setup));
+            printf("avg %7.3f ms FULL PURE SSL\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::FullPureSSL));
+            printf("avg %7.3f ms RESUMED PURE SSL\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::ResumedPureSSL));
+
+            printf("avg %7.3f ms FULL ATTESTED HANDSHAKE\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::FullHandshake));
+            printf("avg %7.3f ms RESUMED ATTESTED HANDSHAKE\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::ResumedHandshake));
+
+            printf("\nOperations: \n");
+            printf("avg %7.3f ms RA\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::RemoteAttest));
+            printf("avg %7.3f ms CHECK QUOTE\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::CheckQuote));
+            printf("avg %7.3f ms SEAL\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::Seal));
+            printf("avg %7.3f ms UNSEAL\n", Benchmarking::getAverageTimeForMeasurement(Benchmarking::OpType::Unseal));
+
+            printf("avg %7.3f SEALS PER HANDSHAKE\n", (double)Benchmarking::getSingleValue(Benchmarking::OpType::NumSeals) / (double)benchmarkData.numSamples);
+
+            printf("\n");
+            printf("   %3ld FULL PURE SSL\n", Benchmarking::getSingleValue(Benchmarking::OpType::FullPureSSL));
+            printf("   %3ld RESUMED PURE SSL\n", Benchmarking::getSingleValue(Benchmarking::OpType::ResumedPureSSL));
+            printf("   %3ld FULL ATTESTED HANDSHAKE\n", Benchmarking::getSingleValue(Benchmarking::OpType::FullHandshake));
+            printf("   %3ld RESUMED ATTESTED HANDSHAKE\n", Benchmarking::getSingleValue(Benchmarking::OpType::ResumedHandshake));
+
+            Benchmarking::writeBenchmarksToFile(benchmarkData.outputPath);
+        } else {
+            raContext.customVerifyCallback = verifyCB;
+            raContext.createRequestCB = createRequestCB;
+            raContext.remoteAttestCB = remoteAttestCB;
+            raContext.checkQuoteCB = checkQuoteCB;
+            raContext.sealSessionSecretCB = sealSessionSecretCB;
+            raContext.unsealSessionSecretCB = unsealSessionSecretCB;
+            raContext.maxSessionTicketsNum = 2;
+            raContext.customNewSession = callbackNewSession;
+            RATLS::enableClientRemoteAttestation(&raContext, ctx);
+            doConnection(serverAddress, ctx, true);
+        }
+
     }
 
     catch (const runtime_error& exc) {
         cerr << "ratls-test-client: " << exc.what() << "\nExiting...\n";
     }
+
+    if(tpmRoT) tpmRoT->terminateTpm();
+
     return 0;
 }

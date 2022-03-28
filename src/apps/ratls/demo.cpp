@@ -22,6 +22,8 @@ client control channel:
 asynchronous command received from user / dashboard controls:
 
 	command:{connect}
+	mode:{tls-attest,tls}
+	sensor-data:<numeric string value>
 
 asynchronous report sent to dashboard:
 
@@ -105,6 +107,7 @@ namespace BI {
 // ************************************************************************************************
 
 DemoClient demoClient;
+DemoServer demoServer;
 
 // ************************************************************************************************
 
@@ -117,6 +120,30 @@ static std::vector<std::string> demoStatusString = {
 	"restarting",
 	"unknown"
 };
+
+// ************************************************************************************************
+
+void DemoBase::parseCommandLine(int argc, char const *argv[]) {
+
+	for(int i = 1; i < argc; i++) {
+		std::string argument = argv[i];
+		if (argument == "--demo-client") {
+			demoClient = true;
+
+		} else if(argument == "--demo-server") {
+			demoServer = true;
+
+		} else {
+			continue;
+		}
+
+        // remove recognized commandline arguments to simplify argument handling
+        // in calling program's main() function
+        for (int j = i; j+1 < argc; j++)
+            argv[j] = argv[j+1];
+        argc--;
+	}
+}
 
 // ************************************************************************************************
 

@@ -31,7 +31,19 @@ typedef enum {
 
 // ************************************************************************************************
 
-class DemoClient {
+class DemoBase {
+public:
+	void parseCommandLine(int argc, char const *argv[]);
+
+	bool clientIsDemo() { return demoClient; }
+	bool serverIsDemo() { return demoServer; }
+
+protected:
+	bool demoClient;
+	bool demoServer;
+};
+
+class DemoClient : public DemoBase {
 public:
 	DemoClient() {
 		verbose = false;
@@ -66,7 +78,12 @@ protected:
 
 // ************************************************************************************************
 
+class DemoServer : public DemoBase { };
+
+// ************************************************************************************************
+
 extern DemoClient demoClient;
+extern DemoServer demoServer;
 
 // ************************************************************************************************
 

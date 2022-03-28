@@ -15,6 +15,7 @@ typedef enum {
     Invalid = 0,
     Hardware = 1,
     Simulator = 2,
+    Null = 3,
 } TpmInitMode;
 
 typedef struct {
@@ -27,19 +28,20 @@ typedef struct {
 class TpmRoT {
 public:
     TpmRoT(TpmDevInfo tpmDevInfo, std::string appName);
+    void terminateTpm();
 
-    static TpmDevInfo parseCommandLine(int argc, char **argv);
+    static TpmDevInfo parseCommandLine(int &argc, char const *argv[]);
 
-    RATLS::RAQuote remoteAttest(uint64_t pcrSlotMask, void *nonce, size_t nonceLen);
+    RATLS::RAQuote* remoteAttest(std::vector<uint32_t> pcrSlots, void *nonce, size_t nonceLen);
 
-    bool checkQuote(RATLS::RAQuote &raQuote, std::vector<int> pcrSlots,
+    bool checkQuote(RATLS::RAQuote &raQuote, std::vector<uint32_t> pcrSlots,
                     std::vector<TpmCpp::TPM2B_DIGEST> expectedPcrSlotValues,
                     void *nonceExpected, size_t nonceExpectedLen);
 
-    uint8_t *seal(TpmCpp::ByteVec authValue, std::vector<UINT32> pcrSlots,
+    uint8_t *seal(TpmCpp::ByteVec authValue, std::vector<uint32_t> pcrSlots,
                   void *dataToSeal, int dataToSealLength, size_t *sealingDataLength);
 
-    uint8_t *unseal(TpmCpp::ByteVec authValue, std::vector<UINT32> &pcrSlots,
+    uint8_t *unseal(TpmCpp::ByteVec authValue, std::vector<uint32_t> &pcrSlots,
                     uint8_t *sealingData, size_t sealingDataLength, size_t *unsealedDataLength);
 
     void pcrExtend(int pcr, const std::vector<uint8_t> &data);

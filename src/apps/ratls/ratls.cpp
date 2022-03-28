@@ -5,8 +5,18 @@ namespace RATLS {
 
 static int NID_cert_ext_ra_quote = -1;
 
+
 static int raContextDataIndex = -1;
 static int raSessionFlagIndex = -1;
+
+RASession* getRASessionForSSLSession(SSL* ssl) {
+    RASession* session = (RASession*)SSL_get_ex_data(ssl, raSessionFlagIndex);
+    if(session == nullptr) {
+        session = new RASession();
+        SSL_set_ex_data(ssl, raSessionFlagIndex, (void*)session);
+    }
+    return session;
+}
 
 void setupRATLS() {
     NID_cert_ext_ra_quote = OBJ_create(CERT_EXT_RA_QUOTE, "RA Quote", "RA Quote");
@@ -14,6 +24,31 @@ void setupRATLS() {
 
     raContextDataIndex = SSL_get_ex_new_index(0, (char*)"remote attestation context", NULL, NULL, NULL);
     raSessionFlagIndex = SSL_get_ex_new_index(0, (char*)"remote attestation session flag", NULL, NULL, NULL);
+}
+
+bool sha256(void* input, size_t length, uint8_t* output) {
+    SHA256_CTX context;
+    if (!SHA256_Init(&context))
+        return false;
+
+    if (!SHA256_Update(&context, (unsigned char*)input, length))
+        return false;
+
+    if (!SHA256_Final((unsigned char*)output, &context))
+        return false;
+
+    return true;
+}
+
+char* publicKeyToBuffer(EVP_PKEY* key, size_t* bufLen) {
+    BIO* pub = BIO_new(BIO_s_mem());
+    PEM_write_bio_PUBKEY(pub, key);
+    *bufLen = BIO_pending(pub);
+    char* buf = (char*)malloc(*bufLen + 1);
+    BIO_read(pub, buf, *bufLen);
+    buf[*bufLen] = '\0';
+    BIO_free_all(pub);
+    return buf;
 }
 
 #ifndef TLS1_3_CERT_MSG_EXT
@@ -147,22 +182,24 @@ int callbackAddExtensionRAClient(SSL *ssl, unsigned int extType,
         SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
         RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
+        RASession* raSession = getRASessionForSSLSession(ssl);
+
         if (!SSL_SESSION_is_resumable(SSL_get_session(ssl))) {
-            if (raContext->expectedNonce != nullptr) {
+            /*if (raContext->expectedNonce != nullptr) {
                 delete[] raContext->expectedNonce;
                 raContext->expectedNonce = nullptr;
                 raContext->expectedNonceLen = 0;
-            }
+            }*/
 
             // Request remote attestation of server
             RARequestData d;
             size_t nonceLen;
-            d.nonceData = raContext->expectedNonce = raContext->createRequestCB(&nonceLen);
-            d.nonceDataLen = raContext->expectedNonceLen = nonceLen;
+            d.nonceData = raSession->nonceExpected = raContext->createRequestCB(&nonceLen);
+            d.nonceDataLen = raSession->nonceExpectedLen = nonceLen;
 
             *out = d.serialize(outlen);
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA Out (ClientHello)] Requesting remote attestation from server with nonce " << (((uint8_t*)d.nonceData)[0]) << std::endl;
+            printf("[INFO: %d] Client, AddExt - ClientHello: Requesting remote attestation from server\n", __LINE__);
 #endif
         }
         else {
@@ -176,18 +213,23 @@ int callbackAddExtensionRAClient(SSL *ssl, unsigned int extType,
         RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         if (SSL_SESSION_is_resumable(SSL_get_session(ssl))) {
+#ifdef RATLS_DEBUG_OUTPUT
+            printf("[INFO: %d] Client, AddExt - ClientHello: Trying to resume session\n", __LINE__);
+#endif
+
             RASessionResumptionData sessionResumptionData;
 
             std::string sessionIdStr = sessionIdToStr(ssl);
 
             if (raContext->sessionTicketBySessionId.find(sessionIdStr) == raContext->sessionTicketBySessionId.end()) {
                 if (raContext->onlyAllowRemoteAttestedSessionResumption) {
+#ifdef RATLS_DEBUG_OUTPUT
+                    printf("[ERROR: %d] Client, AddExt - ClientHello: Session resumption cancelled: no matching secret found for session\n", __LINE__);
+#endif
+
                     return 1;
                 }
 
-#ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ClientHello)] Session resumption canceled: no matching secret found for session" << std::endl;
-#endif
                 return 0;
             }
 
@@ -196,6 +238,10 @@ int callbackAddExtensionRAClient(SSL *ssl, unsigned int extType,
             size_t unsealedLength;
             uint8_t *unsealedSessionSecret = raContext->unsealSessionSecretCB(ticket.sealedData, ticket.sealedDataLength, &unsealedLength);
             if (unsealedSessionSecret == nullptr) {
+#ifdef RATLS_DEBUG_OUTPUT
+                printf("[ERROR: %d] Client, AddExt - ClientHello: Session resumption cancelled: usealing failed\n", __LINE__);
+
+#endif
                 return 0;
             }
 
@@ -205,7 +251,7 @@ int callbackAddExtensionRAClient(SSL *ssl, unsigned int extType,
             ticket.sealedData = nullptr;
 
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA SR (ClientHello)] Unsealed session server secret: " << sessionResumptionData.serverSecret << std::endl;
+            printf("[INFO: %d] Client, AddExt - ClientHello: Session resumption: unsealed session server secret\n", __LINE__);
 #endif
 
             *out = sessionResumptionData.serialize(outlen);
@@ -220,20 +266,39 @@ int callbackAddExtensionRAClient(SSL *ssl, unsigned int extType,
         if (context == SSL_EXT_CLIENT_HELLO) {
             *out = new unsigned char[1];
             *outlen = 1;
-#ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA Out (ClientHello)] Appending placeholder extension to client hello so that the server can respond" << std::endl;
-#endif
         }
 
         if (context == SSL_EXT_TLS1_3_CERTIFICATE && chainidx == 0) {
+            RASession* raSession = getRASessionForSSLSession(ssl);
+
             // Fill / do remote attestion for the client
-            RAQuote quote = raContext->remoteAttestCB(raContext->nonceRequested, raContext->nonceRequestedLen);
 
-            *out = quote.serialize(outlen);
+            X509* cert = SSL_get_certificate(ssl);
+            EVP_PKEY* pubKey = X509_get_pubkey(cert);
+            size_t len = 0;
+            char* pubkey = publicKeyToBuffer(pubKey, &len);
 
-            delete[] quote.quoteData;
+            uint8_t* quotingData = new uint8_t[len + raSession->nonceRequestedLen];
+            
+            memcpy(quotingData, pubkey, len);
+            delete[] pubkey;
+
+            memcpy(&quotingData[len], raSession->nonceRequested, raSession->nonceRequestedLen);
+
+            uint8_t hash[SHA256_DIGEST_LENGTH];
+            if(!sha256(quotingData, len + raSession->nonceRequestedLen, hash)) {
+                delete[] quotingData;
+                return 1;
+            }
+            delete[] quotingData;
+
+            RAQuote* quote = raContext->remoteAttestCB(hash, SHA256_DIGEST_LENGTH);
+
+            *out = quote->serialize(outlen);
+
+            delete quote;
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA Out (TLS1.3 ClientCertificate)] Remote attesting to server with nonce " << std::endl;
+            printf("[INFO: %d] Client, AddExt - Certificate: Attesting to server\n", __LINE__);
 #endif
         }
     }
@@ -279,17 +344,19 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
         RARequestData d;
         d.deserialize((uint8_t*)in, inlen);
 
-        if (raContext->nonceRequested != nullptr) {
+        /*if (raContext->nonceRequested != nullptr) {
             delete[] raContext->nonceRequested;
             raContext->nonceRequested = nullptr;
             raContext->nonceRequestedLen = 0;
-        }
+        }*/
 
-        raContext->nonceRequested = d.nonceData;
-        raContext->nonceRequestedLen = d.nonceDataLen;
+        RASession* raSession = getRASessionForSSLSession(ssl);
+
+        raSession->nonceRequested = d.nonceData;
+        raSession->nonceRequestedLen = d.nonceDataLen;
 
 #ifdef RATLS_DEBUG_OUTPUT
-        std::cout << "[RA In (ServerHello)] Got remote attestation request from server" << std::endl;
+        printf("[INFO: %d] Client, ParseExt - ServerHello: Got remote attestation request from server\n", __LINE__);
 #endif
     }
 
@@ -305,7 +372,7 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
             if (raContext->sessionTicketBySessionId.find(sessionIdStr) == raContext->sessionTicketBySessionId.end()) {
 
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ServerHello)] Session resumption canceled: no matching secret found for session" << std::endl;
+                printf("[ERROR: %d] Client, ParseExt - ServerHello: Session resumption cancelled: no matching secret found for session\n", __LINE__);
 #endif
                 return 0;
             }
@@ -317,7 +384,7 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
             if (raContext->sessionTicketBySessionId[sessionIdStr].clientSecret == sessionResumptionData.clientSecret) {
                 // Session resumption remote attestation check
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ServerHello)] Session resumption successfully checked remote attestation" << std::endl;
+                printf("[INFO: %d] Client, ParseExt - ServerHello: Session resumption successfully checked\n", __LINE__);
 #endif
                 raContext->sessionTicketBySessionId.erase(sessionIdStr);
 
@@ -326,22 +393,24 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
             else {
                 // Cancel handshake
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ServerHello)] Session resumption canceled: secrets didnt match" << std::endl;
+                printf("[ERROR: %d] Client, ParseExt - ServerHello: Session resumption cancelled: secrets didnt match\n", __LINE__);
 #endif
                 return 0;
             }
         }
         else if (context == SSL_EXT_TLS1_3_NEW_SESSION_TICKET) {
+            RASession* raSession = getRASessionForSSLSession(ssl);
+
             RASessionResumptionData sessionResumptionData;
             //sessionResumptionData = *((RASessionResumptionData*)in);
             sessionResumptionData.deserialize((uint8_t*)in, inlen);
 
             // Session Ticket Data
-            RASessionTicket &ticket = raContext->currentSessionTicket;
+            RASessionTicket &ticket = raSession->currentSessionTicket;
 
             ticket.sealedData = raContext->sealSessionSecretCB(sessionResumptionData.serverSecret, &ticket.sealedDataLength);
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA SR (NewSessionTicket)] Sealed server secret " << sessionResumptionData.serverSecret << std::endl;
+            printf("[INFO: %d] Client, ParseExt - NewSessionTicket: Obtained session resumption secrets\n", __LINE__);
 #endif
             ticket.clientSecret = sessionResumptionData.clientSecret;
             ticket.serverSecret = 0;
@@ -357,34 +426,19 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
         // if we are parsing the servers certificate
         // and we are at the root certificate (chainidx == 0)
         if (context == SSL_EXT_TLS1_3_CERTIFICATE && chainidx == 0) {
-            SSL_set_ex_data(ssl, raSessionFlagIndex, (void*)L"FLAG");
+            RAQuote* quote = new RAQuote();
+            quote->deserialize((uint8_t*)in, inlen);
 
-            RAQuote quote;
-            quote.deserialize((uint8_t*)in, inlen);
+            RASession* raSession = getRASessionForSSLSession(ssl);
 
-            bool quoteOk = raContext->checkQuoteCB(quote, raContext->expectedNonce, raContext->expectedNonceLen);
-
-#ifdef RATLS_DEBUG_OUTPUT
-            printf("[RA In (TLS1.3 ServerCertificate)] Got attestation quote from server via tls1_3 cert msg extensions\n");
-#endif
-
-            delete[] quote.quoteData;
-
-            if (!quoteOk) {
-#ifdef RATLS_DEBUG_OUTPUT
-                printf("[RA In (TLS1.3 ServerCertificate)] Quote not okay cancel handshake\n");
-#endif
-                return 0;
+            if(raSession->quote != nullptr) {
+                delete raSession->quote;
+                raSession->quote = nullptr;
             }
 
+            raSession->quote = quote;
 #ifdef RATLS_DEBUG_OUTPUT
-            printf("[RA In (TLS1.3 ServerCertificate)] Quote checked okay!\n");
-#endif
-        }
-
-        if (context == SSL_EXT_TLS1_3_CERTIFICATE_REQUEST) {
-#ifdef RATLS_DEBUG_OUTPUT
-            printf("[RA In (TLS1.3 CertificateRequest)] Remote attestation extension was correctly set in certificate request from server\n");
+            printf("[INFO: %d] Client, ParseExt - Certificate: Server responded with quote\n", __LINE__);
 #endif
         }
     }
@@ -402,14 +456,15 @@ int callbackNewSession(SSL *ssl, SSL_SESSION *sess) {
         raContext->popOldestSessionTicket();
     }
 
-    raContext->currentSessionTicket.timeout = SSL_SESSION_get_timeout(sess);
-    raContext->currentSessionTicket.ts = std::chrono::steady_clock::now();
+    RASession* raSession = getRASessionForSSLSession(ssl);
+    raSession->currentSessionTicket.timeout = SSL_SESSION_get_timeout(sess);
+    raSession->currentSessionTicket.ts = std::chrono::steady_clock::now();
 
     std::string sessionIdStr = sessionIdToStr(sess);
-    raContext->sessionTicketBySessionId[sessionIdStr] = raContext->currentSessionTicket;
+    raContext->sessionTicketBySessionId[sessionIdStr] = raSession->currentSessionTicket;
 
 #ifdef RATLS_DEBUG_OUTPUT
-    std::cout << "[RA SR] Session resumption entry created with secrets CS: " << raContext->currentSessionTicket.clientSecret << " Sealed SS " << "Buf" <<std::endl;
+    printf("[INFO: %d] Client, NewSession: Created session resumption ticket entry\n", __LINE__);
 #endif
 
     if (raContext->customNewSession) {
@@ -428,12 +483,58 @@ int callbackVerifyCertClient(int preverifyOk, X509_STORE_CTX *ctx) {
 
     RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
+    RASession* raSession = getRASessionForSSLSession(ssl);
+
     // is current cert the root certificate
-    if (!SSL_get_ex_data(ssl, raSessionFlagIndex)) {
+    if (raSession->quote == nullptr) {
 #ifdef RATLS_DEBUG_OUTPUT
-        std::cout << "Handshake cancelled because server did not respond to RA Request" << std::endl;
+        printf("[ERROR: %d] Client, VerifyCert: Server did not respond to attestation request\n", __LINE__);
 #endif
         return 0;
+    } else {
+        // include the peers certificate public key for identity checking
+        RAQuote* quote = raSession->quote;
+
+        if(!quote->checked) {
+            quote->checked = true;
+
+            //X509* cert = SSL_get_peer_certificate(ssl);
+            stack_st_X509 * chain = X509_STORE_CTX_get0_chain (ctx);
+            X509* cert = sk_X509_value(chain , sk_X509_num(chain) - 1);
+
+            EVP_PKEY* pubKey = X509_get_pubkey(cert);
+            size_t len = 0;
+            char* pubkey = publicKeyToBuffer(pubKey, &len);
+
+            uint8_t* quotingData = new uint8_t[len + raSession->nonceExpectedLen];
+            
+            memcpy(quotingData, pubkey, len);
+            delete[] pubkey;
+
+            memcpy(&quotingData[len], raSession->nonceExpected, raSession->nonceExpectedLen);
+
+            uint8_t hash[SHA256_DIGEST_LENGTH];
+            if(!sha256(quotingData, len + raSession->nonceExpectedLen, hash)) {
+                delete[] quotingData;
+                delete quote;
+                raSession->quote = nullptr;
+                return 0;
+            }
+
+            bool quoteOk = raContext->checkQuoteCB(*quote, hash, SHA256_DIGEST_LENGTH);
+
+            delete[] quotingData;
+
+            if (!quoteOk) {
+#ifdef RATLS_DEBUG_OUTPUT
+                printf("[ERROR: %d] Client, VerifyCert: Servers quote invalid\n", __LINE__);
+#endif
+                return 0;
+            }
+#ifdef RATLS_DEBUG_OUTPUT
+            printf("[INFO: %d] Client, VerifyCert: Servers quote checked. OK!\n", __LINE__);
+#endif
+        }
     }
 
     if (raContext->customVerifyCallback) {
@@ -494,22 +595,24 @@ int callbackAddExtensionRAServer(SSL *ssl, unsigned int extType,
         RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         if (raContext->forceClientRemoteAttestation) {
-            if (raContext->expectedNonce != nullptr) {
+            /*if (raContext->expectedNonce != nullptr) {
                 delete[] raContext->expectedNonce;
                 raContext->expectedNonce = nullptr;
                 raContext->expectedNonceLen = 0;
-            }
+            }*/
+
+            RASession *raSession = getRASessionForSSLSession(ssl);
 
             // Request remote attestation of client
             RARequestData d;
             //uint64_t pcrSlotMask;
             size_t nonceLen;
-            d.nonceData = raContext->expectedNonce = raContext->createRequestCB(&nonceLen);
-            d.nonceDataLen = raContext->expectedNonceLen = nonceLen;
+            d.nonceData = raSession->nonceExpected = raContext->createRequestCB(&nonceLen);
+            d.nonceDataLen = raSession->nonceExpectedLen = nonceLen;
 
             *out = d.serialize(outlen);
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA Out (ServerHello)] Requesting RA from client with nonce " << std::endl;
+            printf("[INFO: %d] Server, AddExt - ServerHello: Requesting remote attestation from client\n", __LINE__);
 #endif
         }
         else {
@@ -522,36 +625,35 @@ int callbackAddExtensionRAServer(SSL *ssl, unsigned int extType,
         RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         if (context == SSL_EXT_TLS1_3_NEW_SESSION_TICKET) {
-            std::cout << "Addextension SessionCallback" << std::endl;
-
             // Resumption Data
             RASessionResumptionData d;
             d.clientSecret = (rand() % UINT32_MAX);
             d.serverSecret = (rand() % UINT32_MAX);
 
+            RASession *raSession = getRASessionForSSLSession(ssl);
+
             // Session Ticket Data
 
-            raContext->currentSessionTicket.sealedData = raContext->sealSessionSecretCB(d.clientSecret, &raContext->currentSessionTicket.sealedDataLength);
+            raSession->currentSessionTicket.sealedData = raContext->sealSessionSecretCB(d.clientSecret, &raSession->currentSessionTicket.sealedDataLength);
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA SR (NewSessionTicket)] Sealed client secret " << d.clientSecret << std::endl;
+            printf("[INFO: %d] Server, AddExt - NewSessionTicket: Generated and sealed session secrets\n", __LINE__);
 #endif
-            raContext->currentSessionTicket.serverSecret = d.serverSecret;
-
+            raSession->currentSessionTicket.serverSecret = d.serverSecret;
 
             *out = d.serialize(outlen);
-
-#ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA SR Out (NewSessionTicket)] Session Resumption CS: " << d.clientSecret << " SS: " << d.serverSecret << std::endl;
-#endif
         }
         else if (context == SSL_EXT_TLS1_3_SERVER_HELLO) {
             if (SSL_SESSION_is_resumable(SSL_get_session(ssl))) {
                 std::string sessionIdStr = sessionIdToStr(ssl);
 
+#ifdef RATLS_DEBUG_OUTPUT
+                printf("[INFO: %d] Server, AddExt - ServerHello: Trying to resume session\n", __LINE__);
+#endif
+
                 if (raContext->sessionTicketBySessionId.find(sessionIdStr) == raContext->sessionTicketBySessionId.end()) {
 
 #ifdef RATLS_DEBUG_OUTPUT
-                    std::cout << "[RA SR Out (ServerHello)] Session resumption canceled: no matching secret found for session" << std::endl;
+                    printf("[ERROR: %d] Server, AddExt - ServerHello: Session resumption cancelled: no matching secret found for session\n", __LINE__);
 #endif
                     return 0;
                 }
@@ -564,6 +666,10 @@ int callbackAddExtensionRAServer(SSL *ssl, unsigned int extType,
                 size_t unsealedLength;
                 uint8_t *unsealedSessionSecret = raContext->unsealSessionSecretCB(ticket.sealedData, ticket.sealedDataLength, &unsealedLength);
                 if (unsealedSessionSecret == nullptr) {
+#ifdef RATLS_DEBUG_OUTPUT
+                    printf("[ERROR: %d] Server, AddExt - ServerHello: Session resumption cancelled: usealing failed\n", __LINE__);
+
+#endif
                     return 0;
                 }
 
@@ -575,7 +681,7 @@ int callbackAddExtensionRAServer(SSL *ssl, unsigned int extType,
                 raContext->sessionTicketBySessionId.erase(sessionIdStr);
 
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR (ServerHello)] Unsealed session client secret: " << unsealedClientSecret << std::endl;
+                printf("[INFO: %d] Server, AddExt - ServerHello: Session resumption: unsealed session client secret\n", __LINE__);
 #endif
 
                 RASessionResumptionData d;
@@ -597,15 +703,35 @@ int callbackAddExtensionRAServer(SSL *ssl, unsigned int extType,
         // if we are sending our certificate append the remote attestation evidence
         // and we are at the root certificate (chainidx == 0)
         if (context == SSL_EXT_TLS1_3_CERTIFICATE && chainidx == 0) {
+            RASession *raSession = getRASessionForSSLSession(ssl);
+
             // Fill / do remote attestion for the client
-            RAQuote quote = raContext->remoteAttestCB(raContext->nonceRequested, raContext->nonceRequestedLen);
+            X509* cert = SSL_get_certificate(ssl);
+            EVP_PKEY* pubKey = X509_get_pubkey(cert);
+            size_t len = 0;
+            char* pubkey = publicKeyToBuffer(pubKey, &len);
 
-            *out = quote.serialize(outlen);
+            uint8_t* quotingData = new uint8_t[len + raSession->nonceRequestedLen];
+            memcpy(quotingData, pubkey, len);
+            memcpy(&quotingData[len], raSession->nonceRequested, raSession->nonceRequestedLen);
 
-            delete[] quote.quoteData;
+            delete[] pubkey;
+
+            uint8_t hash[SHA256_DIGEST_LENGTH];
+            if(!sha256(quotingData, len + raSession->nonceRequestedLen, hash)) {
+                delete[] quotingData;
+                return 1;
+            }
+
+            RAQuote* quote = raContext->remoteAttestCB(hash, SHA256_DIGEST_LENGTH);
+
+            *out = quote->serialize(outlen);
+
+            delete[] quotingData;
+            delete quote;
 
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA Out (TLS1.3 Certificate)] Remote attesting to client with nonce len: " << (int)*outlen << std::endl;
+            printf("[INFO: %d] Server, AddExt - Certificate: Attesting to client\n", __LINE__);
 #endif
         }
 
@@ -614,10 +740,6 @@ int callbackAddExtensionRAServer(SSL *ssl, unsigned int extType,
         if (context == SSL_EXT_TLS1_3_CERTIFICATE_REQUEST) {
             *out = new unsigned char[1];
             *outlen = 1;
-
-#ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA Out (TLS1.3 Certificate Request)] Appending placeholder extension to certificate request so that the client can respond" << std::endl;
-#endif
         }
 
     }
@@ -662,24 +784,24 @@ int callbackParseExtensionRAServer(SSL *ssl, unsigned int extType,
         RARequestData d;
         d.deserialize((uint8_t*)in, inlen);
 
-        if (raContext->nonceRequested != nullptr) {
+        /*if (raContext->nonceRequested != nullptr) {
             delete[] raContext->nonceRequested;
             raContext->nonceRequested = nullptr;
             raContext->nonceRequestedLen = 0;
-        }
+        }*/
 
-        raContext->nonceRequested = d.nonceData;
-        raContext->nonceRequestedLen = d.nonceDataLen;
+        RASession *raSession = getRASessionForSSLSession(ssl);
+
+        raSession->nonceRequested = d.nonceData;
+        raSession->nonceRequestedLen = d.nonceDataLen;
 #ifdef RATLS_DEBUG_OUTPUT
-        std::cout << "[RA In (ClientHello)] Got attestation request from client: (";
-        std::cout << (((uint8_t*)raContext->nonceRequested)[0]) << std::endl;
+        printf("[INFO: %d] Server, ParseExt - ClientHello: Got remote attestation request from client\n", __LINE__);
 #endif
 
 
 #ifndef TLS1_3_CERT_MSG_EXT
         RAQuote quote;
         quote.nonce = d.nonce;
-        // TODO Do remote attestation
 
         printf("\n\n=================================\n");
         printf("Generating RAExtension Cert\n");
@@ -711,20 +833,16 @@ int callbackParseExtensionRAServer(SSL *ssl, unsigned int extType,
         RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         RASessionResumptionData sessionResumptionData;
-        //sessionResumptionData = *((RASessionResumptionData*)in);
         sessionResumptionData.deserialize((uint8_t*)in, inlen);
 
         if (SSL_SESSION_is_resumable(SSL_get_session(ssl))) {
             uint32_t resumptionSecret = sessionResumptionData.serverSecret;
 
             std::string sessionIdStr = sessionIdToStr(ssl);
-#ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "[RA SR In (ClientHello)] Session resumption check for server secret: " << resumptionSecret << std::endl;
-#endif
-            if (raContext->sessionTicketBySessionId.find(sessionIdStr) == raContext->sessionTicketBySessionId.end()) {
 
+            if (raContext->sessionTicketBySessionId.find(sessionIdStr) == raContext->sessionTicketBySessionId.end()) {
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ClientHello)] Session resumption canceled: no matching secret found for session" << std::endl;
+                printf("[ERROR: %d] Server, ParseExt - ClientHello: Session resumption cancelled: no matching secret found for session\n", __LINE__);
 #endif
                 return 0;
             }
@@ -732,14 +850,14 @@ int callbackParseExtensionRAServer(SSL *ssl, unsigned int extType,
             if (raContext->sessionTicketBySessionId[sessionIdStr].serverSecret == resumptionSecret) {
                 // Session resumption remote attestation check
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ClientHello)] Session resumption successfully checked remote attestation" << std::endl;
+                printf("[INFO: %d] Server, ParseExt - ClientHello: Session resumption successfully checked\n", __LINE__);
 #endif
                 return 1;
             }
             else {
                 // Cancel handshake
 #ifdef RATLS_DEBUG_OUTPUT
-                std::cout << "[RA SR In (ClientHello)] Session resumption canceled: secrets didnt match" << std::endl;
+                printf("[ERROR: %d] Server, ParseExt - ClientHello: Session resumption cancelled: secrets didnt match\n", __LINE__);
 #endif
                 return 0;
             }
@@ -752,39 +870,22 @@ int callbackParseExtensionRAServer(SSL *ssl, unsigned int extType,
         RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         if (context == SSL_EXT_TLS1_3_CERTIFICATE) {
-            SSL_set_ex_data(ssl, raSessionFlagIndex, (void*)L"FLAG");
+            RAQuote* quote = new RAQuote();
+            quote->deserialize((uint8_t*)in, inlen);
 
-            //RAQuote quote = *(RAQuote*)in;
+            RASession *raSession = getRASessionForSSLSession(ssl);
 
-            RAQuote quote;
-            quote.deserialize((uint8_t*)in, inlen);
-
-            bool quoteOk = raContext->checkQuoteCB(quote, raContext->expectedNonce, raContext->expectedNonceLen);
-
-#ifdef RATLS_DEBUG_OUTPUT
-            printf("[RA In (TLS1.3 ClientCertificate)] Got attestation quote from client via tls1_3 cert msg extensions\n");
-#endif
-
-            delete[] quote.quoteData;
-
-            if (!quoteOk) {
-#ifdef RATLS_DEBUG_OUTPUT
-                printf("[RA In (TLS1.3 ClientCertificate)] Quote not okay cancel handshake\n");
-#endif
-                return 0;
+            if(raSession->quote != nullptr) {
+                delete raSession->quote;
+                raSession->quote = nullptr;
             }
 
+            raSession->quote = quote;
+
 #ifdef RATLS_DEBUG_OUTPUT
-            printf("[RA In (TLS1.3 ClientCertificate)] Quote checked okay!\n");
+            printf("[INFO: %d] Server, ParseExt - Certificate: Client responded with quote\n", __LINE__);
 #endif
         }
-
-        if (context == SSL_EXT_CLIENT_HELLO) {
-#ifdef RATLS_DEBUG_OUTPUT
-            printf("[RA In (ClientHello)] Remote attestation cert ext was correctly set in client hello from client\n");
-#endif          
-}
-
     }
 #endif
 
@@ -798,13 +899,58 @@ int callbackVerifiyCertServer(int preverifyOk, X509_STORE_CTX *ctx) {
 
     RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
-    if (!SSL_get_ex_data(ssl, raSessionFlagIndex)) {
+    RASession *raSession = getRASessionForSSLSession(ssl);
+
+    if (raSession->quote == nullptr) {
         if (raContext->forceClientRemoteAttestation) {
 
 #ifdef RATLS_DEBUG_OUTPUT
-            std::cout << "Handshake cancelled because client did not respond to RA Request" << std::endl;
+            printf("[ERROR: %d] Server, VerifyCert: Client did not respond to attestation request\n", __LINE__);
 #endif
             return 0;
+        }
+    } else {
+        // include the peers certificate public key for identity checking
+        RAQuote* quote = raSession->quote;
+
+        if(!quote->checked) {
+            quote->checked = true;
+
+            //X509* cert = SSL_get_peer_certificate(ssl);
+            stack_st_X509 * chain = X509_STORE_CTX_get0_chain (ctx);
+            X509* cert = sk_X509_value(chain , sk_X509_num(chain) - 1);
+
+            EVP_PKEY* pubKey = X509_get_pubkey(cert);
+            size_t len = 0;
+            char* pubkey = publicKeyToBuffer(pubKey, &len);
+
+            uint8_t* quotingData = new uint8_t[len + raSession->nonceExpectedLen];
+            
+            memcpy(quotingData, pubkey, len);
+            delete[] pubkey;
+
+            memcpy(&quotingData[len], raSession->nonceExpected, raSession->nonceExpectedLen);
+
+            uint8_t hash[SHA256_DIGEST_LENGTH];
+            if(!sha256(quotingData, len + raSession->nonceExpectedLen, hash)) {
+                delete[] quotingData;
+                delete quote;
+                return 0;
+            }
+
+            bool quoteOk = raContext->checkQuoteCB(*quote, hash, SHA256_DIGEST_LENGTH);
+
+            delete[] quotingData;
+
+            if (!quoteOk) {
+#ifdef RATLS_DEBUG_OUTPUT
+                printf("[ERROR: %d] Server, VerifyCert: Clients quote invalid\n", __LINE__);
+#endif
+                return 0;
+            }
+#ifdef RATLS_DEBUG_OUTPUT
+            printf("[INFO: %d] Server, VerifyCert: Clients quote checked. OK!\n", __LINE__);
+#endif
         }
     }
 
@@ -817,10 +963,7 @@ int callbackVerifiyCertServer(int preverifyOk, X509_STORE_CTX *ctx) {
 }
 
 void enableServerRemoteAttestation(RAServerContext *raContext, SSL_CTX *ctx) {
-    if (raContext->forceClientRemoteAttestation) {
-        SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, callbackVerifiyCertServer);
-    }
-
+    SSL_CTX_set_verify(ctx, SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT, callbackVerifiyCertServer);
     SSL_CTX_sess_set_new_cb(ctx, callbackNewSession);
     SSL_CTX_set_ex_data(ctx, raContextDataIndex, raContext);
 

@@ -153,8 +153,18 @@ private:
 public:
     uint32_t quoteDataLen;
     uint8_t *quoteData;
+    bool checked;
 
 public:
+    RAQuote() {
+        checked = false;
+        quoteData = nullptr;
+    }
+
+    ~RAQuote() {
+        if(quoteData) delete[] quoteData;
+    }
+
     uint8_t *serialize(size_t *outLen) {
         *outLen = getSerializedLength();
         uint8_t *out = new uint8_t[*outLen];
@@ -177,7 +187,26 @@ public:
     }
 };
 
-typedef RAQuote(*RACallbackRemoteAttest)(uint8_t *nonce, size_t nonceLen);
+class RASession {
+public:
+    RASessionTicket currentSessionTicket;
+    size_t nonceExpectedLen = 0;
+    uint8_t *nonceExpected = nullptr;
+    size_t nonceRequestedLen = 0;
+    uint8_t *nonceRequested = nullptr;
+    RAQuote* quote = nullptr;
+public:
+    RASession() {
+    }
+
+    ~RASession() {
+        if(quote) delete[] quote;
+        if(nonceExpected) delete[] nonceExpected;
+        if(nonceRequested) delete[] nonceRequested;
+    }
+};
+
+typedef RAQuote*(*RACallbackRemoteAttest)(uint8_t *nonce, size_t nonceLen);
 
 typedef uint8_t *(*RACallbackCreateRequest)(size_t *nonceLen);
 
@@ -191,13 +220,6 @@ typedef int (*RACallbackCustomNewSession) (struct ssl_st *ssl, SSL_SESSION *sess
 
 class RAContext {
 public:
-    size_t expectedNonceLen = 0;
-    uint8_t *expectedNonce = nullptr;
-    size_t nonceRequestedLen = 0;
-    uint8_t *nonceRequested = nullptr;
-
-    RASessionTicket currentSessionTicket;
-
     size_t maxSessionTicketsNum = 1000;
 
     std::map<std::string, RASessionTicket> sessionTicketBySessionId;
@@ -264,7 +286,13 @@ public:
     bool onlyAllowRemoteAttestedSessionResumption = true;
 };
 
+RASession* getRASessionForSSLSession(SSL* ssl);
+
 void setupRATLS();
+
+bool sha256(void* input, size_t length, uint8_t* output);
+
+char* publicKeyToBuffer(EVP_PKEY* key, size_t* bufLen);
 
 int callbackAddExtensionRAClient(SSL *ssl, unsigned int extType,
     unsigned int context,
