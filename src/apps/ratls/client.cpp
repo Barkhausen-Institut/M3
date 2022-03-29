@@ -423,7 +423,8 @@ int main(int argc, char const *argv[]) {
             raContext.maxSessionTicketsNum = 2;
             raContext.customNewSession = callbackNewSession;
             RATLS::enableClientRemoteAttestation(&raContext, ctx);
-            doConnection(serverAddress, ctx, true);
+            for(int i = 0; i < 4; ++i)
+                doConnection(serverAddress, ctx, true);
         }
 
     }
