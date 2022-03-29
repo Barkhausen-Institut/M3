@@ -385,7 +385,7 @@ uint8_t *TpmRoT::unseal(TpmCpp::ByteVec authValue, std::vector<UINT32> &pcrSlots
     std::string sealedObjectJson = std::string((char*)sealingData, sealingDataLength);
 
     CreateResponse sealedObject;
-    bool deserialized = sealedObject.Deserialize(SerializationType::JSON, sealedObjectJson);
+    // bool deserialized = sealedObject.Deserialize(SerializationType::JSON, sealedObjectJson);
     TPM_HANDLE sealedKey = tpm.Load(storageKey, sealedObject.outPrivate, sealedObject.outPublic);
     sealedKey.SetAuth(authValue);
 

@@ -14,7 +14,7 @@ std::map<OpType, std::chrono::steady_clock::time_point> currentMeasurements;
 
 // client --tpm-hardware /dev/tmp0 127.0.0.1 --benchmarking-samples 1000 -benchmarking-resume-sessions
 BenchmarkSetupData parseCommandLine(int argc, char const *argv[]) {
-	BenchmarkSetupData setupData = { false, 0, false, false };
+	BenchmarkSetupData setupData = { false, 0, false, false, "" };
 	for(int i = 0; i < argc; i++) {
 		std::string argument = argv[i];
 		if(argument == "--benchmarking-samples" && i + 1 < argc) {
