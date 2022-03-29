@@ -100,7 +100,7 @@
 #define ENV_SIZE            PAGE_SIZE
 #define ENV_END             (ENV_START + ENV_SIZE)
 
-#define STACK_SIZE          0x10000
+#define STACK_SIZE          0x50000
 
 #define RBUF_STD_ADDR       0xD0000000
 #define RBUF_STD_SIZE       PAGE_SIZE
