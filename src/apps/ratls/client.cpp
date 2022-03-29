@@ -148,7 +148,10 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SE
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Ok);
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Active);
 
-    if (SSL_shutdown(ssl) == 0) SSL_shutdown(ssl);
+    int32_t val = 54;
+    SSL_write(ssl, &val, sizeof(val));
+
+    SSL_shutdown(ssl);
 
     SSL_free(ssl);
 
