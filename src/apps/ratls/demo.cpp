@@ -123,7 +123,7 @@ static std::vector<std::string> demoStatusString = {
 
 // ************************************************************************************************
 
-void DemoBase::parseCommandLine(int argc, char const *argv[]) {
+void DemoBase::parseCommandLine(int &argc, char const *argv[]) {
 
 	for(int i = 1; i < argc; i++) {
 		std::string argument = argv[i];

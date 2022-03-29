@@ -33,7 +33,7 @@ typedef enum {
 
 class DemoBase {
 public:
-	void parseCommandLine(int argc, char const *argv[]);
+	void parseCommandLine(int &argc, char const *argv[]);
 
 	bool clientIsDemo() { return demoClient; }
 	bool serverIsDemo() { return demoServer; }
