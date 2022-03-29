@@ -7,6 +7,10 @@ def build(gen, env):
         '-D_TPMCPPLIB',
     ]
 
+    # disable LTO to reduce link times
+    env.remove_flag('CXXFLAGS', '-flto')
+    env.remove_flag('LINKFLAGS', '-flto')
+
     env['CPPPATH'] += [
         'src/libs/openssl/include',
         'src/libs/tss/TSS.CPP/include',
