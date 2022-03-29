@@ -304,7 +304,7 @@ int main(int argc, char const *argv[]) {
 #ifdef __linux__
         FILE *server_cert_file;
         X509 *server_cert;
-        server_cert_file = chksys(fopen("data/fullchain.pem", "r"), "open cert chain file");
+        server_cert_file = chksys(fopen("/tls/fullchain.pem", "r"), "open cert chain file");
         server_cert = PEM_read_X509(server_cert_file, nullptr, nullptr, nullptr);
         fclose(server_cert_file);
         
@@ -326,17 +326,17 @@ int main(int argc, char const *argv[]) {
         
         SSL_CTX_set_ecdh_auto(ctx, 1);
 
-        if (SSL_CTX_use_certificate_file(ctx, "data/fullchain.pem", SSL_FILETYPE_PEM) <= 0) {
+        if (SSL_CTX_use_certificate_file(ctx, "/tls/fullchain.pem", SSL_FILETYPE_PEM) <= 0) {
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
-        if (SSL_CTX_use_PrivateKey_file(ctx, "data/privkey.pem", SSL_FILETYPE_PEM) <= 0) {
+        if (SSL_CTX_use_PrivateKey_file(ctx, "/tls/privkey.pem", SSL_FILETYPE_PEM) <= 0) {
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
-        SSL_CTX_use_certificate_chain_file(ctx, "data/fullchain.pem");
+        SSL_CTX_use_certificate_chain_file(ctx, "/tls/fullchain.pem");
 
         BI::demoClient.parseCommandLine(argc, argv);
         BI::demoClient.init("127.0.0.1", 5000);
