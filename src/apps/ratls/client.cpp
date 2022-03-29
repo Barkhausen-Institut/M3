@@ -251,6 +251,10 @@ int main(int argc, char const *argv[]) {
         
         tpmRoT = chk(new RATLS::TpmRoT(tpmDevInfo, "ratls-test"), "init TPM");
 
+        BI::demoClient.parseCommandLine(argc, argv);
+        BI::demoClient.init("127.0.0.1", 5000);
+        BI::demoClient.setVerbose(false);
+
         chk(argc > 1, "No server address specified");
         char const *serverAddress = argv[1];
 
@@ -337,10 +341,6 @@ int main(int argc, char const *argv[]) {
         }
 
         SSL_CTX_use_certificate_chain_file(ctx, "/tls/fullchain.pem");
-
-        BI::demoClient.parseCommandLine(argc, argv);
-        BI::demoClient.init("127.0.0.1", 5000);
-        BI::demoClient.setVerbose(false);
 
         if(benchmarkData.performBenchmarking) {
             printf("Running client benchmark with %d samples\n", benchmarkData.numSamples);
