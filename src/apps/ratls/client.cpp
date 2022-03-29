@@ -246,6 +246,8 @@ uint8_t *unsealSessionSecretCB(uint8_t *sealingData, size_t sealingDataLength, s
 int main(int argc, char const *argv[]) {
     try {
         Benchmarking::startMeasure(Benchmarking::OpType::Setup);
+
+        setlinebuf(stdout);
         RATLS::TpmDevInfo tpmDevInfo = RATLS::TpmRoT::parseCommandLine(argc, argv);
         chk(tpmDevInfo.initMode != RATLS::TpmInitMode::Invalid, "no or invalid tpm init mode on command line");
         
