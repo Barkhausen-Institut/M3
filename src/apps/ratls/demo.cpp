@@ -95,6 +95,8 @@ example reports for client:
 
 */
 
+#include <m3/com/GateStream.h>
+
 #include <cstdio>
 
 #include "demo.h"
@@ -152,11 +154,11 @@ void DemoClient::init(std::string dashBoardHost, int dashBoardPort) {
 	// FIXME: open socket, etc.
 
 	fd = -1;
-	reset();
+	reset(false);
 }
 
 
-void DemoClient::reset() {
+void DemoClient::reset(bool send) {
 
 	connectionStatus = DemoStatus::Idle;
 	tlsStatus = DemoStatus::Idle;
@@ -165,8 +167,21 @@ void DemoClient::reset() {
 	attestationPubKey = "";
 	attestationHash = "";
 	attestationInfo = "";
+	text = "";
 
-	printReportVerbose();
+	if(send) {
+		printf("Sending reset...\n");
+		m3::send_receive_vmsg(report, "");
+		printf("Received reset ACK\n");
+	}
+}
+
+
+void DemoClient::waitForCommand() {
+	printf("Waiting for command...\n");
+	auto is = m3::receive_msg(command);
+	printf("Received command\n");
+	m3::reply_vmsg(is, 0);
 }
 
 
@@ -174,7 +189,7 @@ void DemoClient::setConnectionStatus(DemoStatus s) {
 
 	connectionStatus = s;
 
-	printReportVerbose();
+	sendReport();
 }
 
 
@@ -183,7 +198,7 @@ void DemoClient::setTlsStatus(DemoStatus s, std::string cert) {
 	tlsStatus = s;
 	tlsCertificate = cert;
 
-	printReportVerbose();
+	sendReport();
 }
 
 
@@ -194,7 +209,7 @@ void DemoClient::setAttestationStatus(DemoStatus s, std::string pubKey, std::str
 	attestationHash = hash;
 	attestationInfo = info;
 
-	printReportVerbose();
+	sendReport();
 }
 
 
@@ -225,13 +240,16 @@ char const *DemoClient::reportAsText() {
 }
 
 
-void DemoClient::printReportVerbose() {
+void DemoClient::sendReport() {
+	const char *report_str = reportAsText();
 
 	if (verbose) {
 		printf("-------- BI RATLS DEMO - BEGIN --------\n");
-		printf("%s", reportAsText());
+		printf("%s", report_str);
 		printf("--------- BI RATLS DEMO - END ---------\n");
 	}
+
+	m3::send_receive_vmsg(report, m3::String(report_str));
 }
 
 // ************************************************************************************************

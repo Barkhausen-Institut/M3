@@ -1,4 +1,6 @@
 def build(gen, env):
+    env.m3_exe(gen, out = 'ratls-dashboard', ins = ['dashboard.cpp'])
+
     env = env.clone()
 
     env['CPPFLAGS'] += [
@@ -21,4 +23,5 @@ def build(gen, env):
         '-Wno-unused-parameter',
     ]
 
-    env.m3_exe(gen, out = 'ratls', ins = env.glob('*.cpp'), libs = ['crypto', 'ssl', 'tss'])
+    files = ['benchmark.cpp', 'client.cpp', 'demo.cpp', 'ratls-tpm2.cpp', 'ratls.cpp']
+    env.m3_exe(gen, out = 'ratls', ins = files, libs = ['crypto', 'ssl', 'tss'])

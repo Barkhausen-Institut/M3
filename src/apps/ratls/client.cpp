@@ -426,8 +426,12 @@ int main(int argc, char const *argv[]) {
             raContext.maxSessionTicketsNum = 2;
             raContext.customNewSession = callbackNewSession;
             RATLS::enableClientRemoteAttestation(&raContext, ctx);
-            for(int i = 0; i < 4; ++i)
+
+            while(true) {
+                BI::demoClient.waitForCommand();
+
                 doConnection(serverAddress, ctx, true);
+            }
         }
 
     }

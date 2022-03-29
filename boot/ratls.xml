@@ -1,0 +1,46 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="m3fs mem $fs.size" daemon="1">
+                    <serv name="m3fs" />
+                    <physmem addr="0" size="$fs.size" />
+                </app>
+                <app args="vterm" daemon="1">
+                    <serv name="vterm" />
+                    <serial />
+                </app>
+            </dom>
+            <dom>
+                <app args="pager maxcli=3 $fs.size" usermem="768M">
+                    <sess name="m3fs" />
+                    <physmem addr="0" size="$fs.size" perm="r" />
+                    <tiles type="rocket+nic" count="1" />
+                    <tiles type="core" count="2" />
+                    <dom tile="rocket+nic">
+                        <app args="/sbin/net net 192.168.42.150" daemon="1">
+                            <serv name="net" />
+                        </app>
+                    </dom>
+                    <dom>
+                        <app args="/bin/ratls-dashboard" daemon="1">
+                            <rgate name="report" msgsize="2048" slots="1" />
+                            <sgate name="command" />
+                            <sess name="net" args="bufs=1M socks=1" />
+                            <sess name="vterm" />
+                        </app>
+                    </dom>
+                    <dom>
+                        <app args="/bin/ratls --tpm-null 0 --demo-client 192.168.42.110">
+                            <sgate name="report" />
+                            <rgate name="command" msgsize="256" slots="1" />
+                            <mount fs="m3fs" path="/" />
+                            <sess name="net" args="bufs=1M socks=1" />
+                        </app>
+                    </dom>
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

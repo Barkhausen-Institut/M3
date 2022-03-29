@@ -10,6 +10,8 @@ simple commands from the user who controls the demo.
 
 #pragma once
 
+#include <m3/com/SendGate.h>
+
 #include <string>
 #include <vector>
 
@@ -45,14 +47,19 @@ protected:
 
 class DemoClient : public DemoBase {
 public:
-	DemoClient() {
+	DemoClient()
+		: report(m3::SendGate::create_named("report")),
+		  command(m3::RecvGate::create_named("command")) {
+		command.activate();
 		verbose = false;
 		init("", 0);
 	}
 
 	void init(std::string dashBoardHost, int dashBoardPort);
-	void reset();
+	void reset(bool send = true);
 	void setVerbose(bool v) { verbose = v; }
+
+	void waitForCommand();
 
 	void setConnectionStatus(DemoStatus s);
 	void setTlsStatus(DemoStatus s, std::string cert);
@@ -60,7 +67,10 @@ public:
 
 protected:
 	char const *reportAsText();
-	void printReportVerbose();
+	void sendReport();
+
+	m3::SendGate report;
+	m3::RecvGate command;
 
 	DemoStatus connectionStatus;
 	DemoStatus tlsStatus;
