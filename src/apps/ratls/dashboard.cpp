@@ -35,7 +35,7 @@ int main() {
         // change stdin, stdout, and stderr to vterm
         const fd_t fds[] = {STDIN_FD, STDOUT_FD, STDERR_FD};
         for(fd_t fd : fds)
-            Activity::self().files()->set(fd, vterm->create_channel(fd == STDIN_FD));
+            Activity::own().files()->set(fd, vterm->create_channel(fd == STDIN_FD));
     }
     catch(const Exception &e) {
         errmsg("Unable to open vterm: " << e.what());
