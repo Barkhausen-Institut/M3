@@ -1,0 +1,59 @@
+SLEEP(1)                           BSD General Commands Manual                           SLEEP(1)
+
+NAME
+     sleep -- suspend execution for an interval of time
+
+SYNOPSIS
+     sleep seconds
+
+DESCRIPTION
+     The sleep utility suspends execution for a minimum of the specified number of seconds.  This
+     number must be positive and may contain a decimal fraction.  sleep is commonly used to
+     schedule the execution of other commands (see below).
+
+ASYNCHRONOUS EVENTS
+     SIGALRM     Terminate normally, with a zero exit status.
+
+EXIT STATUS
+     The sleep utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Wait a half hour before running the script command_file (see also the at(1) utility):
+
+           (sleep 1800; sh command_file >& errors)&
+
+     To repetitively run a command (with csh(1)):
+
+           while (! -r zzz.rawdata)
+                   sleep 300
+           end
+           foreach i (*.rawdata)
+                   sleep 70
+                   awk -f collapse_data $i >> results
+           end
+
+     The scenario for such a script might be: a program currently running is taking longer than
+     expected to process a series of files, and it would be nice to have another program start
+     processing the files created by the first program as soon as it is finished (when
+     zzz.rawdata is created).  The script checks every five minutes for this file.  When it is
+     found, processing is done in several steps by sleeping 70 seconds between each awk(1) job.
+
+     To monitor the growth of a file without consuming too many resources:
+
+           while true; do
+                   ls -l file
+                   sleep 5
+           done
+
+SEE ALSO
+     at(1)
+
+STANDARDS
+     The sleep utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The handling of fractional arguments is provided as an extension to that specification.
+
+HISTORY
+     A sleep utility appeared in Version 4 AT&T UNIX.
+
+BSD                                      August 16, 2016                                      BSD

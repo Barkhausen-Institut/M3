@@ -30,7 +30,7 @@ static void memcpy() {
     for(size_t i = 0; i < sizeof(b1); ++i) {
         memset(b2, 0, sizeof(b2));
         memcpy(b2, b1 + i, sizeof(b1) - i);
-        WVASSERTEQ(strcmp(b1 + i, b2), 0);
+        WVASSERTSTREQ(b1 + i, b2);
     }
 
     {

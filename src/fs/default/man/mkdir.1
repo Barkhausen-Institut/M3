@@ -1,0 +1,56 @@
+MKDIR(1)                           BSD General Commands Manual                           MKDIR(1)
+
+NAME
+     mkdir -- make directories
+
+SYNOPSIS
+     mkdir [-p] [-m mode] directory ...
+
+DESCRIPTION
+     The mkdir utility creates the directories named as operands, in the order specified, using
+     mode rwxrwxrwx (0777) as modified by the current umask(2).
+
+     The options are as follows:
+
+     -m mode
+             Set the file permission bits of the newly created directory to mode.  The mode argu-
+             ment can be in any of the formats specified to the chmod(1) utility.  If a symbolic
+             mode is specified, the operators `+' and `-' are interpreted relative to an initial
+             mode of "a=rwx".
+
+     -p      Create intermediate directories as required.  If this option is not specified, the
+             full path prefix of each operand must already exist.  Intermediate directories are
+             created with permission bits of rwxrwxrwx (0777) as modified by the current umask,
+             plus write and search permission for the owner.  Do not consider it an error if the
+             argument directory already exists.
+
+     The user must have write permission in the parent directory.  For an explanation of the di-
+     rectory hierarchy, see hier(7).
+
+EXIT STATUS
+     The mkdir utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Create a directory named foobar:
+
+           $ mkdir foobar
+
+     Create a directory named foobar and set its file mode to 700:
+
+           $ mkdir -m 700 foobar
+
+     Create a directory named cow/horse/monkey, creating any non-existent intermediate directo-
+     ries as necessary:
+
+           $ mkdir -p cow/horse/monkey
+
+SEE ALSO
+     chmod(1), rmdir(1), mkdir(2), umask(2), hier(7)
+
+STANDARDS
+     The mkdir utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+HISTORY
+     A mkdir command appeared in Version 1 AT&T UNIX.
+
+BSD                                     September 3, 2010                                     BSD

@@ -60,6 +60,7 @@ public:
     // set by TileMux
     uint64_t shared;
 
+    uint64_t envp;
     uint64_t sp;
     uint64_t entry;
     uint64_t first_std_ep;

@@ -21,7 +21,7 @@ use m3::io::Read;
 use m3::mem::AlignedBuf;
 use m3::test;
 use m3::time::{CycleInstant, Profiler};
-use m3::vfs::{OpenFlags, VFS};
+use m3::vfs::{FileMode, OpenFlags, VFS};
 use m3::{wv_assert_ok, wv_perf, wv_run_test};
 
 static BUF: StaticRefCell<AlignedBuf<8192>> = StaticRefCell::new(AlignedBuf::new_zeroed());
@@ -64,7 +64,7 @@ fn mkdir_rmdir() {
     wv_perf!(
         "mkdir_rmdir",
         prof.run::<CycleInstant, _>(|| {
-            wv_assert_ok!(VFS::mkdir("/newdir", 0o755));
+            wv_assert_ok!(VFS::mkdir("/newdir", FileMode::from_bits(0o755).unwrap()));
             wv_assert_ok!(VFS::rmdir("/newdir"));
         })
     );

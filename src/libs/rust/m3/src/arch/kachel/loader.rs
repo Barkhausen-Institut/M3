@@ -159,6 +159,7 @@ where
 
         argoff += arg.len() + 1;
     }
+    argptr.push(0);
 
     let env_page_off = (cfg::ENV_START & !cfg::PAGE_MASK) as goff;
     write_bytes_checked(

@@ -43,7 +43,8 @@ public:
         args.bytes = os.total();
         obtain_for(Activity::own(), KIF::CapRngDesc(KIF::CapRngDesc::OBJ, sels, 2), &args);
         auto flags = FILE_NEWSESS | (read ? FILE_R : FILE_W);
-        auto file = std::unique_ptr<GenericFile>(new GenericFile(flags, sels));
+        auto file = std::unique_ptr<GenericFile>(
+            new GenericFile(flags, sels, static_cast<size_t>(-1)));
         return Activity::own().files()->alloc(std::move(file));
     }
 };

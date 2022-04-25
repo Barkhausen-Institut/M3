@@ -23,6 +23,9 @@ use core::ops::FnOnce;
 
 use crate::arch;
 use crate::boxed::Box;
+use crate::cell::LazyStaticRefCell;
+use crate::col::{String, ToString, Vec};
+use crate::format;
 use crate::mem;
 use crate::util;
 
@@ -102,4 +105,142 @@ impl iter::Iterator for Args {
 /// Returns the argument iterator
 pub fn args() -> Args {
     Args { pos: 0 }
+}
+
+/// The environment-variable iterator
+///
+/// # Examples
+///
+/// ```
+/// for (key, val) in env::vars() {
+///     println!("{}={}", key, val);
+/// }
+/// ```
+pub struct Vars {
+    pos: isize,
+}
+
+impl Vars {
+    pub fn new() -> Self {
+        Self { pos: 0 }
+    }
+}
+
+impl iter::Iterator for Vars {
+    type Item = &'static str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let args = arch::envdata::get().envp as *const u64;
+        if args.is_null() {
+            return None;
+        }
+
+        // safety: we assume that our loader has put valid pointers and strings in envp
+        let arg = unsafe { *args.offset(self.pos) } as *const i8;
+        if !arg.is_null() {
+            unsafe {
+                let var = util::cstr_to_str(arg);
+                self.pos += 1;
+                Some(var)
+            }
+        }
+        else {
+            None
+        }
+    }
+}
+
+static VARS: LazyStaticRefCell<Vec<String>> = LazyStaticRefCell::default();
+
+/// Returns the value of the environment variable with given key.
+pub fn var<K: AsRef<str>>(key: K) -> Option<String> {
+    // try to find the value from an iterator of strings of <key>=<value>
+    fn find_value<'s>(it: impl iter::Iterator<Item = &'s str>, key: &str) -> Option<String> {
+        it.map(|p| {
+            let mut pair = p.splitn(2, '=');
+            (pair.next().unwrap(), pair.next().unwrap())
+        })
+        .find(|(k, _v)| *k == key)
+        .map(|(_k, v)| v.to_string())
+    }
+
+    // if we have already copied the env vars, use the copy
+    if VARS.is_some() {
+        find_value(VARS.borrow().iter().map(|s| &s[..]), key.as_ref())
+    }
+    else {
+        find_value(Vars::new(), key.as_ref())
+    }
+}
+
+/// Returns the environment-variable iterator, containing each variable as a pair of key and value.
+pub fn vars() -> Vec<(String, String)> {
+    // split string into pair of key and value
+    fn to_pair<S: AsRef<str>>(p: S) -> (String, String) {
+        let mut pair = p.as_ref().splitn(2, '=');
+        (
+            pair.next().unwrap().to_string(),
+            pair.next().unwrap().to_string(),
+        )
+    }
+
+    // if we have already copied the env vars, use the copy
+    if VARS.is_some() {
+        VARS.borrow().iter().map(to_pair).collect()
+    }
+    else {
+        Vars::new().map(to_pair).collect()
+    }
+}
+
+/// Returns the environment-variable iterator, containing each variable as a single string in the
+/// form of <key>=<value>.
+pub fn vars_raw() -> Vec<String> {
+    if VARS.is_some() {
+        VARS.borrow().iter().map(|p| p.to_string()).collect()
+    }
+    else {
+        Vars::new().map(|p| p.to_string()).collect()
+    }
+}
+
+/// Sets the environment variable with given key to given value.
+pub fn set_var<K: AsRef<str>, V: AsRef<str>>(key: K, val: V) {
+    assert!(!key.as_ref().contains('='));
+
+    // adding/changing a variable always requires a copy
+    if !VARS.is_some() {
+        VARS.set(Vars::new().map(|s| s.to_string()).collect());
+    }
+
+    // therefore we can forget about `Vars::new()` here.
+    let mut var_vec = VARS.borrow_mut();
+    // is there a variable with that name (string starts with key and the '=' follows directly)?
+    if let Some(pair) = var_vec.iter_mut().find(|p| {
+        p.starts_with(key.as_ref())
+            && p.chars().position(|c| c == '=').unwrap() == key.as_ref().len()
+    }) {
+        // then just change the value
+        *pair = format!("{}={}", key.as_ref(), val.as_ref());
+    }
+    else {
+        var_vec.push(format!("{}={}", key.as_ref(), val.as_ref()));
+    }
+}
+
+/// Removes the environment variable with given key.
+pub fn remove_var<K: AsRef<str>>(key: K) {
+    assert!(!key.as_ref().contains('='));
+
+    // removing a variable always requires a copy
+    if !VARS.is_some() {
+        VARS.set(Vars::new().map(|s| s.to_string()).collect());
+    }
+
+    let mut var_vec = VARS.borrow_mut();
+    // keep all variables with different keys
+    var_vec.retain(|p| {
+        !p.starts_with(key.as_ref())
+            || p.chars().position(|c| c == '=').unwrap() != key.as_ref().len()
+    });
 }

@@ -1,0 +1,58 @@
+SPLIT(1)                           BSD General Commands Manual                           SPLIT(1)
+
+NAME
+     split -- split a file into pieces
+
+SYNOPSIS
+     split [-a suffix_length]
+           [-b byte_count[k|m] | -l line_count | -p pattern] [file [name]]
+
+DESCRIPTION
+     The split utility reads the given file, or standard input if no file is specified, and
+     breaks it up into files of 1000 lines each.  file itself is not altered.
+
+     The options are as follows:
+
+     -a suffix_length
+             Use suffix_length letters to form the suffix of the file name (see below).  The de-
+             fault suffix length is 2.
+
+     -b byte_count[k|m]
+             Create files byte_count bytes in length.  If `k' is appended to the number, the file
+             is split into byte_count kilobyte pieces.  If `m' is appended to the number, the
+             file is split into byte_count megabyte pieces.
+
+     -l line_count
+             Create files line_count lines in length.
+
+     -p pattern
+             The file is split whenever an input line matches pattern, which is interpreted as an
+             extended regular expression.  The matching line will be the first line of the next
+             output file.  This option is incompatible with the -b and -l options.
+
+     If name is specified, it is used as a prefix for the names of the files into which the file
+     is split.  In this case, each file into which the file is split is named by the prefix fol-
+     lowed by a lexically ordered suffix using suffix_length characters in the range "a-z".
+
+     If the name argument is not specified, the file is split into lexically ordered files named
+     with the prefixes `x', `y', and `z'.
+
+EXIT STATUS
+     The split utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     csplit(1), re_format(7)
+
+STANDARDS
+     The split utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flag [-p], as well as the `y' and `z' prefixes in the absence of a name parameter, are
+     an extension to that specification.
+
+HISTORY
+     A split command appeared in Version 3 AT&T UNIX.
+
+BUGS
+     The maximum line length for matching patterns is 65536.
+
+BSD                                     February 28, 2015                                     BSD

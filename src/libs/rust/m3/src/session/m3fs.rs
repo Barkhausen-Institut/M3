@@ -139,7 +139,8 @@ impl FileSystem for M3FS {
             Ok(Box::new(GenericFile::new_without_sess(
                 flags,
                 self.sess.sel(),
-                (self.id(), file_id),
+                file_id,
+                self.id(),
                 self.eps[ep_idx].ep.id(),
                 self.sgate.clone(),
             )))
@@ -154,7 +155,11 @@ impl FileSystem for M3FS {
                 },
                 |_| Ok(()),
             )?;
-            Ok(Box::new(GenericFile::new(flags, crd.start())))
+            Ok(Box::new(GenericFile::new(
+                flags,
+                crd.start(),
+                Some(self.id()),
+            )))
         }
     }
 
@@ -175,7 +180,14 @@ impl FileSystem for M3FS {
     }
 
     fn mkdir(&self, path: &str, mode: FileMode) -> Result<(), Error> {
-        send_recv_res!(&self.sgate, RecvGate::def(), FSOperation::MKDIR, path, mode).map(|_| ())
+        send_recv_res!(
+            &self.sgate,
+            RecvGate::def(),
+            FSOperation::MKDIR,
+            path,
+            mode.bits()
+        )
+        .map(|_| ())
     }
 
     fn rmdir(&self, path: &str) -> Result<(), Error> {

@@ -182,7 +182,7 @@ impl Socket {
     pub fn has_events(&mut self, events: FileEvent) -> bool {
         self.fetch_replies();
 
-        (events.contains(FileEvent::INPUT) && self.process_events())
+        (events.contains(FileEvent::INPUT) && (self.process_events() || self.has_data()))
             || (events.contains(FileEvent::OUTPUT) && self.can_send())
     }
 

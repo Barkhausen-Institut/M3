@@ -23,7 +23,7 @@ use m3::col::Vec;
 use m3::com::{GateIStream, RecvGate, SendGate};
 use m3::errors::{Code, Error};
 use m3::kif::{CapRngDesc, CapType};
-use m3::net::{event, IpAddr, Port, Sd, SocketArgs, SocketType};
+use m3::net::{IpAddr, Port, Sd, SocketArgs, SocketType, MTU};
 use m3::parse;
 use m3::rc::Rc;
 use m3::serialize::Source;
@@ -362,11 +362,6 @@ impl SocketSession {
         false
     }
 
-    pub fn get_ip(&self, is: &mut GateIStream<'_>) -> Result<(), Error> {
-        let addr = to_m3_addr(crate::own_ip());
-        reply_vmsg!(is, Code::None as i32, addr.0)
-    }
-
     pub fn bind(
         &mut self,
         is: &mut GateIStream<'_>,
@@ -573,7 +568,7 @@ impl SocketSession {
                 let mut received = false;
                 socket.borrow_mut().receive(iface, |data, addr| {
                     let ep = to_m3_ep(addr);
-                    let amount = cmp::min(event::MTU, data.len());
+                    let amount = cmp::min(MTU, data.len());
 
                     log!(
                         crate::LOG_DATA,

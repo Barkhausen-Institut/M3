@@ -43,6 +43,47 @@ class VFS {
 
 public:
     /**
+     * Makes the given path absolute and canonical. That is, if the path does not start with '/',
+     * the current working directory is prepended. Additionally, duplicate slashes, '.', and '..'
+     * are removed.
+     *
+     * @param dst the destination buffer to write the canonical path to
+     * @param max the size of the destination buffer
+     * @param src the source path
+     * @return the length of the resulting path
+     */
+    static size_t abs_path(char *dst, size_t max, const char *src);
+
+    /**
+     * Canonicalizes the given path, i.e., removes duplicate slashes, '.' and '..'.
+     *
+     * @param dst the destination buffer to write the canonical path to
+     * @param max the size of the destination buffer
+     * @param src the source path
+     * @return the length of the resulting path
+     */
+    static size_t canon_path(char *dst, size_t max, const char *src);
+
+    /**
+     * @return the current working directory
+     */
+    static const char *cwd();
+
+    /**
+     * Sets the current working directory to given path
+     *
+     * @param path the directory to enter (null = unset)
+     */
+    static void set_cwd(const char *path);
+
+    /**
+     * Sets the current working directory to the path of the given file
+     *
+     * @param fd the file denoting the directory to enter
+     */
+    static void set_cwd(int fd);
+
+    /**
      * Mounts <fs> at given path
      *
      * @param path the path

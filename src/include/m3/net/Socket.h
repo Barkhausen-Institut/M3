@@ -106,7 +106,7 @@ public:
     virtual bool check_events(uint events) override {
         fetch_replies();
 
-        return ((events & File::INPUT) != 0 && process_events()) ||
+        return ((events & File::INPUT) != 0 && (process_events() || has_data())) ||
             ((events & File::OUTPUT) != 0 && can_send());
     }
 

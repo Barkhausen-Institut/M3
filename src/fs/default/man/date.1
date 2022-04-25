@@ -1,0 +1,114 @@
+DATE(1)                            BSD General Commands Manual                            DATE(1)
+
+NAME
+     date -- display or set date and time
+
+SYNOPSIS
+     date [-aju] [-f pformat] [-r seconds] [-z output_zone] [+format]
+          [[[[[[cc]yy]mm]dd]HH]MM[.SS]]
+
+DESCRIPTION
+     When invoked without arguments, the date utility displays the current date and time.  Other-
+     wise, depending on the options specified, date will set the date and time or print it in a
+     user-defined way.
+
+     Changing the system date has some risks, as described in settimeofday(2).  Only the supe-
+     ruser may change the date.
+
+     The options are as follows:
+
+     -a      Use the adjtime(2) call to gradually skew the local time to the desired time rather
+             than just hopping.
+
+     -f pformat
+             Parse the specified time using strptime(3) with a format string of pformat.
+
+     -j      Parse the provided date and time and display the result without changing the clock.
+
+     -r seconds
+             Print out (in specified format) the date and time represented by seconds from the
+             Epoch.
+
+     -u      Display or set the date in UTC (Coordinated Universal) time.
+
+     -z output_zone
+             Just before printing the time, change to the specified timezone; see the description
+             of TZ below.  This can be used with -j to easily convert time specifications from
+             one zone to another.
+
+     An operand with a leading plus sign (`+') signals a user-defined format string which speci-
+     fies the format in which to display the date and time.  The format string may contain any of
+     the conversion specifications described in the strftime(3) manual page, as well as any arbi-
+     trary text.  A newline (`\n') character is always output after the characters specified by
+     the format string.  The format string for the default display is:
+
+           %a %b %e %H:%M:%S %Z %Y
+
+     If an operand does not have a leading plus sign, it is interpreted as a value for setting
+     the system's notion of the current date and time.  The canonical representation for setting
+     the date and time is:
+
+           ccyy    Year.  If yy is specified, but cc is not, a value for yy between 69 and 99 re-
+                   sults in a cc value of 19.  Otherwise, a cc value of 20 is used.
+           mm      Month: a number from 1 to 12.
+           dd      Day: a number from 1 to 31.
+           HH      Hour: a number from 0 to 23.
+           MM      Minute: a number from 0 to 59.
+           SS      Second: a number from 0 to 60 (permitting a leap second), preceded by a pe-
+                   riod.
+
+     Everything but the minute is optional.
+
+     Time changes for Daylight Saving Time, standard time, leap seconds, and leap years are han-
+     dled automatically.
+
+ENVIRONMENT
+     TZ      The time zone to use when parsing or displaying dates.  It is normally specified as
+             a pathname relative to /usr/share/zoneinfo, though see tzset(3) for more informa-
+             tion.  If this variable is not set, the time zone is determined based on
+             /etc/localtime, which the administrator adjusts using the -l option of zic(8).
+
+FILES
+     /var/log/wtmp      record of date resets and time changes
+     /var/log/messages  record of the user setting the time
+
+EXIT STATUS
+     The date utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Display the date using the specified format string:
+
+           $ date "+DATE: %Y-%m-%d%nTIME: %H:%M:%S"
+           DATE: 1987-11-21
+           TIME: 13:36:16
+
+     Set the date to June 13, 1985, 4:27 PM:
+
+           # date 198506131627
+
+     Set the time to 2:32 PM, without modifying the date:
+
+           # date 1432
+
+     If the mailing list server located in California is being taken offline at 05.45, work out
+     what time it will be locally, here in Tokyo:
+
+           $ TZ=America/Los_Angeles date -j -z Asia/Tokyo 0545
+
+SEE ALSO
+     adjtime(2), gettimeofday(2), strftime(3), utmp(5), ntpd(8), rdate(8)
+
+STANDARDS
+     The date utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flags [-afjrz], as well as the conversion specifiers `%F', `%G', `%g', `%k', `%l', `%R',
+     `%s', `%v', and `%+', are extensions to that specification.
+
+     This implementation requires the traditional BSD date format, [[[[[cc]yy]mm]dd]HH]MM[.SS],
+     which differs from the X/Open System Interfaces option of the IEEE Std 1003.1-2008
+     ("POSIX.1") specification.
+
+HISTORY
+     A date command appeared in Version 1 AT&T UNIX.
+
+BSD                                       August 8, 2019                                      BSD

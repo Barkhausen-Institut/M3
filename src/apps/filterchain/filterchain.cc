@@ -35,7 +35,7 @@ int main(int argc, char **argv) {
     if(argc > 1)
         memSize = Math::round_up(IStringStream::read_from<size_t>(argv[1]), BUF_SIZE);
 
-    Random::init(0x1234);
+    auto rand = Random();
 
     MemGate mem = MemGate::create_global(memSize, MemGate::RW);
 
@@ -47,7 +47,7 @@ int main(int argc, char **argv) {
     size_t offset = 0;
     while(rem > 0) {
         for(size_t i = 0; i < BUF_SIZE / sizeof(uint); ++i)
-            buffer[i] = static_cast<uint>(Random::get());
+            buffer[i] = static_cast<uint>(rand.get());
         mem.write(buffer, BUF_SIZE, offset);
         offset += BUF_SIZE;
         rem -= BUF_SIZE;

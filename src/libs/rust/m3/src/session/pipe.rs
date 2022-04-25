@@ -105,7 +105,7 @@ impl Pipe {
         else {
             OpenFlags::W | OpenFlags::NEW_SESS
         };
-        Ok(Box::new(GenericFile::new(flags, crd.start())))
+        Ok(Box::new(GenericFile::new(flags, crd.start(), None)))
     }
 }
 

@@ -1,0 +1,112 @@
+NL(1)                              BSD General Commands Manual                              NL(1)
+
+NAME
+     nl -- line numbering filter
+
+SYNOPSIS
+     nl [-p] [-b type] [-d delim] [-f type] [-h type] [-i incr] [-l num] [-n format] [-s sep]
+        [-v startnum] [-w width] [file]
+
+DESCRIPTION
+     The nl utility reads lines from the named file, applies a configurable line numbering filter
+     operation, and writes the result to the standard output.  If file is a single dash (`-') or
+     absent, nl reads from the standard input.
+
+     The nl utility treats the text it reads in terms of logical pages.  Unless specified other-
+     wise, line numbering is reset at the start of each logical page.  A logical page consists of
+     a header, a body and a footer section; empty sections are valid.  Different line numbering
+     options are independently available for header, body and footer sections.
+
+     The starts of logical page sections are signaled by input lines containing nothing but one
+     of the following sequences of delimiter characters:
+
+           Line       Start of
+           \:\:\:     header
+           \:\:       body
+           \:         footer
+
+     If the input does not contain any logical page section signaling directives, the text being
+     read is assumed to consist of a single logical page body.
+
+     The following options are available:
+
+     -b type
+             Specify the logical page body lines to be numbered.  Recognized type arguments are:
+
+             a          Number all lines.
+
+             t          Number only non-empty lines.
+
+             n          No line numbering.
+
+             pexpr      Number only those lines that contain the basic regular expression speci-
+                        fied by expr.
+
+             The default type for logical page body lines is t.
+
+     -d delim
+             Specify the delimiter characters used to indicate the start of a logical page sec-
+             tion in the input file.  At most two characters may be specified; if only one char-
+             acter is specified, the first character is replaced and the second character remains
+             unchanged.  The default delim characters are `\:'.
+
+     -f type
+             Specify the same as -b type except for logical page footer lines.  The default type
+             for logical page footer lines is n.
+
+     -h type
+             Specify the same as -b type except for logical page header lines.  The default type
+             for logical page header lines is n.
+
+     -i incr
+             Specify the increment value used to number logical page lines.  The default incr
+             value is 1.
+
+     -l num  If numbering of all lines is specified for the current logical section using the
+             corresponding -b a, -f a or -h a option, specify the number of adjacent blank lines
+             to be considered as one.  For example, -l 2 results in only the second adjacent
+             blank line being numbered.  The default num value is 1.
+
+     -n format
+             Specify the line numbering output format.  Recognized format arguments are:
+
+                   ln    Left justified.
+                   rn    Right justified, leading zeros suppressed.
+                   rz    Right justified, leading zeros kept.
+
+             The default format is rn.
+
+     -p      Specify that line numbering should not be restarted at logical page delimiters.
+
+     -s sep  Specify the characters used in separating the line number and the corresponding text
+             line.  The default sep setting is a single tab character.
+
+     -v startnum
+             Specify the initial value used to number logical page lines; see also the descrip-
+             tion of the -p option.  The default startnum value is 1.
+
+     -w width
+             Specify the number of characters to be occupied by the line number; if the width is
+             insufficient to hold the line number, it will be truncated to its width least sig-
+             nificant digits.  The default width is 6.
+
+ENVIRONMENT
+     LC_CTYPE  The character encoding locale(1).  It decides which byte sequences form characters
+               for the -d option.  If unset or set to "C", "POSIX", or an unsupported value, each
+               byte is treated as a character.
+
+EXIT STATUS
+     The nl utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     pr(1)
+
+STANDARDS
+     The nl utility is compliant with the X/Open System Interfaces option of the IEEE Std
+     1003.1-2008 ("POSIX.1") specification.
+
+HISTORY
+     The nl utility first appeared in AT&T System V Release 2 UNIX.  It was added to the
+     OpenBSD 5.5 release.
+
+BSD                                      October 28, 2016                                     BSD

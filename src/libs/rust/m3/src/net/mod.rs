@@ -20,11 +20,21 @@ use base::errors::{Code, Error};
 mod dataqueue;
 pub use self::dataqueue::DataQueue;
 
-pub mod event;
-pub use self::event::{NetEvent, NetEventChannel, NetEventType};
+mod event;
+pub use self::event::{
+    CloseReqMessage, ClosedMessage, ConnectedMessage, DataMessage, NetEvent, NetEventChannel,
+    NetEventType, MTU,
+};
 
-pub mod socket;
-pub use self::socket::*;
+mod socket;
+pub(crate) use self::socket::Socket;
+pub use self::socket::{
+    DGramSocket, DgramSocketArgs, RawSocket, RawSocketArgs, SocketArgs, State, StreamSocket,
+    StreamSocketArgs, TcpSocket, UdpSocket,
+};
+
+mod dns;
+pub use dns::DNS;
 
 /// A socket descriptor
 pub type Sd = usize;
@@ -48,7 +58,7 @@ pub const INBAND_DATA_BUF_SIZE: usize = INBAND_DATA_SIZE * INBAND_DATA_CREDITS;
 pub const MAX_NETDATA_SIZE: usize = 1024;
 
 /// Represents an internet protocol (IP) address
-#[derive(Debug, Eq, PartialEq, Clone, Copy)]
+#[derive(Debug, Default, Eq, PartialEq, Clone, Copy)]
 pub struct IpAddr(pub u32);
 
 impl IpAddr {

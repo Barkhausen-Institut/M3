@@ -29,13 +29,14 @@
 using namespace m3;
 
 static Server<EventHandler<>> *server;
+static Random rng;
 
 static void timer_irq(GateIStream &) {
     for(auto &h : server->handler()->sessions()) {
         // skip clients that have a session but no gate yet
         if(h.gate()) {
             MsgBuf msg;
-            msg.cast<uint64_t>() = static_cast<uint64_t>(Random::get());
+            msg.cast<uint64_t>() = static_cast<uint64_t>(rng.get());
             SendQueue::get().send(*h.gate(), msg);
         }
     }
@@ -43,8 +44,6 @@ static void timer_irq(GateIStream &) {
 
 int main() {
     WorkLoop wl;
-
-    Random::init(0xDEADBEEF);
 
     Timer timer("timer");
     timer.rgate().start(&wl, timer_irq);

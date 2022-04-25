@@ -39,10 +39,10 @@ pub mod com;
 pub mod net;
 
 pub use base::{
-    backtrace, boxed, cell, cfg, col, cpu, elf, env, errors, format, function, goff, impl_boxitem,
-    int_enum, kif, libc, llog, log, math, mem, parse, quota, rc, serialize, sync, tcu, test, time,
-    tmif, util, vec, wv_assert, wv_assert_eq, wv_assert_err, wv_assert_ok, wv_assert_some, wv_perf,
-    wv_run_suite, wv_run_test,
+    backtrace, borrow, boxed, cell, cfg, col, cpu, elf, env, errors, format, function, goff,
+    impl_boxitem, int_enum, kif, libc, llog, log, math, mem, parse, quota, random, rc, serialize,
+    sync, tcu, test, time, tmif, util, vec, wv_assert, wv_assert_eq, wv_assert_err, wv_assert_ok,
+    wv_assert_some, wv_perf, wv_run_suite, wv_run_test,
 };
 
 pub mod cap;

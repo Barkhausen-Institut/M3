@@ -24,9 +24,8 @@ use core::str::FromStr;
 
 use m3::cap::Selector;
 use m3::cell::{LazyStaticCell, StaticRefCell};
-use m3::col::{String, ToString, Vec};
+use m3::col::{BTreeMap, String, ToString, Vec};
 use m3::com::{GateIStream, RecvGate};
-use m3::env;
 use m3::errors::{Code, Error};
 use m3::math;
 use m3::rc::Rc;
@@ -34,13 +33,15 @@ use m3::server::{CapExchange, Handler, Server, SessId, SessionContainer, DEF_MAX
 use m3::session::NetworkOp;
 use m3::tiles::Activity;
 use m3::time::{TimeDuration, TimeInstant};
+use m3::{env, reply_vmsg};
 use m3::{log, println};
 
-use smoltcp::iface::{InterfaceBuilder, NeighborCache, SocketHandle};
-use smoltcp::wire::{EthernetAddress, IpAddress, IpCidr};
+use smoltcp::iface::{InterfaceBuilder, NeighborCache, Routes, SocketHandle};
+use smoltcp::wire::{EthernetAddress, IpAddress, Ipv4Cidr};
 
 use crate::driver::DriverInterface;
 use crate::sess::NetworkSession;
+use crate::smoltcpif::socket::to_m3_addr;
 
 mod driver;
 mod ports;
@@ -61,6 +62,7 @@ pub const LOG_DETAIL: bool = false;
 const MAX_SOCKETS: usize = 64;
 
 static OWN_IP: LazyStaticCell<IpAddress> = LazyStaticCell::default();
+static NAMESERVER: LazyStaticCell<IpAddress> = LazyStaticCell::default();
 static OWN_MAC: [u8; 6] = [0x00, 0x0A, 0x35, 0x03, 0x02, 0x03];
 static TIMEOUTS: StaticRefCell<Vec<(SocketHandle, TimeInstant)>> = StaticRefCell::new(Vec::new());
 
@@ -107,13 +109,28 @@ impl NetHandler<'_> {
                 NetworkOp::LISTEN => sess.listen(is, &mut self.iface),
                 NetworkOp::CONNECT => sess.connect(is, &mut self.iface),
                 NetworkOp::ABORT => sess.abort(is, &mut self.iface),
-                NetworkOp::GET_IP => sess.get_ip(is),
+                NetworkOp::GET_IP => self.get_ip(is),
+                NetworkOp::GET_NAMESRV => self.get_nameserver(is),
                 _ => Err(Error::new(Code::InvArgs)),
             }
         }
         else {
             Err(Error::new(Code::InvArgs))
         }
+    }
+
+    fn get_ip(&self, is: &mut GateIStream<'_>) -> Result<(), Error> {
+        let addr = to_m3_addr(OWN_IP.get());
+        reply_vmsg!(is, Code::None as i32, addr.0)
+    }
+
+    fn get_nameserver(&self, is: &mut GateIStream<'_>) -> Result<(), Error> {
+        if !NAMESERVER.is_some() {
+            return Err(Error::new(Code::NotSup));
+        }
+
+        let addr = to_m3_addr(NAMESERVER.get());
+        reply_vmsg!(is, Code::None as i32, addr.0)
     }
 
     // processes outgoing events to clients
@@ -219,6 +236,9 @@ pub struct NetSettings {
     driver: String,
     name: String,
     ip: smoltcp::wire::Ipv4Address,
+    netmask: smoltcp::wire::Ipv4Address,
+    nameserver: Option<smoltcp::wire::Ipv4Address>,
+    gateway: Option<smoltcp::wire::Ipv4Address>,
     max_clients: usize,
 }
 
@@ -227,7 +247,10 @@ impl Default for NetSettings {
         NetSettings {
             driver: String::from("default"),
             name: String::default(),
+            netmask: smoltcp::wire::Ipv4Address::new(255, 255, 255, 0),
             ip: smoltcp::wire::Ipv4Address::default(),
+            nameserver: None,
+            gateway: None,
             max_clients: DEF_MAX_CLIENTS,
         }
     }
@@ -235,12 +258,15 @@ impl Default for NetSettings {
 
 fn usage() -> ! {
     println!(
-        "Usage: {} [-d <driver>] [-m <max-clients>] <name> <ip>",
+        "Usage: {} [-d <driver>] [-m <max-clients>] [-a <netmask>] [-n <nameserver>] [-g <gateway>] <name> <ip>",
         env::args().next().unwrap()
     );
     println!();
     println!("  -d: the driver to use (lo=loopback or default=E1000/Fifo)");
     println!("  -m: the maximum number of clients (receive slots)");
+    println!("  -a: the network mask to use (default: 255.255.255.0)");
+    println!("  -n: the IP address of the DNS server");
+    println!("  -g: the IP address of the default gateway");
     m3::exit(1);
 }
 
@@ -261,19 +287,44 @@ fn parse_args() -> Result<NetSettings, String> {
                 settings.driver = args[i + 1].to_string();
                 i += 1;
             },
+            "-a" => {
+                settings.netmask = smoltcp::wire::Ipv4Address::from_str(
+                    args.get(i + 1).expect("Failed to read netmask!"),
+                )
+                .expect("Failed to parse netmask!");
+                i += 1;
+            },
+            "-n" => {
+                settings.nameserver = Some(
+                    smoltcp::wire::Ipv4Address::from_str(
+                        args.get(i + 1).expect("Failed to read nameserver!"),
+                    )
+                    .expect("Failed to parse nameserver IP!"),
+                );
+                i += 1;
+            },
+            "-g" => {
+                settings.gateway = Some(
+                    smoltcp::wire::Ipv4Address::from_str(
+                        args.get(i + 1).expect("Failed to read gateway!"),
+                    )
+                    .expect("Failed to parse gateway IP!"),
+                );
+                i += 1;
+            },
             _ => break,
         }
         i += 1;
     }
 
-    if i == args.len() {
+    if args.len() < i + 2 {
         usage();
     }
 
     settings.name = args.get(i).expect("Failed to read name!").to_string();
     settings.ip =
         smoltcp::wire::Ipv4Address::from_str(args.get(i + 1).expect("Failed to read ip!"))
-            .expect("Failed to convert IP address!");
+            .expect("Failed to parse IP address!");
     Ok(settings)
 }
 
@@ -297,8 +348,26 @@ pub fn main() -> i32 {
     let mut neighbor_cache_entries = [None; 8];
     let neighbor_cache = NeighborCache::new(&mut neighbor_cache_entries[..]);
 
-    let ip_addr = IpCidr::new(IpAddress::Ipv4(settings.ip), 8);
-    OWN_IP.set(ip_addr.address());
+    let ip_cidr = smoltcp::wire::IpCidr::Ipv4(
+        Ipv4Cidr::from_netmask(settings.ip, settings.netmask)
+            .expect("Invalid IP-address/netmask pair"),
+    );
+    let ip_addr = ip_cidr.address();
+    OWN_IP.set(ip_addr);
+
+    if let Some(ns) = settings.nameserver {
+        let ns_cidr =
+            Ipv4Cidr::from_netmask(ns, settings.netmask).expect("Invalid nameserver/netmask pair");
+        NAMESERVER.set(IpAddress::Ipv4(ns_cidr.address()));
+    }
+
+    let mut routes = Routes::new(BTreeMap::new());
+    if let Some(gw) = settings.gateway {
+        routes
+            .add_default_ipv4_route(gw)
+            .expect("Cannot add default route");
+    }
+
     ports::init(MAX_SOCKETS);
 
     let iface = if settings.driver == "lo" {
@@ -309,7 +378,8 @@ pub fn main() -> i32 {
             )
             .hardware_addr(EthernetAddress::from_bytes(&OWN_MAC).into())
             .neighbor_cache(neighbor_cache)
-            .ip_addrs([ip_addr])
+            .ip_addrs([ip_cidr])
+            .routes(routes)
             .finalize(),
         )
     }
@@ -324,7 +394,8 @@ pub fn main() -> i32 {
             InterfaceBuilder::new(device, Vec::with_capacity(MAX_SOCKETS))
                 .hardware_addr(EthernetAddress::from_bytes(&OWN_MAC).into())
                 .neighbor_cache(neighbor_cache)
-                .ip_addrs([ip_addr])
+                .ip_addrs([ip_cidr])
+                .routes(routes)
                 .finalize(),
         )
     };
@@ -341,10 +412,19 @@ pub fn main() -> i32 {
 
     log!(
         LOG_DEF,
-        "netrs: created service {} with ip={} and driver={}",
+        concat!(
+            "netrs: created service {} with {{\n",
+            "  driver={},\n",
+            "  ip={:?},\n",
+            "  nameserver={:?},\n",
+            "  gateway={:?},\n",
+            "}}"
+        ),
         settings.name,
+        settings.driver,
         settings.ip,
-        settings.driver
+        settings.nameserver,
+        settings.gateway,
     );
 
     let rgatec = handler.rgate.clone();
@@ -390,10 +470,9 @@ pub fn main() -> i32 {
             }
         };
 
+        let now = TimeInstant::now();
         let sleep_nanos = match next_timeout() {
-            Some(timeout) if timeout - TimeInstant::now() < sleep_nanos => {
-                timeout - TimeInstant::now()
-            },
+            Some(timeout) if timeout > now && timeout - now < sleep_nanos => timeout - now,
             _ => sleep_nanos,
         };
 

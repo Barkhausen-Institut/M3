@@ -20,6 +20,7 @@
 #include <string.h>
 
 #include "Args.h"
+#include "Builtin.h"
 #include "Vars.h"
 
 using namespace m3;
@@ -65,19 +66,21 @@ int Args::strmatch(const char *pattern, const char *str) {
 
 void Args::glob(ArgList *list, size_t i) {
     char filepat[MAX_ARG_LEN];
-    char *pat = const_cast<char*>(expr_value(list->args[i]));
-    char *slash = strrchr(pat, '/');
-    char old = '\0';
+    char dirpath[256];
+    const char *pat = expr_value(list->args[i]);
+    const char *slash = strrchr(pat, '/');
     if(slash) {
         strcpy(filepat, slash + 1);
-        old = slash[1];
-        slash[1] = '\0';
+        strncpy(dirpath, pat, static_cast<size_t>(slash + 1 - pat));
+        dirpath[slash + 1 - pat] = '\0';
     }
-    else
+    else {
         strcpy(filepat, pat);
-    size_t patlen = strlen(pat);
+        strcpy(dirpath, "");
+    }
+    size_t patlen = strlen(dirpath);
 
-    Dir dir(pat);
+    Dir dir(dirpath);
     Dir::Entry e;
     bool found = false;
     while(dir.readdir(e)) {
@@ -96,7 +99,7 @@ void Args::glob(ArgList *list, size_t i) {
                     ast_expr_destroy(list->args[i]);
 
                 char *new_arg = static_cast<char*>(malloc(patlen + strlen(e.name) + 1));
-                strcpy(new_arg, pat);
+                strcpy(new_arg, dirpath);
                 strcpy(new_arg + patlen, e.name);
                 list->args[i] = ast_expr_create(new_arg, false);
                 i++;
@@ -108,9 +111,6 @@ void Args::glob(ArgList *list, size_t i) {
     }
 
     if(!found) {
-        if(slash)
-            slash[1] = old;
-
         // remove wildcard argument
         ast_expr_destroy(list->args[i]);
         for(size_t x = i; x < list->count - 1; ++x)
@@ -124,7 +124,7 @@ void Args::prefix_path(ArgList *args) {
         return;
 
     const char *first = expr_value(args->args[0]);
-    if(first[0] != '/') {
+    if(first[0] != '/' && !Builtin::is_builtin(first)) {
         size_t len = strlen(first);
         char *newstr = static_cast<char*>(malloc(len + 5 + 1));
         strcpy(newstr, "/bin/");

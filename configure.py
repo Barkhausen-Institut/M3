@@ -106,7 +106,7 @@ class M3Env(ninjagen.Env):
             if varAddr:
                 global link_addr
                 env['LINKFLAGS'] += ['-Wl,--section-start=.text=' + ('0x%x' % link_addr)]
-                link_addr += 0x40000
+                link_addr += 0x30000
 
             # search for crt* in our library dir
             env['LINKFLAGS'] += ['-B' + os.path.abspath(env['LIBDIR'])]

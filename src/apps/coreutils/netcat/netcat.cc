@@ -16,6 +16,7 @@
 #include <base/stream/IStringStream.h>
 #include <base/CmdArgs.h>
 
+#include <m3/net/DNS.h>
 #include <m3/net/TcpSocket.h>
 #include <m3/net/UdpSocket.h>
 #include <m3/session/NetworkManager.h>
@@ -97,10 +98,12 @@ int main(int argc, char **argv) {
 
     const char *dest_str = argv[CmdArgs::ind + 0];
     const char *port_str = argv[CmdArgs::ind + 1];
-    IpAddr dest = IStringStream::read_from<IpAddr>(dest_str);
-    int port    = IStringStream::read_from<port_t>(port_str);
 
     NetworkManager net("net");
+
+    DNS dns;
+    IpAddr dest = dns.get_addr(net, dest_str);
+    int port    = IStringStream::read_from<port_t>(port_str);
 
     auto socket = connect(net, dest, port, tcp);
 
@@ -116,7 +119,7 @@ int main(int argc, char **argv) {
     Buffer input(INBUF_SIZE);
     Buffer output(OUTBUF_SIZE);
     bool eof = false;
-    while((!tcp || socket->state() == Socket::Connected) || socket->has_data()) {
+    while(true) {
         // if we don't have input, try to get some
         if(!eof && input.pos == 0) {
             // reset state in case we got a would-block error earlier
@@ -127,6 +130,9 @@ int main(int argc, char **argv) {
             eof = cin.eof();
             if(eof)
                 waiter.remove(cin.file()->fd());
+            // getline doesn't include the newline character
+            else if(cin.good())
+                input.buf[read++] = '\n';
             if(verbose) {
                 if(eof)
                     cerr << "-- read EOF from stdin\n";
@@ -135,9 +141,6 @@ int main(int argc, char **argv) {
             }
 
             input.push(static_cast<ssize_t>(read));
-            // getline doesn't include the newline character
-            if(input.total > 0)
-                input.buf[input.total++] = '\n';
         }
 
         // if we have input, try to send it
@@ -170,7 +173,11 @@ int main(int argc, char **argv) {
                 waiter.remove(cout.file()->fd());
         }
 
-        waiter.wait();
+        // continue if the socket is connected, there is data left to receive or data left to write
+        if((!tcp || socket->state() == Socket::Connected) || socket->has_data() || output.left() > 0)
+            waiter.wait();
+        else
+            break;
     }
     return 0;
 }

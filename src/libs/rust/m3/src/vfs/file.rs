@@ -22,6 +22,7 @@ use core::any::Any;
 use core::fmt::Debug;
 
 use crate::cap::Selector;
+use crate::col::String;
 use crate::errors::{Code, Error};
 use crate::goff;
 use crate::int_enum;
@@ -29,7 +30,7 @@ use crate::io::{Read, Write};
 use crate::kif;
 use crate::session::{HashInput, HashOutput, MapFlags, Pager};
 use crate::tiles::{ChildActivity, StateSerializer};
-use crate::vfs::{BlockId, DevId, Fd, FileMode, INodeId};
+use crate::vfs::{BlockId, DevId, Fd, INodeId};
 
 int_enum! {
     /// The different seek modes.
@@ -78,8 +79,67 @@ impl From<OpenFlags> for kif::Perm {
     }
 }
 
+bitflags! {
+    #[derive(Default)]
+    pub struct FileMode : u16 {
+        const IFMT      = 0o0160000;
+        const IFLNK     = 0o0120000;
+        const IFPIP     = 0o0110000;
+        const IFREG     = 0o0100000;
+        const IFBLK     = 0o0060000;
+        const IFDIR     = 0o0040000;
+        const IFCHR     = 0o0020000;
+        const ISUID     = 0o0004000;
+        const ISGID     = 0o0002000;
+        const ISSTICKY  = 0o0001000;
+        const IRWXU     = 0o0000700;
+        const IRUSR     = 0o0000400;
+        const IWUSR     = 0o0000200;
+        const IXUSR     = 0o0000100;
+        const IRWXG     = 0o0000070;
+        const IRGRP     = 0o0000040;
+        const IWGRP     = 0o0000020;
+        const IXGRP     = 0o0000010;
+        const IRWXO     = 0o0000007;
+        const IROTH     = 0o0000004;
+        const IWOTH     = 0o0000002;
+        const IXOTH     = 0o0000001;
+
+        const FILE_DEF  = Self::IFREG.bits | 0o0644;
+        const DIR_DEF   = Self::IFDIR.bits;
+        const PERM      = 0o777;
+    }
+}
+
+#[allow(dead_code)]
+impl FileMode {
+    pub fn is_dir(self) -> bool {
+        (self & Self::IFMT) == Self::IFDIR
+    }
+
+    pub fn is_reg(self) -> bool {
+        (self & Self::IFMT) == Self::IFREG
+    }
+
+    pub fn is_link(self) -> bool {
+        (self & Self::IFMT) == Self::IFLNK
+    }
+
+    pub fn is_chr(self) -> bool {
+        (self & Self::IFMT) == Self::IFCHR
+    }
+
+    pub fn is_blk(self) -> bool {
+        (self & Self::IFMT) == Self::IFBLK
+    }
+
+    pub fn is_pip(self) -> bool {
+        (self & Self::IFMT) == Self::IFPIP
+    }
+}
+
 /// The file information that can be retrieved via [`VFS::stat`](crate::vfs::VFS::stat).
-#[derive(Clone, Debug)]
+#[derive(Clone, Default, Debug)]
 pub struct FileInfo {
     pub devno: DevId,
     pub inode: INodeId,
@@ -118,7 +178,7 @@ impl FileInfo {
             error: 0,
             devno: self.devno as u64,
             inode: self.inode as u64,
-            mode: self.mode as u64,
+            mode: self.mode.bits() as u64,
             links: self.links as u64,
             size: self.size as u64,
             lastaccess: self.lastaccess as u64,
@@ -137,7 +197,7 @@ impl FileInfo {
         Ok(Self {
             devno: resp.devno as DevId,
             inode: resp.inode as INodeId,
-            mode: resp.mode as FileMode,
+            mode: FileMode::from_bits_truncate(resp.mode as u16),
             links: resp.links as u32,
             size: resp.size as usize,
             lastaccess: resp.lastaccess as u32,
@@ -183,6 +243,16 @@ pub trait File: Read + Write + Seek + Map + Debug + HashInput + HashOutput {
 
     /// Retrieves the file information.
     fn stat(&self) -> Result<FileInfo, Error> {
+        Err(Error::new(Code::NotSup))
+    }
+
+    /// Retrieves the absolute path for this file, including its mount point.
+    fn path(&self) -> Result<String, Error> {
+        Err(Error::new(Code::NotSup))
+    }
+
+    /// Truncates the file to the given length
+    fn truncate(&mut self, _length: usize) -> Result<(), Error> {
         Err(Error::new(Code::NotSup))
     }
 

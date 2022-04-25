@@ -49,7 +49,7 @@ std::unique_ptr<GenericFile> M3FS::open(const char *path, int perms) {
         args.bytes = os.total();
         KIF::CapRngDesc crd = obtain(2, &args);
 
-        return std::unique_ptr<GenericFile>(new GenericFile(perms, crd.start()));
+        return std::unique_ptr<GenericFile>(new GenericFile(perms, crd.start(), id()));
     }
 }
 

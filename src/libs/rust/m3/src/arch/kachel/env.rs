@@ -69,6 +69,10 @@ impl EnvData {
         self.base.argv = argv as u64;
     }
 
+    pub fn set_envp(&mut self, envp: usize) {
+        self.base.envp = envp as u64;
+    }
+
     pub fn set_sp(&mut self, sp: usize) {
         self.base.sp = sp as u64;
     }

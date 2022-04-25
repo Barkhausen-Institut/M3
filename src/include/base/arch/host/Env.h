@@ -142,6 +142,7 @@ public:
     bool shared;
     uint32_t tile_desc;
     epid_t first_std_ep;
+    char **envp;
 
 private:
     EnvBackend *_backend;

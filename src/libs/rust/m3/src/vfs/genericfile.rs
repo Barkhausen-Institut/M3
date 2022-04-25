@@ -22,6 +22,7 @@ use core::fmt;
 
 use crate::boxed::Box;
 use crate::cap::Selector;
+use crate::col::{String, ToString};
 use crate::com::GateIStream;
 use crate::com::{recv_reply, MemGate, RecvGate, SendGate, EP};
 use crate::errors::{Code, Error};
@@ -47,13 +48,15 @@ int_enum! {
         const NEXT_IN       = 2;
         const NEXT_OUT      = 3;
         const COMMIT        = 4;
-        const SYNC          = 5;
-        const CLOSE         = 6;
-        const CLONE         = 7;
-        const SET_TMODE     = 8;
-        const SET_DEST      = 9;
-        const ENABLE_NOTIFY = 10;
-        const REQ_NOTIFY    = 11;
+        const TRUNCATE      = 5;
+        const SYNC          = 6;
+        const CLOSE         = 7;
+        const CLONE         = 8;
+        const GET_PATH      = 9;
+        const SET_TMODE     = 10;
+        const SET_DEST      = 11;
+        const ENABLE_NOTIFY = 12;
+        const REQ_NOTIFY    = 13;
     }
 }
 
@@ -71,7 +74,8 @@ struct NonBlocking {
 /// `GenericFile` implements the file protocol and can therefore be used for m3fs files, pipes,
 /// virtual terminals, and whatever else provides file-like objects in the future.
 pub struct GenericFile {
-    id: Option<(usize, usize)>,
+    id: Option<usize>,
+    fs_id: Option<usize>,
     fd: Fd,
     flags: OpenFlags,
     sess: ClientSession,
@@ -88,9 +92,10 @@ pub struct GenericFile {
 }
 
 impl GenericFile {
-    pub(crate) fn new(flags: OpenFlags, sel: Selector) -> Self {
+    pub(crate) fn new(flags: OpenFlags, sel: Selector, fs_id: Option<usize>) -> Self {
         GenericFile {
             id: None,
+            fs_id,
             fd: filetable::INV_FD,
             flags,
             sess: ClientSession::new_bind(sel),
@@ -110,7 +115,8 @@ impl GenericFile {
     pub(crate) fn new_without_sess(
         flags: OpenFlags,
         sel: Selector,
-        id: (usize, usize),
+        id: usize,
+        fs_id: usize,
         mep: EpId,
         sgate: Rc<SendGate>,
     ) -> Self {
@@ -118,6 +124,7 @@ impl GenericFile {
         mgate.set_ep(Some(EP::new_bind(mep, INVALID_SEL)));
         GenericFile {
             id: Some(id),
+            fs_id: Some(fs_id),
             fd: filetable::INV_FD,
             flags,
             sess: ClientSession::new_bind(sel),
@@ -135,14 +142,18 @@ impl GenericFile {
     }
 
     fn file_id(&self) -> usize {
-        self.id.unwrap_or((0, 0)).1
+        self.id.unwrap_or(0)
     }
 
     pub(crate) fn unserialize(s: &mut Source<'_>) -> Box<dyn File> {
         let flags: u32 = s.pop().unwrap();
         let sel: Selector = s.pop().unwrap();
-        let _id: usize = s.pop().unwrap();
-        Box::new(GenericFile::new(OpenFlags::from_bits_truncate(flags), sel))
+        let fs_id: usize = s.pop().unwrap();
+        Box::new(GenericFile::new(
+            OpenFlags::from_bits_truncate(flags),
+            sel,
+            if fs_id == !0 { None } else { Some(fs_id) },
+        ))
     }
 
     fn submit(&mut self, force: bool) -> Result<(), Error> {
@@ -351,8 +362,8 @@ impl File for GenericFile {
         self.submit(false).ok();
 
         if !self.flags.contains(OpenFlags::NEW_SESS) {
-            let (fs_id, file_id) = self.id.unwrap();
-            if let Some(fs) = Activity::own().mounts().get_by_id(fs_id) {
+            let file_id = self.id.unwrap();
+            if let Some(fs) = Activity::own().mounts().get_by_id(self.fs_id.unwrap()) {
                 fs.borrow_mut().close(file_id);
             }
         }
@@ -387,6 +398,40 @@ impl File for GenericFile {
         FileInfo::from_response(resp)
     }
 
+    fn path(&self) -> Result<String, Error> {
+        let mut reply = send_recv_res!(
+            &self.sgate,
+            RecvGate::def(),
+            GenFileOp::GET_PATH,
+            self.file_id()
+        )?;
+        let path = reply.pop()?;
+
+        let mounts = Activity::own().mounts();
+        let mount_path = mounts
+            .path_of_id(self.fs_id.unwrap())
+            .ok_or(Error::new(Code::NotFound))?;
+        Ok(mount_path.to_string() + "/" + path)
+    }
+
+    fn truncate(&mut self, length: usize) -> Result<(), Error> {
+        self.submit(false)?;
+
+        let mut reply = send_recv_res!(
+            &self.sgate,
+            RecvGate::def(),
+            GenFileOp::TRUNCATE,
+            self.file_id(),
+            length
+        )?;
+        // reset position in case we were behind the truncated position
+        self.goff = reply.pop()?;
+        // we've lost access to the previous extent
+        self.pos = 0;
+        self.len = 0;
+        Ok(())
+    }
+
     fn file_type(&self) -> u8 {
         b'F'
     }
@@ -405,7 +450,7 @@ impl File for GenericFile {
     fn serialize(&self, s: &mut StateSerializer<'_>) {
         s.push_word(self.flags.bits() as u64);
         s.push_word(self.sess.sel());
-        s.push_word(self.file_id() as u64);
+        s.push_word(self.fs_id.unwrap_or(!0) as u64);
     }
 
     fn is_blocking(&self) -> bool {

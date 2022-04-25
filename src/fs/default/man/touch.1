@@ -1,0 +1,78 @@
+TOUCH(1)                           BSD General Commands Manual                           TOUCH(1)
+
+NAME
+     touch -- change file access and modification times
+
+SYNOPSIS
+     touch [-acm] [-d ccyy-mm-ddTHH:MM:SS[.frac][Z]] [-r file] [-t [[cc]yy]mmddHHMM[.SS]]
+           file ...
+
+DESCRIPTION
+     The touch utility sets the modification and access times of files to the current time of
+     day.  If the file doesn't exist, it is created with default permissions.
+
+     The options are as follows:
+
+     -a      Change the access time of the file.  The modification time of the file is not
+             changed unless the -m flag is also specified.
+
+     -c      Do not create the file if it does not exist.  The touch utility does not treat this
+             as an error.  No error messages are displayed and the exit value is not affected.
+
+     -d ccyy-mm-ddTHH:MM:SS[.frac][Z]
+             Change the access and modification times to the specified time, in a format compli-
+             ant with the ISO 8601 standard.  The parts of the argument represent the following:
+
+                   ccyy   Year.
+                   mm     Month: a number from 1 to 12.
+                   dd     Day: a number from 1 to 31.
+                   T      Either the capital letter `T' or a single space.  If a space is used,
+                          the argument should be quoted to prevent the shell from splitting it
+                          into multiple words.
+                   HH     Hour: a number from 0 to 23.
+                   MM     Minute: a number from 0 to 59.
+                   SS     Second: a number from 0 to 60 (permitting a leap second).
+                   frac   The decimal fraction of the second, either a period or comma, followed
+                          by one or more decimal digits.
+                   Z      The timezone specifier: a capital letter `Z' indicating that the time
+                          is in UTC.  If not specified, the time is in the local timezone.
+
+     -m      Change the modification time of the file.  The access time of the file is not
+             changed unless the -a flag is also specified.
+
+     -r file
+             Use the access and modification times from the specified file instead of the current
+             time of day.
+
+     -t [[cc]yy]mmddHHMM[.SS]
+             Change the access and modification times to the specified time, where the parts of
+             the argument represent the following:
+
+                   ccyy    Year.  If yy is specified, but cc is not, a value for yy between 69
+                           and 99 results in a cc value of 19.  Otherwise, a cc value of 20 is
+                           used.
+                   mm      Month: a number from 1 to 12.
+                   dd      Day: a number from 1 to 31.
+                   HH      Hour: a number from 0 to 23.
+                   MM      Minute: a number from 0 to 59.
+                   SS      Second: a number from 0 to 60 (permitting a leap second), preceded by
+                           a period.  The default is 0.
+
+EXIT STATUS
+     The touch utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     date(1)
+
+STANDARDS
+     The touch utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The obsolescent form of touch, where a time format is specified as the first argument, is
+     supported.  When no -d, -r, or -t option is specified, there are at least two arguments, and
+     the first argument is a string of digits either eight or ten characters in length, the first
+     argument is interpreted as a time specification of the form "mmddHHMM[yy]".
+
+HISTORY
+     A touch utility appeared in Version 7 AT&T UNIX.
+
+BSD                                     September 25, 2015                                    BSD

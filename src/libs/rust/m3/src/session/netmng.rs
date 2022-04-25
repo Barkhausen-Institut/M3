@@ -33,15 +33,17 @@ int_enum! {
         #[allow(non_camel_case_types)]
         const NEXT_OUT      = GenFileOp::NEXT_OUT.val;
         const COMMIT        = GenFileOp::COMMIT.val;
+        const TRUNCATE      = GenFileOp::TRUNCATE.val;
         // TODO what about GenericFile::CLOSE?
-        const BIND          = 12;
-        const LISTEN        = 13;
-        const CONNECT       = 14;
-        const ABORT         = 15;
-        const CREATE        = 16;
-        const GET_IP        = 17;
-        const GET_SGATE     = 18;
-        const OPEN_FILE     = 19;
+        const BIND          = 14;
+        const LISTEN        = 15;
+        const CONNECT       = 16;
+        const ABORT         = 17;
+        const CREATE        = 18;
+        const GET_IP        = 19;
+        const GET_NAMESRV   = 20;
+        const GET_SGATE     = 21;
+        const OPEN_FILE     = 22;
     }
 }
 
@@ -108,6 +110,12 @@ impl NetworkManager {
 
         let chan = NetEventChannel::new_client(crd.start())?;
         Ok(Socket::new(sd, ty, chan))
+    }
+
+    pub(crate) fn nameserver(&self) -> Result<IpAddr, Error> {
+        let mut reply = send_recv_res!(&self.metagate, RecvGate::def(), NetworkOp::GET_NAMESRV)?;
+        let addr = IpAddr(reply.pop::<u32>()?);
+        Ok(addr)
     }
 
     pub(crate) fn bind(&self, sd: Sd, port: Port) -> Result<(IpAddr, Port), Error> {

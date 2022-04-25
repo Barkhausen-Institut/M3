@@ -16,8 +16,7 @@
 
 use crate::buf::MetaBufferBlockRef;
 use crate::data::{
-    BlockNo, Dev, Extent, ExtentCache, ExtentRef, FileMode, InodeNo, Time, INODE_DIR_COUNT,
-    NUM_INODE_BYTES,
+    BlockNo, Dev, Extent, ExtentCache, ExtentRef, InodeNo, Time, INODE_DIR_COUNT, NUM_INODE_BYTES,
 };
 use crate::ops::inodes;
 
@@ -27,7 +26,7 @@ use core::u32;
 
 use m3::cell::Cell;
 use m3::mem::size_of;
-use m3::vfs::FileInfo;
+use m3::vfs::{FileInfo, FileMode};
 
 /// Represents an INode as stored on disk.
 #[repr(C)]
@@ -95,7 +94,7 @@ impl INode {
         FileInfo {
             devno: self.devno,
             inode: self.inode,
-            mode: self.mode.bits() as u16,
+            mode: self.mode,
             links: self.links as u32,
             size: self.size as usize,
             lastaccess: self.lastaccess,

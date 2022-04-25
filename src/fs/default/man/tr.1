@@ -1,0 +1,150 @@
+TR(1)                              BSD General Commands Manual                              TR(1)
+
+NAME
+     tr -- translate characters
+
+SYNOPSIS
+     tr [-Ccs] string1 string2
+     tr [-Cc] -d string1
+     tr [-Cc] -s string1
+     tr [-Cc] -ds string1 string2
+
+DESCRIPTION
+     The tr utility copies the standard input to the standard output with substitution or dele-
+     tion of selected characters.
+
+     The options are as follows:
+
+     -C      Complements the set of characters in string1; for instance, "-C ab" includes every
+             character except for `a' and `b'.
+
+     -c      The same as -C.
+
+     -d      The -d option causes characters to be deleted from the input.
+
+     -s      The -s option squeezes multiple occurrences of the characters listed in the last op-
+             erand (either string1 or string2) in the input into a single instance of the charac-
+             ter.  This occurs after all deletion and translation is completed.
+
+     In the first synopsis form, the characters in string1 are translated into the characters in
+     string2 where the first character in string1 is translated into the first character in
+     string2 and so on.  If string1 is longer than string2, the last character found in string2
+     is duplicated until string1 is exhausted.
+
+     In the second synopsis form, the characters in string1 are deleted from the input.
+
+     In the third synopsis form, the characters in string1 are compressed as described for the -s
+     option.
+
+     In the fourth synopsis form, the characters in string1 are deleted from the input, and the
+     characters in string2 are compressed as described for the -s option.
+
+     The following conventions can be used in string1 and string2 to specify sets of characters:
+
+     character  Any character not described by one of the following conventions represents it-
+                self.
+
+     \octal     A backslash followed by 1, 2, or 3 octal digits represents a character with that
+                encoded value.  To follow an octal sequence with a digit as a character, left
+                zero-pad the octal sequence to the full 3 octal digits.
+
+     \character
+                A backslash followed by certain special characters maps to special values.
+
+                      \a  <alert character>
+                      \b  <backspace>
+                      \f  <form-feed>
+                      \n  <newline>
+                      \r  <carriage return>
+                      \t  <tab>
+                      \v  <vertical tab>
+
+                A backslash followed by any other character maps to that character.
+
+     c-c        Represents the range of characters between the range endpoints, inclusively.
+
+     [:class:]  Represents all characters belonging to the defined character class.  Class names
+                are:
+
+                      alnum   <alphanumeric characters>
+                      alpha   <alphabetic characters>
+                      blank   <blank characters>
+                      cntrl   <control characters>
+                      digit   <numeric characters>
+                      graph   <graphic characters>
+                      lower   <lower-case alphabetic characters>
+                      print   <printable characters>
+                      punct   <punctuation characters>
+                      space   <space characters>
+                      upper   <upper-case characters>
+                      xdigit  <hexadecimal characters>
+
+                With the exception of the "upper" and "lower" classes, characters in the classes
+                are in unspecified order.  In the "upper" and "lower" classes, characters are en-
+                tered in ascending order.
+
+                For specific information as to which ASCII characters are included in these
+                classes, see isalnum(3), isalpha(3), and related manual pages.
+
+     [=equiv=]  Represents all characters or collating (sorting) elements belonging to the same
+                equivalence class as equiv.  If there is a secondary ordering within the equiva-
+                lence class, the characters are ordered in ascending sequence.  Otherwise, they
+                are ordered after their encoded values.  An example of an equivalence class might
+                be "c" and "ch" in Spanish; English has no equivalence classes.
+
+     [#*n]      Represents n repeated occurrences of the character represented by #.  This ex-
+                pression is only valid when it occurs in string2.  If n is omitted or is zero, it
+                is interpreted as large enough to extend the string2 sequence to the length of
+                string1.  If n has a leading zero, it is interpreted as an octal value; other-
+                wise, it's interpreted as a decimal value.
+
+EXIT STATUS
+     The tr utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     The following examples are shown as given to the shell:
+
+     Create a list of the words in file1, one per line, where a word is taken to be a maximal
+     string of letters.
+
+           $ tr -cs "[:alpha:]" "\n" < file1
+
+     Translate the contents of file1 to upper-case.
+
+           $ tr "[:lower:]" "[:upper:]" < file1
+
+     Strip out non-printable characters from file1.
+
+           $ tr -cd "[:print:]" < file1
+
+SEE ALSO
+     sed(1)
+
+STANDARDS
+     The tr utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification, except
+     that the -C option behaves the same as the -c option since tr is not locale-aware.
+
+     System V has historically implemented character ranges using the syntax "[c-c]" instead of
+     the "c-c" used by historic BSD implementations and standardized by POSIX.  System V shell
+     scripts should work under this implementation as long as the range is intended to map in an-
+     other range, i.e., the command "tr [a-z] [A-Z]" will work as it will map the `[' character
+     in string1 to the `[' character in string2.  However, if the shell script is deleting or
+     squeezing characters as in the command "tr -d [a-z]", the characters `[' and `]' will be in-
+     cluded in the deletion or compression list, which would not have happened under an historic
+     System V implementation.  Additionally, any scripts that depended on the sequence "a-z" to
+     represent the three characters `a', `-', and `z' will have to be rewritten as "a\-z".
+
+     The tr utility has historically not permitted the manipulation of NUL bytes in its input
+     and, additionally, has stripped NUL's from its input stream.  This implementation has re-
+     moved this behavior as a bug.
+
+     The tr utility has historically been extremely forgiving of syntax errors: for example, the
+     -c and -s options were ignored unless two strings were specified.  This implementation will
+     not permit illegal syntax.
+
+     It should be noted that the feature wherein the last character of string2 is duplicated if
+     string2 has less characters than string1 is permitted by POSIX but is not required.  Shell
+     scripts attempting to be portable to other POSIX systems should use the "[#*]" convention
+     instead of relying on this behavior.
+
+BSD                                     February 28, 2015                                     BSD

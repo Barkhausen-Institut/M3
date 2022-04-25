@@ -1,0 +1,34 @@
+FACTOR(6)                                BSD Games Manual                               FACTOR(6)
+
+NAME
+     factor, primes -- factor a number, generate primes
+
+SYNOPSIS
+     factor [number ...]
+     primes [start [stop]]
+
+DESCRIPTION
+     The factor utility will factor 64-bit positive integers.  When a number is factored, it is
+     printed, followed by a `:', and the list of its prime factors in ascending order, on a sin-
+     gle line.  Every prime factor is printed as often as it divides the number.
+
+     When factor is invoked with one or more arguments, each argument will be factored.
+
+     When factor is invoked with no arguments, factor reads numbers, one per line, from standard
+     input, until end of file or error.  White-space and empty lines are ignored.  Numbers may be
+     preceded by a single +.  After a number is read, it is factored.  Input lines must not be
+     longer than 99 characters.
+
+     The primes utility prints primes in ascending order, one per line, starting at or above
+     start and continuing until, but not including stop.  The start value must be at least 0 and
+     not greater than stop.  The stop value must not be greater than 4294967295.  The default
+     value of stop is 4294967295.
+
+     When the primes utility is invoked with no arguments, start is read from standard input.
+     stop is taken to be 4294967295.  The start value may be preceded by a single +.  The input
+     line must not be longer than 99 characters.
+
+BUGS
+     factor cannot handle the "10 most wanted" factor list; primes won't get you a world record.
+
+BSD                                     December 30, 2015                                     BSD

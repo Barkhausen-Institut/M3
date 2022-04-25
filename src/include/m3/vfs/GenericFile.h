@@ -42,9 +42,11 @@ public:
         NEXT_IN,
         NEXT_OUT,
         COMMIT,
+        TRUNCATE,
         SYNC,
         CLOSE,
         CLONE,
+        GET_PATH,
         SET_TMODE,
         SET_DEST,
         ENABLE_NOTIFY,
@@ -52,7 +54,7 @@ public:
     };
 
     explicit GenericFile(int flags, capsel_t caps,
-                         size_t fs_id = 0, size_t id = 0, epid_t mep = TCU::INVALID_EP,
+                         size_t fs_id, size_t id = 0, epid_t mep = TCU::INVALID_EP,
                          SendGate *sg = nullptr);
     virtual ~GenericFile();
 
@@ -69,6 +71,10 @@ public:
 
     virtual ssize_t read(void *buffer, size_t count) override;
     virtual ssize_t write(const void *buffer, size_t count) override;
+
+    virtual void truncate(size_t length) override;
+
+    virtual String path() override;
 
     virtual void flush() override {
         if(_writing)
@@ -103,15 +109,15 @@ public:
     }
 
     virtual void serialize(Marshaller &m) override {
-        m << flags() << _sess.sel() << _id;
+        m << flags() << _sess.sel() << _fs_id;
     }
 
     static File *unserialize(Unmarshaller &um) {
         int fl;
         capsel_t caps;
-        size_t id;
-        um >> fl >> caps >> id;
-        return new GenericFile(fl, caps, id);
+        size_t fs_id;
+        um >> fl >> caps >> fs_id;
+        return new GenericFile(fl, caps, fs_id);
     }
 
 private:

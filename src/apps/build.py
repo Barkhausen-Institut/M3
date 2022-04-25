@@ -2,6 +2,7 @@ dirs = [
     'allocator',
     'asciiplay',
     'bench',
+    'bsdutils',
     'coreutils',
     'cppnettests',
     'disktest',

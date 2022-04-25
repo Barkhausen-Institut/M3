@@ -1,0 +1,458 @@
+FIND(1)                            BSD General Commands Manual                            FIND(1)
+
+NAME
+     find -- walk a file hierarchy
+
+SYNOPSIS
+     find [-H | -L | -P] [-dEhsXx] file [file ...] [expression]
+     find [-H | -L | -P] [-dEhsXx] -f file [file ...] [expression]
+
+DESCRIPTION
+     find recursively descends the directory tree for each file listed, evaluating an expression
+     (composed of the "primaries" and "operands" listed below) in terms of each file in the tree.
+
+     The options are as follows:
+
+     -H      Causes the file information and file type (see stat(2)) returned for each symbolic
+             link encountered on the command line to be those of the file referenced by the link,
+             not the link itself.  If the referenced file does not exist, the file information
+             and type will be for the link itself.  File information of all symbolic links not on
+             the command line is that of the link itself.
+
+     -L      Causes the file information and file type (see stat(2)) returned for each symbolic
+             link to be those of the file referenced by the link, not the link itself.  If the
+             referenced file does not exist, the file information and type will be for the link
+             itself.
+
+     -P      Causes the file information and file type (see stat(2)) returned for each symbolic
+             link to be those of the link itself.
+
+     -d      Causes find to perform a depth-first traversal, i.e., directories are visited in
+             post-order, and all entries in a directory will be acted on before the directory it-
+             self.  By default, find visits directories in pre-order, i.e., before their con-
+             tents.  Note, the default is not a breadth-first traversal.
+
+     -E      Causes regexp arguments to primaries to be interpreted as extended regular expres-
+             sions (see re_format(7)).
+
+     -f      Specifies a file hierarchy for find to traverse.  File hierarchies may also be spec-
+             ified as the operands immediately following the options.
+
+     -h      Causes the file information and file type (see stat(2)) returned for each symbolic
+             link to be those of the file referenced by the link, not the link itself.  If the
+             referenced file does not exist, the file information and type will be for the link
+             itself.
+
+     -s      Causes the entries of each directory to be sorted in lexicographical order.  Note
+             that the sorting is done only inside of each directory; files in different directo-
+             ries are not sorted.  Therefore, `a/b' appears before `a.b', which is different from
+             "find ... | sort" order.
+
+     -X      Modifies the output to permit find to be safely used in conjunction with xargs(1).
+             If a file name contains any of the delimiting characters used by xargs(1), a diag-
+             nostic message is displayed on standard error, and the file is skipped.  The delim-
+             iting characters include single ("'") and double (""") quotes, backslash ("\"),
+             space, tab, and newline characters.  Alternatively, the -print0 or -printx primaries
+             can be used to format the output in a way that xargs(1) can accept.
+
+     -x      Restricts the search to the file system containing the directory specified.  Does
+             not list mount points to other file systems.
+
+PRIMARIES
+     All primaries which take a numeric argument of n allow the number to be preceded by a plus
+     sign ("+") or a minus sign ("-").  A preceding plus sign means "more than n", a preceding
+     minus sign means "less than n", and neither means "exactly n".  (The argument specified for
+     the -user and -group primaries are similarly treated if the value is numeric and does not
+     correspond to a valid user or group name.)
+
+     For primaries which take a timestamp argument, the argument must be valid input to
+     parsedate(3).  If the argument contains multiple words, enclose the argument in quotes.
+
+     -amin n
+             True if the difference between the file last access time and the time find was
+             started, rounded up to the next full minute, is n minutes.
+
+     -anewer file
+             True if the current file has a more recent last access time than file.
+
+     -asince timestamp
+             True if the file last access time is greater than the specified timestamp.
+
+     -atime n
+             True if the difference between the file last access time and the time find was
+             started, rounded up to the next full 24-hour period, is n 24-hour periods.
+
+     -cmin n
+             True if the difference between the time of last change of file status information
+             and the time find was started, rounded up to the next full minute, is n minutes.
+
+     -cnewer file
+             True if the current file has a more recent last change time than file.
+
+     -csince timestamp
+             True if the file last status change time is greater than the specified timestamp.
+
+     -ctime n
+             True if the difference between the time of last change of file status information
+             and the time find was started, rounded up to the next full 24-hour period, is n
+             24-hour periods.
+
+     -delete
+             Delete found files, symbolic links, and directories.  Always returns true.  This ex-
+             ecutes from the current working directory as find recurses down the tree.  To avoid
+             deleting unexpected files, it will ignore any filenames that fts(3) returns that
+             contain a "/" (fts(3) should not return such pathnames).  Depth-first traversal pro-
+             cessing is implied by this option.  This primary can also be invoked as -rm.
+
+     -empty  True if the current file or directory is empty.
+
+     -exec utility [argument ...] ;
+     -exec utility [argument ...] {} +
+             Execute the specified utility with the specified arguments.
+
+             The list of arguments for utility is terminated by a lone semicolon ";" or plus "+"
+             character as a separate parameter.  The command specified by utility will be exe-
+             cuted with its current working directory being the directory from which find was ex-
+             ecuted.
+
+             If the list of arguments is terminated by a semicolon (";"), then utility is invoked
+             once per pathname.  If the string "{}" appears one or more times in the utility name
+             or arguments, then it is replaced by the pathname of the current file (but it need
+             not appear, in which case the pathname will not be passed to utility).  The semi-
+             colon-terminated form of the -exec primary returns true if and only if utility exits
+             with a zero exit status.  Note that the semicolon will have to be escaped on the
+             shell command line in order to be passed as a parameter.
+
+             If the list of arguments is terminated by a plus sign ("+"), then the pathnames for
+             which the primary is evaluated are aggregated into sets, and utility will be invoked
+             once per set, similar to xargs(1).  In this case the string "{}" must appear, and
+             must appear as the last item in the argument list, just before the "+" parameter,
+             and is replaced by the pathnames of the current set of files.  Each set is limited
+             to no more than 5,000 pathnames, and is also limited such that the total number of
+             bytes in the argument list does not exceed ARG_MAX.  The plus-terminated form of the
+             -exec primary always returns true.  If the plus-terminated form of the -exec primary
+             results in any invocation of utility exiting with non-zero exit status, then find
+             will eventually exit with non-zero status as well, but this does not cause find to
+             exit early.
+
+     -execdir utility [argument ...] ;
+             The -execdir primary is similar to the semicolon-terminated (";") variant of the
+             -exec primary, with the exception that utility will be executed from the directory
+             that holds the current file.  Only the base filename is substituted for the string
+             "{}".  Set aggregation ("+" termination) is not supported.
+
+     -exit [status]
+             This primary causes find to stop traversing the file system and exit immediately,
+             with the specified numeric exit status.  If the status value is not specified, then
+             find will exit with status zero.  Note that any preceding primaries will be evalu-
+             ated and acted upon before exiting.
+
+     -false  This primary always evaluates to false.  This can be used following a primary that
+             caused the expression to be true to make the expression to be false.  This can be
+             useful after using a -fprint primary so it can continue to the next expression (us-
+             ing an -or operator, for example).
+
+     -flags [-]flags
+             If flags are preceded by a dash ("-"), this primary evaluates to true if at least
+             all of the bits in flags are set in the file's flags bits.  If flags are not pre-
+             ceded by a dash, this primary evaluates to true if the bits in flags exactly match
+             the file's flags bits.  If flags is "none", files with no flags bits set are
+             matched.  (See chflags(1) for more information about file flags.)
+
+     -follow
+             Follow symbolic links.
+
+     -fprint filename
+             This primary always evaluates to true.  This creates filename or overwrites the file
+             if it already exists.  The file is created at startup.  It writes the pathname of
+             the current file to this file, followed by a newline character.  The file will be
+             empty if no files are matched.
+
+     -fstype type
+             True if the file is contained in a file system of type type.  The sysctl(8) command
+             can be used to find out the types of file systems that are available on the system:
+
+                   sysctl vfs.generic.fstypes
+
+             In addition, there are two pseudo-types, "local" and "rdonly".  The former matches
+             any file system physically mounted on the system where the find is being executed,
+             and the latter matches any file system which is mounted read-only.
+
+     -group gname
+             True if the file belongs to the group gname.  If gname is numeric and there is no
+             such group name, then gname is treated as a group id (and considered a numeric argu-
+             ment).
+
+     -iname pattern
+             True if the last component of the pathname being examined matches pattern in a case-
+             insensitive manner.  Special shell pattern matching characters ("[", "]", "*", and
+             "?") may be used as part of pattern.  These characters may be matched explicitly by
+             escaping them with a backslash ("\").
+
+     -inum n
+             True if the file has inode number n.
+
+     -iregex regexp
+             True if the path name of the current file matches the case-insensitive basic regular
+             expression (see re_format(7)) regexp.  This is a match on the whole path, not a
+             search for the regular expression within the path.
+
+     -links n
+             True if the file has n links.
+
+     -rm     This primary is an alias for -delete.
+
+     -ls     This primary always evaluates to true.  The following information for the current
+             file is written to standard output: its inode number, size in 512-byte blocks, file
+             permissions, number of hard links, owner, group, size in bytes, last modification
+             time, and pathname.  If the file is a block or character special file, the major and
+             minor numbers will be displayed instead of the size in bytes.  If the file is a sym-
+             bolic link, the pathname of the linked-to file will be displayed preceded by "->".
+             The format is identical to that produced by "ls -dgils".
+
+     -maxdepth depth
+             True if the current search depth is less than or equal to what is specified in
+             depth.
+
+     -mindepth depth
+             True if the current search depth is at least what is specified in depth.
+
+     -mmin n
+             True if the difference between the file last modification time and the time find was
+             started, rounded up to the next full minute, is n minutes.
+
+     -mtime n
+             True if the difference between the file last modification time and the time find was
+             started, rounded up to the next full 24-hour period, is n 24-hour periods.
+
+     -ok utility [argument ...] ;
+             The -ok primary is similar to the semicolon-terminated (";") variant of the -exec
+             primary, with the exception that find requests user affirmation for the execution of
+             utility by printing a message to the terminal and reading a response.  If the re-
+             sponse is other than "y", the command is not executed and the -ok primary evaluates
+             to false.  Set aggregation ("+" termination) is not supported.
+
+     -name pattern
+             True if the last component of the pathname being examined matches pattern.  Special
+             shell pattern matching characters ("[", "]", "*", and "?") may be used as part of
+             pattern.  These characters may be matched explicitly by escaping them with a back-
+             slash ("\").
+
+     -newer file
+             True if the current file has a more recent last modification time than file.
+
+     -newerXY reference
+             For compatibility with Gnu findutils.
+
+                   findutils    find
+                   option       equivalent
+                   -neweraa     -anewer
+                   -newerat     -asince
+                   -newercc     -cnewer
+                   -newerct     -csince
+                   -newermm     -newer
+                   -newermt     -since
+
+             Other option variants from findutils are not implemented.
+
+     -nouser
+             True if the file belongs to an unknown user.
+
+     -nogroup
+             True if the file belongs to an unknown group.
+
+     -path pattern
+             True if the pathname being examined matches pattern.  Special shell pattern matching
+             characters ("[", "]", "*", and "?") may be used as part of pattern.  These charac-
+             ters may be matched explicitly by escaping them with a backslash ("\").  Slashes
+             ("/") are treated as normal characters and do not have to be matched explicitly.
+
+     -perm [-]mode
+             The mode may be either symbolic (see chmod(1)) or an octal number.  If the mode is
+             symbolic, a starting value of zero is assumed and the mode sets or clears permis-
+             sions without regard to the process' file mode creation mask.  If the mode is octal,
+             only bits 07777 (S_ISUID | S_ISGID | S_ISTXT | S_IRWXU | S_IRWXG | S_IRWXO) of the
+             file's mode bits participate in the comparison.  If the mode is preceded by a dash
+             ("-"), this primary evaluates to true if at least all of the bits in the mode are
+             set in the file's mode bits.  If the mode is not preceded by a dash, this primary
+             evaluates to true if the bits in the mode exactly match the file's mode bits.  Note,
+             the first character of a symbolic mode may not be a dash ("-").
+
+     -print  This primary always evaluates to true.  It prints the pathname of the current file
+             to standard output, followed by a newline character.  If none of -delete, -exec,
+             -execdir, -exit, -fprint, -ls, -ok, -print0, -printx, nor -rm is specified, the
+             given expression shall be effectively replaced by (given expression) -print.
+
+     -print0
+             This primary always evaluates to true.  It prints the pathname of the current file
+             to standard output, followed by a NUL character.
+
+     -printx
+             This primary always evaluates to true.  It prints the pathname of the current file
+             to standard output, with each space, tab, newline, backslash, dollar sign, and sin-
+             gle, double, or back quotation mark prefixed by a backslash, so the output of find
+             can safely be used as input to xargs(1).
+
+     -prune  This primary always evaluates to true.  It causes find to not descend into the cur-
+             rent file.  Note, the -prune primary has no effect if the -d option was specified.
+
+     -regex regexp
+             True if the path name of the current file matches the case-sensitive basic regular
+             expression (see re_format(7)) regexp.  This is a match on the whole path, not a
+             search for the regular expression within the path.
+
+     -since timestamp
+             True if the file last modification time is more recent than timestamp.
+
+     -size n[c]
+             True if the file's size, rounded up, in 512-byte blocks is n.  If n is followed by a
+             "c", then the primary is true if the file's size is n bytes.
+
+     -type t
+             True if the file is of the specified type.  Possible file types are as follows:
+
+                   b     block special
+                   c     character special
+                   d     directory
+                   f     regular file
+                   l     symbolic link
+                   p     FIFO
+                   s     socket
+                   W     whiteout
+                   w     whiteout
+
+     -user username
+             True if the file belongs to the user username.  If username is numeric and there is
+             no such user on the system, then username is treated as a user id (and considered a
+             numeric argument).
+
+     -xdev   This primary always evaluates to true.  It causes find not to descend past directo-
+             ries that have a different device ID (st_dev, see stat(2) S5.6.2 [POSIX.1]).
+
+OPERATORS
+     The primaries may be combined using the following operators.  The operators are listed in
+     order of decreasing precedence.
+
+     ( expression )
+                   This evaluates to true if the parenthesized expression evaluates to true.
+
+     ! expression
+
+     -not expression
+                   This is the unary NOT operator.  It evaluates to true if the expression is
+                   false.
+
+     expression -and expression
+
+     expression expression
+                   The -and operator is the logical AND operator.  As it is implied by the juxta-
+                   position of two expressions it does not have to be specified.  The expression
+                   evaluates to true if both expressions are true.  The second expression is not
+                   evaluated if the first expression is false.
+
+     expression -or expression
+                   The -or operator is the logical OR operator.  The expression evaluates to true
+                   if either the first or the second expression is true.  The second expression
+                   is not evaluated if the first expression is true.
+
+     All operands and primaries must be separate arguments to find.  Primaries which themselves
+     take arguments expect each argument to be a separate argument to find.
+
+EXIT STATUS
+     The find utility normally exits 0 on success, and exits with 1 under certain internal error
+     conditions.  If any invocations of "-exec ... +" primaries return non-zero exit-status, then
+     find will do so as well.
+
+EXAMPLES
+     The following examples are shown as given to the shell:
+
+     find / \! -name "*.c" -print
+            Print out a list of all the files whose names do not end in ".c".
+
+     find / -newer ttt -user wnj -print
+            Print out a list of all the files owned by user "wnj" that are newer than the file
+            "ttt".
+
+     find . -type f -mmin -30 -print -or -mindepth 1 -prune
+            Print out a list of all the files in the current directory that are newer than 30
+            minutes.
+
+     find . -type f -atime +10 -mindepth 2 -print
+            Print out a list of all the files in any sub-directories that have not been accessed
+            in the past ten days.
+
+     find . -mtime +90 -exec rm -i {} + -or -mindepth 1 -prune
+            Interactively remove all of the files in the current directory that have not been
+            modified in 90 days.
+
+     find . -type f -mtime +90 -ok mv {} {}.old \;
+            Interactively rename all of the files in the current directory and all sub-directo-
+            ries that have not been modified in 90 days.
+
+     find / \! \( -newer ttt -user wnj \) -print
+            Print out a list of all the files which are not both newer than "ttt" and owned by
+            "wnj".
+
+     find / \( -newer ttt -or -user wnj \) -print
+            Print out a list of all the files that are either owned by "wnj" or that are newer
+            than "ttt".
+
+     find / \( -newer ttt -or -user wnj \) -exit 1
+            Return immediately with a value of 1 if any files are found that are either owned by
+            "wnj" or that are newer than "ttt", but do not print them.
+
+     find / \( -newer ttt -or -user wnj \) -ls -exit 1
+            Same as above, but list the first file matching the criteria before exiting with a
+            value of 1.
+
+     find . -type f -exec sh -c 'file="$1"; ...;' - {} \;
+            Perform an arbitrarily complex shell command for every file.
+
+SEE ALSO
+     chflags(1), chmod(1), locate(1), xargs(1), stat(2), fts(3), getgrent(3), getpwent(3),
+     strmode(3), re_format(7), symlink(7), sysctl(8)
+
+STANDARDS
+     The find utility syntax is a superset of the syntax specified by the IEEE Std 1003.2
+     ("POSIX.2") standard.
+
+     The options, the -amin, -anewer, -asince, -cmin, -cnewer, -csince, -delete, -empty,
+     -execdir, -follow, -fstype, -iname, -inum, -iregex, -links, -ls, -maxdepth, -mindepth,
+     -mmin, -path, -print0, -printx, -regex, -rm, and -since primaries, and the -not operator are
+     extensions to IEEE Std 1003.2 ("POSIX.2").
+
+     Historically, the -d, -h, and -x options were implemented using the primaries "-depth",
+     "-follow", and "-xdev".  These primaries always evaluated to true, and always took effect
+     when the expression was parsed, before the file system traversal began.  As a result, some
+     legal expressions could be confusing.  For example, in the expression "-print -or -depth",
+     -print always evaluates to true, so the standard meaning of -or implies that -depth would
+     never be evaluated, but that is not what happens; in fact, -depth takes effect immediately,
+     without testing whether -print returns true or false.
+
+     Historically, the operator "-or" was implemented as "-o", and the operator "-and" was imple-
+     mented as "-a".
+
+     Historic implementations of the "-exec" and "-ok" primaries did not replace the string "{}"
+     in the utility name or the utility arguments if it did not appear as a separate argument.
+     This version replaces it no matter where in the utility name or arguments it appears.
+
+     Support for "-exec ... +" is consistent with IEEE PASC Interpretation 1003.2 #210, though
+     the feature originated in SVR4.
+
+     The -delete primary does not interact well with other options that cause the file system
+     tree traversal options to be changed.
+
+HISTORY
+     A much simpler find command appeared in First Edition AT&T Unix.  The syntax had become sim-
+     ilar to the present version by the time of the Fifth Edition.
+
+BUGS
+     The special characters used by find are also special characters to many shell programs.  In
+     particular, the characters "*", "[", "]", "?", "(", ")", "!", "\", and ";" may have to be
+     escaped from the shell.
+
+     As there is no delimiter separating options and file names or file names and the expression,
+     it is difficult to specify files named "-xdev" or "!".  These problems are handled by the -f
+     option and the getopt(3) "--" construct.
+
+BSD                                      November 1, 2020                                     BSD

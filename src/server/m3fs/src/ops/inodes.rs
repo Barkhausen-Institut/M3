@@ -16,8 +16,8 @@
 
 use crate::buf::LoadLimit;
 use crate::data::{
-    ExtPos, Extent, ExtentCache, ExtentRef, FileMode, INodeRef, InodeNo, INODE_DIR_COUNT,
-    NUM_EXT_BYTES, NUM_INODE_BYTES,
+    ExtPos, Extent, ExtentCache, ExtentRef, INodeRef, InodeNo, INODE_DIR_COUNT, NUM_EXT_BYTES,
+    NUM_INODE_BYTES,
 };
 
 use m3::{
@@ -25,7 +25,7 @@ use m3::{
     com::Perm,
     errors::{Code, Error},
     math,
-    vfs::SeekMode,
+    vfs::{FileMode, SeekMode},
 };
 
 /// Creates a new inode with given mode and returns its INodeRef

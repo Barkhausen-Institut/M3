@@ -162,7 +162,7 @@ class Env:
     def objs(self, gen, ins):
         objs = []
         for i in ins:
-            if i.endswith('.S'):
+            if i.endswith('.S') or i.endswith('.s'):
                 objs.append(self.asm(gen, BuildPath.with_ending(self, i, '.o'), [i]))
             elif i.endswith('.c'):
                 objs.append(self.cc(gen, BuildPath.with_ending(self, i, '.o'), [i]))

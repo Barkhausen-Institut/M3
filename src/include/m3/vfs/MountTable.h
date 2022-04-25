@@ -99,34 +99,44 @@ public:
      * @return the filesystem
      */
     Reference<FileSystem> get(const char *path) {
-        size_t pos = 0;
-        return resolve(path, &pos);
+        char tmp[256];
+        return resolve(&path, tmp, sizeof(tmp));
     }
 
     /**
      * Resolves the given path to a mounted filesystem.
      *
-     * @param path the path
-     * @param pos will be set to the position within the path where the mounted FS starts
+     * @param path a pointer to the path; will be changed to the path relative to the mounted FS
+     * @param buffer an additional buffer that can be used if the path is not absolute
+     * @param bufsize the buffer size
      * @return the filesystem
      */
-    Reference<FileSystem> resolve(const char *path, size_t *pos);
+    Reference<FileSystem> resolve(const char **path, char *buffer, size_t bufsize);
 
     /**
      * Tries to resolves the given path to a mounted filesystem. That is, on error, it does not
      * throw an exception, but returns an invalid reference.
      *
-     * @param path the path
-     * @param pos will be set to the position within the path where the mounted FS starts
+     * @param path a pointer to the path; will be changed to the path relative to the mounted FS
+     * @param buffer an additional buffer that can be used if the path is not absolute
+     * @param bufsize the buffer size
      * @return the filesystem or an invalid reference
      */
-    Reference<FileSystem> try_resolve(const char *path, size_t *pos) noexcept;
+    Reference<FileSystem> try_resolve(const char **path, char *buffer, size_t bufsize) noexcept;
 
     /**
      * @param id the id of the filesystem
      * @return the filesystem with given id
      */
     Reference<FileSystem> get_by_id(size_t id) noexcept;
+
+    /**
+     * Returns the mount path for the filesystem with given id
+     *
+     * @param id the id of the filesystem
+     * @return the mount path for the filesystem (or NULL if not found)
+     */
+    const char *path_of_id(size_t id) noexcept;
 
     /**
      * @param path the path

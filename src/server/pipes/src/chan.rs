@@ -23,7 +23,7 @@ use m3::rc::Rc;
 use m3::reply_vmsg;
 use m3::server::SessId;
 use m3::tcu::Label;
-use m3::vfs::FileEvent;
+use m3::vfs::{FileEvent, FileInfo, FileMode};
 
 use crate::pipe::{Flags, State};
 
@@ -167,6 +167,17 @@ impl Channel {
 
         self.handle_pending(is.rgate());
         res
+    }
+
+    pub fn stat(&mut self, is: &mut GateIStream<'_>) -> Result<(), Error> {
+        let info = FileInfo {
+            mode: FileMode::IFCHR | FileMode::IRUSR | FileMode::IWUSR,
+            ..Default::default()
+        };
+
+        let mut reply = m3::mem::MsgBuf::borrow_def();
+        reply.set(info.to_response());
+        is.reply(&reply)
     }
 
     pub fn close(&mut self, _sids: &mut [SessId], rgate: &RecvGate) -> Result<(), Error> {

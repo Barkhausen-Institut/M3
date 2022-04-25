@@ -174,4 +174,13 @@ pub fn init(argc: i32, argv: *const *const i8) {
     unsafe {
         libc::close(fd);
     }
+
+    // load the env vars that our parent passed to us
+    if let Some(vars) = arch::loader::read_env_words("vars") {
+        let mut src = Source::new(&vars);
+        while let Ok(var) = src.pop_str() {
+            let mut parts = var.split('=');
+            crate::env::set_var(parts.next().unwrap(), parts.next().unwrap());
+        }
+    }
 }

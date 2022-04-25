@@ -66,7 +66,7 @@ static void basics() {
         WVASSERTEQ(lseek(fd, 0, SEEK_SET), 0);
         WVASSERTEQ(read(fd, buf, sizeof(buf)), static_cast<ssize_t>(TEST_TWICE_LEN));
         buf[TEST_TWICE_LEN] = '\0';
-        WVASSERT(strcmp(buf, TEST_CONTENT_TWICE) == 0);
+        WVASSERTSTREQ(buf, TEST_CONTENT_TWICE);
         close(fd);
     }
 
@@ -77,7 +77,7 @@ static void basics() {
         WVASSERTEQ(lseek(fd, 0, SEEK_SET), 0);
         WVASSERTEQ(read(fd, buf, sizeof(buf)), static_cast<ssize_t>(TEST_LEN));
         buf[TEST_LEN] = '\0';
-        WVASSERT(strcmp(buf, TEST_CONTENT) == 0);
+        WVASSERTSTREQ(buf, TEST_CONTENT);
         close(fd);
     }
 

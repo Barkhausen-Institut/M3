@@ -60,7 +60,8 @@ public:
             args.bytes = os.total();
             KIF::CapRngDesc desc = obtain(2, &args);
             flags |= FILE_NEWSESS | (read ? FILE_R : FILE_W);
-            auto file = std::unique_ptr<GenericFile>(new GenericFile(flags, desc.start()));
+            auto file = std::unique_ptr<GenericFile>(
+                new GenericFile(flags, desc.start(), static_cast<size_t>(-1)));
             return Activity::own().files()->alloc(std::move(file));
         }
 

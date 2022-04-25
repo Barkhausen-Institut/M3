@@ -21,6 +21,7 @@
 #include <string>
 #include <vector>
 
+#include "Builtin.h"
 #include "Input.h"
 
 using namespace m3;
@@ -28,6 +29,9 @@ using namespace m3;
 static std::vector<std::string> history;
 static size_t history_pos;
 static size_t tab_count;
+
+extern void print_prompt();
+extern size_t prompt_len();
 
 static std::vector<std::string> get_completions(const char *line, size_t len, size_t *prefix_len) {
     // determine prefix
@@ -51,14 +55,23 @@ static std::vector<std::string> get_completions(const char *line, size_t len, si
     Dir::Entry e;
 
     if((*prefix || tab_count > 1) && complete_bins) {
+        Builtin::Command *builtin = Builtin::get();
+        for(size_t i = 0; builtin[i].name != nullptr; ++i) {
+            if(!*prefix || strncmp(builtin[i].name, prefix, *prefix_len) == 0)
+                matches.push_back(builtin[i].name);
+        }
+
         try {
             // we have no PATH, binary directory is hardcoded for now
             Dir bin("/bin");
             while(bin.readdir(e)) {
                 if(strcmp(e.name, ".") == 0 || strcmp(e.name, "..") == 0)
                     continue;
-                if(!*prefix || strncmp(e.name, prefix, strlen(prefix)) == 0)
-                    matches.push_back(e.name);
+                if(!*prefix || strncmp(e.name, prefix, *prefix_len) == 0) {
+                    std::string cmd(e.name);
+                    if(std::find(matches.begin(), matches.end(), cmd) == matches.end())
+                        matches.push_back(cmd);
+                }
             }
         }
         catch(const Exception &) {
@@ -66,24 +79,25 @@ static std::vector<std::string> get_completions(const char *line, size_t len, si
         }
     }
 
-    // since we have no CWD yet, paths have to start with /
-    if(*prefix == '/') {
-        const char *lastdir = strrchr(prefix, '/');
-        const char *filename = lastdir + 1;
-        if(*filename || tab_count > 1) {
-            std::string dirname(prefix, 0, 1 + static_cast<size_t>(lastdir - prefix));
-            try {
-                Dir dir(dirname.c_str());
-                while(dir.readdir(e)) {
-                    if(strcmp(e.name, ".") == 0 || strcmp(e.name, "..") == 0)
-                        continue;
-                    if(!*filename || strncmp(e.name, filename, strlen(filename)) == 0)
-                        matches.push_back(dirname + e.name);
+    const char *lastdir = strrchr(prefix, '/');
+    const char *filename = lastdir ? lastdir + 1 : prefix;
+    if(*filename || tab_count > 1) {
+        std::string dirname = lastdir ?
+            std::string(prefix, 0, 1 + static_cast<size_t>(lastdir - prefix)) : std::string();
+        try {
+            Dir dir(dirname.c_str());
+            while(dir.readdir(e)) {
+                if(strcmp(e.name, ".") == 0 || strcmp(e.name, "..") == 0)
+                    continue;
+                if(!*filename || strncmp(e.name, filename, strlen(filename)) == 0) {
+                    std::string cmd(dirname + e.name);
+                    if(std::find(matches.begin(), matches.end(), cmd) == matches.end())
+                        matches.push_back(cmd);
                 }
             }
-            catch(const Exception &) {
-                // ignore failures
-            }
+        }
+        catch(const Exception &) {
+            // ignore failures
         }
     }
 
@@ -109,7 +123,9 @@ static void handle_tab(char *buffer, size_t &o) {
         for(auto &s : matches)
             cout << s.c_str() << " ";
         // and the shell prompt with the current buffer again
-        cout << "\n$ " << buffer;
+        cout << "\n";
+        print_prompt();
+        cout << buffer;
         cout.flush();
     }
 }
@@ -135,11 +151,13 @@ static void handle_backspace(char *, size_t &o) {
 
 static void reset_command(char *buffer, size_t &o, const std::string &new_cmd) {
     cout << "\r";
-    // overwrite all including "$ "
-    for(size_t i = 0; i < o + 2; ++i)
+    // overwrite all including "<PWD> $ "
+    for(size_t i = 0; i < o + prompt_len(); ++i)
         cout << " ";
     // replace with item from history
-    cout << "\r$ " << new_cmd.c_str();
+    cout << "\r";
+    print_prompt();
+    cout << new_cmd.c_str();
     cout.flush();
     o = new_cmd.size();
     memcpy(buffer, new_cmd.c_str(), o);
@@ -198,7 +216,8 @@ ssize_t Input::readline(char *buffer, size_t max) {
             return -1;
         // ^C
         if(c == 0x03) {
-            cout << "\n$ ";
+            cout << "\n";
+            print_prompt();
             o = 0;
             continue;
         }

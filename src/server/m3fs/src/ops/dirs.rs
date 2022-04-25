@@ -14,10 +14,11 @@
  * General Public License version 2 for more details.
  */
 
-use crate::data::{DirEntry, DirEntryIterator, FileMode, INodeRef, InodeNo};
+use crate::data::{DirEntry, DirEntryIterator, INodeRef, InodeNo};
 use crate::ops::{inodes, links};
 
 use m3::errors::{Code, Error};
+use m3::vfs::FileMode;
 
 /// Returns the directory and filename part of the given path.
 ///

@@ -1,0 +1,96 @@
+DU(1)                              BSD General Commands Manual                              DU(1)
+
+NAME
+     du -- display disk usage statistics
+
+SYNOPSIS
+     du [-achkrsx] [-H | -L | -P] [-d depth] [file ...]
+
+DESCRIPTION
+     The du utility displays the file system block usage for each file argument and for each di-
+     rectory in the file hierarchy rooted in each directory argument.  Note that the system block
+     usage is usually greater than the actual size of the file.  If no file is specified, the
+     block usage of the hierarchy rooted in the current directory is displayed.
+
+     The options are as follows:
+
+     -a      Display entries for files in addition to entries for directories.
+
+     -c      Display the grand total after all the arguments have been processed.
+
+     -d depth
+             Do not display entries for files and directories more than depth levels deep; -d 0
+             has the same effect as -s.  Overrides earlier -d and -s options.
+
+     -H      Symbolic links on the command line are followed.  Symbolic links encountered in the
+             tree traversal are not followed.
+
+     -h      "Human-readable" output.  Use unit suffixes: Byte, Kilobyte, Megabyte, Gigabyte,
+             Terabyte, Petabyte, Exabyte in order to reduce the number of digits to four or less.
+
+     -k      By default, all sizes are reported in 512-byte block counts.  The -k option causes
+             the numbers to be reported in kilobyte counts.
+
+     -L      All symbolic links are followed.
+
+     -P      No symbolic links are followed.
+
+     -r      Generate messages about directories that cannot be read, files that cannot be
+             opened, and so on.  This is the default.
+
+     -s      Display only the total for each of the specified files and directories.  Overrides
+             earlier -d options.
+
+     -x      File system mount points are not traversed.
+
+     It is not an error to specify more than one of the mutually exclusive options -h and -k.
+     Where more than one of these options is specified, the last option given overrides the oth-
+     ers.
+
+     du counts the storage used by symbolic links and not the files they reference unless the -H
+     or -L option is specified.  If either the -H or -L options are specified, storage used by
+     any symbolic links which are followed is not counted or displayed.  The -H, -L, and -P op-
+     tions override each other and the command's actions are determined by the last one speci-
+     fied.
+
+     Files having multiple hard links are counted (and displayed) a single time per du execution.
+
+ENVIRONMENT
+     BLOCKSIZE  Block counts will be displayed in units of this size block, unless the -k or -h
+                option is specified.
+
+EXIT STATUS
+     The du utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Display a summary of files and folders in the current directory, sorted by size:
+
+           $ du -sh * .??* | sort -h
+
+SEE ALSO
+     df(1), fts_open(3), symlink(7), quot(8)
+
+STANDARDS
+     The du utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flags [-cdhP], as well as the BLOCKSIZE environment variable, are extensions to that
+     specification.
+
+     The flag [-r] is accepted but ignored, for compatibility with systems implementing the obso-
+     lete X/Open Commands and Utilities Issue 5 ("XCU5") standard.
+
+HISTORY
+     The du utility and its -a and -s options first appeared in Version 1 AT&T UNIX.
+
+     The -r option first appeared in AT&T System III UNIX and is available since OpenBSD 2.3.
+     The -k and -x options first appeared in 4.3BSD-Reno and -H in 4.4BSD.  The -c and -L options
+     first appeared in the GNU fileutils; -L and -P are available since 4.4BSD Lite1, -c since
+     OpenBSD 2.1.  The -d option first appeared in FreeBSD 2.2 and is available since
+     OpenBSD 5.7, -h first appeared in FreeBSD 4.0 and is available since OpenBSD 2.9.
+
+AUTHORS
+     This version of du was written by Chris Newcomb for 4.3BSD-Reno in 1989 and incorporates
+     later contributions from Elan Amir, Keith Bostic, Luke Mewburn, Matt Bing, and Can Erkin
+     Acar <canacar@openbsd.org>.
+
+BSD                                      January 30, 2020                                     BSD

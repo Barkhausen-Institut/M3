@@ -1,0 +1,185 @@
+PRINTF(1)                          BSD General Commands Manual                          PRINTF(1)
+
+NAME
+     printf -- formatted output
+
+SYNOPSIS
+     printf format [argument ...]
+
+DESCRIPTION
+     printf formats and prints its arguments, after the first, under control of the format.  The
+     format is a character string which contains three types of objects: plain characters, which
+     are simply copied to standard output, character escape sequences which are converted and
+     copied to the standard output, and format specifications, each of which causes printing of
+     the next successive argument.
+
+     The arguments after the first are treated as strings if the corresponding format is b, c or
+     s; otherwise it is evaluated as a C constant, with the following extensions:
+
+           o   A leading plus or minus sign is allowed.
+
+           o   If the leading character is a single or double quote, the value is the ASCII code
+               of the next character.
+
+     The format string is reused as often as necessary to satisfy the arguments.  Any extra for-
+     mat specifications are evaluated with zero or the null string.
+
+     Character escape sequences are in backslash notation as defined in ANSI X3.159-1989
+     ("ANSI C89").  The characters and their meanings are as follows:
+
+           \a      Write a <bell> character.
+           \b      Write a <backspace> character.
+           \e      Write an <escape> character.
+           \f      Write a <form-feed> character.
+           \n      Write a <new-line> character.
+           \r      Write a <carriage return> character.
+           \t      Write a <tab> character.
+           \v      Write a <vertical tab> character.
+           \'      Write a <single quote> character.
+           \\      Write a backslash character.
+           \num    Write an 8-bit character whose ASCII value is the 1-, 2-, or 3-digit octal
+                   number num.
+
+     Each format specification is introduced by the percent (`%') character.  The remainder of
+     the format specifiers include, in the following order:
+
+     Zero or more of the following flags:
+
+             #       Specifies that the value should be printed in an "alternate form".  For the
+                     o format the precision of the number is increased to force the first charac-
+                     ter of the output string to a zero.  For the x (X) format, a non-zero result
+                     has the string 0x (0X) prepended to it.  For a, A, e, E, f, F, g, and G for-
+                     mats, the result will always contain a decimal point, even if no digits fol-
+                     low the point (normally, a decimal point only appears in the results of
+                     those formats if a digit follows the decimal point).  For g and G formats,
+                     trailing zeros are not removed from the result as they would otherwise be.
+                     For all other formats, behaviour is undefined.
+
+             -       Specifies the left adjustment of the output in the indicated field.
+
+             +       Specifies that there should always be a sign placed before the number when
+                     using signed formats.
+
+             ` '     A space specifies that a blank should be left before a positive number for a
+                     signed format.  A `+' overrides a space if both are used.
+
+             0       A zero character specifies that zero-padding should be used rather than
+                     blank-padding.  This flag is ignored if used with a precision specifier and
+                     any of the d, i, o, u, or x (X) formats.  A `-' overrides a `0' if both are
+                     used.
+
+     Field Width:
+             An optional digit string specifying a field width; if the output string has fewer
+             characters than the field width it will be blank-padded on the left (or right, if
+             the left-adjustment indicator has been given) to make up the field width (note that
+             a leading zero is a flag, but an embedded zero is part of a field width).
+
+     Precision:
+             An optional period (`.'), followed by an optional digit string giving a precision
+             which specifies the number of digits to appear after the decimal point, for e and f
+             formats, or the maximum number of bytes to be printed from a string; if the digit
+             string is missing, the precision is treated as zero.
+
+     Format:
+             A character which indicates the type of format to use (one of diouxXfFeEgGaAbcs).
+
+     A field width or precision may be `*' instead of a digit string.  In this case an argument
+     supplies the field width or precision.
+
+     The format characters and their meanings are:
+
+     diouXx  The argument is printed as a signed decimal (d or i), unsigned octal, unsigned deci-
+             mal, or unsigned hexadecimal (x or X), respectively.
+
+     fF      The argument is printed in the style [-]ddd.ddd where the number of d's after the
+             decimal point is equal to the precision specification for the argument.  If the pre-
+             cision is missing, 6 digits are given; if the precision is explicitly 0, no digits
+             and no decimal point are printed.
+
+             If the argument is infinity, it will be converted to [-]inf (f) or [-]INF (F), re-
+             spectively.  If the argument is not-a-number (NaN), it will be converted to [-]nan
+             (f) or [-]NAN (F), respectively.
+
+     eE      The argument is printed in the style [-]d.ddde+-dd where there is one digit before
+             the decimal point and the number after is equal to the precision specification for
+             the argument; when the precision is missing, 6 digits are produced.  An upper-case
+             `E' is used for an E format.
+
+             If the argument is infinity, it will be converted to [-]inf (e) or [-]INF (E), re-
+             spectively.  If the argument is not-a-number (NaN), it will be converted to [-]nan
+             (e) or [-]NAN (E), respectively.
+
+     gG      The argument is printed in style f or in style e (E) whichever gives full precision
+             in minimum space.
+
+             If the argument is infinity, it will be converted to [-]inf (g) or [-]INF (G), re-
+             spectively.  If the argument is not-a-number (NaN), it will be converted to [-]nan
+             (g) or [-]NAN (G), respectively.
+
+     aA      The argument is printed in style [-]0xh.hhhp[+-]d where there is one digit before
+             the hexadecimal point and the number after is equal to the precision specification
+             for the argument.  When the precision is missing, enough digits are produced to con-
+             vey the argument's exact double-precision floating-point representation.
+
+             If the argument is infinity, it will be converted to [-]inf (a) or [-]INF (A), re-
+             spectively.  If the argument is not-a-number (NaN), it will be converted to [-]nan
+             (a) or [-]NAN (A), respectively.
+
+     b       Characters from the string argument are printed with backslash-escape sequences ex-
+             panded.  In the argument, ASCII characters can be octally encoded either as \0num or
+             as \num like in the format string.  If the argument contains the special escape se-
+             quence \c, this escape sequence is discarded together with all remaining characters
+             in this argument, all further arguments, and all remaining characters in the format
+             string.
+
+     c       The first character of argument is printed.
+
+     s       Characters from the string argument are printed until the end is reached or until
+             the number of bytes indicated by the precision specification is reached; however if
+             the precision is 0 or missing, all characters in the string are printed.
+
+     %       Print a `%'; no argument is used.
+
+     In no case does a non-existent or small field width cause truncation of a field; padding
+     takes place only if the specified field width exceeds the actual width.
+
+EXIT STATUS
+     The printf utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Convert a hexadecimal value to decimal and print it out:
+
+           $ printf "%d\n" 0x20
+
+     Print the decimal representation of the character 'a' (see ascii(7)):
+
+           $ printf "%d\n" \'a
+
+SEE ALSO
+     echo(1), printf(3)
+
+STANDARDS
+     The printf utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification, but
+     in order to produce predictable output it deliberately ignores the locale(1) and always op-
+     erates as if LC_ALL=C were set.
+
+     The escape sequences \e and \', as well as omitting the leading digit 0 from \0num octal es-
+     cape sequences in %b arguments, are extensions to that specification.
+
+HISTORY
+     The printf command appeared in 4.3BSD-Reno.
+
+CAVEATS
+     It is important never to pass a string with user-supplied data as a format without using
+     `%s'.  An attacker can put format specifiers in the string to mangle your stack, leading to
+     a possible security hole.
+
+     Always be sure to use the proper secure idiom:
+
+           printf "%s" "$STRING"
+
+BUGS
+     Since arguments are translated from ASCII to floating-point, and then back again, floating-
+     point precision may be lost.
+
+BSD                                      January 16, 2020                                     BSD

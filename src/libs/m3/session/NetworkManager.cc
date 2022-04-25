@@ -67,6 +67,14 @@ IpAddr NetworkManager::ip_addr() {
     return IpAddr(addr);
 }
 
+IpAddr NetworkManager::get_nameserver() {
+    GateIStream reply = send_receive_vmsg(_metagate, GET_NAMESRV);
+    reply.pull_result();
+    uint32_t addr;
+    reply >> addr;
+    return IpAddr(addr);
+}
+
 IpAddr NetworkManager::bind(int32_t sd, port_t *port) {
     GateIStream reply = send_receive_vmsg(_metagate, BIND, sd, *port);
     reply.pull_result();

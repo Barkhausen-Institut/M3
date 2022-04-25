@@ -1,0 +1,26 @@
+PRINTENV(1)                        BSD General Commands Manual                        PRINTENV(1)
+
+NAME
+     printenv -- print out the environment
+
+SYNOPSIS
+     printenv [name]
+
+DESCRIPTION
+     printenv prints out the names and values of the variables in the environment, with one
+     name/value pair per line.  If name is specified, only its value is printed.
+
+EXIT STATUS
+     If a name is specified and it is not defined in the environment, printenv returns exit sta-
+     tus 1, else it returns status 0.
+
+SEE ALSO
+     csh(1), sh(1), environ(7)
+
+HISTORY
+     The printenv command first appeared in 2BSD.
+
+AUTHORS
+     Bill Joy, February 1979.
+
+BSD                                      January 15, 2012                                     BSD

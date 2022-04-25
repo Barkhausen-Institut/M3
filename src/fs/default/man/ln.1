@@ -1,0 +1,101 @@
+LN(1)                              BSD General Commands Manual                              LN(1)
+
+NAME
+     ln -- make hard and symbolic links to files
+
+SYNOPSIS
+     ln [-fhLnPs] source [target]
+     ln [-fLPs] source ... [directory]
+
+DESCRIPTION
+     The ln utility creates a new directory entry (linked file) which has the same modes as the
+     original file.  It is useful for maintaining multiple copies of a file in many places at
+     once without using up storage for the copies; instead, a link "points" to the original copy.
+     There are two types of links: hard links and symbolic links.  How a link points to a file is
+     one of the differences between a hard and symbolic link.
+
+     The options are as follows:
+
+     -f      Unlink any already existing file, permitting the link to occur.
+
+     -h      If the target is a symlink to a directory, do not descend into it.
+
+     -L      When creating a hard link and the source is a symbolic link, link to the fully re-
+             solved target of the symbolic link.  This is the default.  The -L option overrides
+             any previous -P options.
+
+     -n      An alias for -h for compatibility with other operating systems.
+
+     -P      When creating a hard link and the source is a symbolic link, link to the symbolic
+             link itself.  The -P option overrides any previous -L options.
+
+     -s      Create a symbolic link.
+
+     By default, ln makes "hard" links.  A hard link to a file is indistinguishable from the
+     original directory entry; any changes to a file are effectively independent of the name used
+     to reference the file.  Hard links may not normally refer to directories and may not span
+     file systems.
+
+     A symbolic link contains the name of the file to which it is linked.  The referenced file is
+     used when an open(2) operation is performed on the link.  A stat(2) on a symbolic link will
+     return the linked-to file; an lstat(2) must be done to obtain information about the link.
+     The readlink(2) call may be used to read the contents of a symbolic link.  Symbolic links
+     may span file systems, refer to directories, and refer to non-existent files.
+
+     Given one or two arguments, ln creates a link to an existing file source.  If target is
+     given, the link has that name; target may also be a directory in which to place the link.
+     Otherwise, it is placed in the current directory.  If only the directory is specified, the
+     link will be made to the last component of source.
+
+     Given more than two arguments, ln makes links in directory to all the named source files.
+     The links made will have the same name as the files being linked to.
+
+EXIT STATUS
+     The ln utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Create a symbolic link named /home/www and point it to /var/www:
+
+           # ln -s /var/www /home/www
+
+     Hard link /usr/local/bin/fooprog to file /usr/local/bin/fooprog-1.0:
+
+           # ln /usr/local/bin/fooprog-1.0 /usr/local/bin/fooprog
+
+     As an exercise, try the following commands:
+
+           $ ls -i /bin/[
+           11553 /bin/[
+           $ ls -i /bin/test
+           11553 /bin/test
+
+     Note that both files have the same inode; that is, /bin/[ is essentially an alias for the
+     test(1) command.  This hard link exists so test(1) may be invoked from shell scripts, for
+     example, using the if [ ] construct.
+
+     In the next example, the second call to ln removes the original foo and creates a replace-
+     ment pointing to baz:
+
+           $ mkdir bar baz
+           $ ln -s bar foo
+           $ ln -shf baz foo
+
+     Without the -h option, this would instead leave foo pointing to bar and inside foo create a
+     new symlink baz pointing to itself.  This results from directory-walking.
+
+SEE ALSO
+     linkat(2), lstat(2), readlink(2), stat(2), symlink(2), symlink(7)
+
+STANDARDS
+     The ln utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flags [-hn] are extensions to that specification.
+
+HISTORY
+     An ln utility appeared in Version 1 AT&T UNIX.
+
+CAVEATS
+     Since the source file must have its link count incremented, a hard link cannot be created to
+     a file which is flagged immutable or append-only (see chflags(1)).
+
+BSD                                      August 10, 2016                                      BSD

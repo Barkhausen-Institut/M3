@@ -29,17 +29,17 @@ use crate::vfs::{File, FileInfo, FileMode, OpenFlags};
 int_enum! {
     /// The file system operations.
     pub struct FSOperation : u64 {
-        const STAT          = 12;
-        const MKDIR         = 13;
-        const RMDIR         = 14;
-        const LINK          = 15;
-        const UNLINK        = 16;
-        const RENAME        = 17;
-        const OPEN          = 18;
-        const GET_SGATE     = 19;
-        const GET_MEM       = 20;
-        const DEL_EP        = 21;
-        const OPEN_PRIV     = 22;
+        const STAT          = 14;
+        const MKDIR         = 15;
+        const RMDIR         = 16;
+        const LINK          = 17;
+        const UNLINK        = 18;
+        const RENAME        = 19;
+        const OPEN          = 20;
+        const GET_SGATE     = 21;
+        const GET_MEM       = 22;
+        const DEL_EP        = 23;
+        const OPEN_PRIV     = 24;
     }
 }
 

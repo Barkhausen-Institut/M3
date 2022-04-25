@@ -1,0 +1,28 @@
+BASENAME(1)                        BSD General Commands Manual                        BASENAME(1)
+
+NAME
+     basename -- return filename portion of pathname
+
+SYNOPSIS
+     basename string [suffix]
+
+DESCRIPTION
+     basename deletes any prefix ending with the last slash (`/') character present in string,
+     and a suffix, if given.  The resulting filename is written to the standard output.  A non-
+     existent suffix is ignored.
+
+EXIT STATUS
+     The basename utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     The following line sets the shell variable FOO to tail:
+
+           FOO=`basename /usr/bin/tail`
+
+SEE ALSO
+     csh(1), dirname(1), sh(1), basename(3)
+
+STANDARDS
+     The basename utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+BSD                                     September 3, 2010                                     BSD

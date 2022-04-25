@@ -1,0 +1,63 @@
+WC(1)                              BSD General Commands Manual                              WC(1)
+
+NAME
+     wc -- word, line, and byte or character count
+
+SYNOPSIS
+     wc [-c | -m] [-hlw] [file ...]
+
+DESCRIPTION
+     The wc utility reads one or more input text files and, by default, writes the number of
+     lines, words, and bytes contained in each input file to the standard output.  If more than
+     one input file is specified, a line of cumulative count(s) for all named files is output on
+     a separate line following the last file count.  wc considers a word to be a maximal string
+     of characters delimited by whitespace.  Whitespace characters are the set of characters for
+     which the isspace(3) function returns true.
+
+     The options are as follows:
+
+     -c      The number of bytes in each input file is written to the standard output.
+
+     -h      Use unit suffixes: Byte, Kilobyte, Megabyte, Gigabyte, Terabyte, Petabyte, and Ex-
+             abyte in order to reduce the number of digits to four or fewer using powers of 2 for
+             sizes (K=1024, M=1048576, etc.).
+
+     -l      The number of lines in each input file is written to the standard output.
+
+     -m      Count characters instead of bytes, and use iswspace(3) instead of isspace(3).
+
+     -w      The number of words in each input file is written to the standard output.
+
+     When an option is specified, wc only reports the information requested by that option.  The
+     default action is equivalent to the flags -clw having been specified.
+
+     If no file names are specified, the standard input is used and a file name is not output.
+     The resulting output is one line of the requested count(s) with the cumulative sum of all
+     files read in via standard input.
+
+     By default, the standard output contains a line for each input file of the form:
+
+           lines    words  bytes   file_name
+
+     The counts for lines, words, and bytes (or characters) are integers separated by spaces.
+
+ENVIRONMENT
+     LC_CTYPE  The character encoding locale(1).  It decides which byte sequences form charac-
+               ters.  If unset or set to "C", "POSIX", or an unsupported value, -m has the same
+               effect as -c.
+
+EXIT STATUS
+     The wc utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     isspace(3)
+
+STANDARDS
+     The wc utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flag [-h] is an extension to that specification.
+
+HISTORY
+     A wc utility appeared in Version 1 AT&T UNIX.
+
+BSD                                      October 24, 2016                                     BSD

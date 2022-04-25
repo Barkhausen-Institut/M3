@@ -1,0 +1,35 @@
+DIRNAME(1)                         BSD General Commands Manual                         DIRNAME(1)
+
+NAME
+     dirname -- return directory portion of pathname
+
+SYNOPSIS
+     dirname pathname
+
+DESCRIPTION
+     dirname deletes the filename portion, beginning with the last slash (`/') character to the
+     end of pathname, and writes the result to the standard output.
+
+EXIT STATUS
+     The dirname utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     The following line sets the shell variable FOO to /usr/bin:
+
+           FOO=`dirname /usr/bin/tail`
+
+SEE ALSO
+     basename(1), csh(1), sh(1), dirname(3)
+
+STANDARDS
+     The dirname utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+HISTORY
+     The dirname utility first appeared as an expr(1) script in AT&T System III UNIX.  It was re-
+     implemented in C for 4.3BSD-Reno and reimplemented again using dirname(3) for OpenBSD 2.2.
+
+AUTHORS
+     The original BSD version was written by Keith Bostic.  The current OpenBSD version was writ-
+     ten by Todd Miller <millert@openbsd.org>.
+
+BSD                                     February 16, 2014                                     BSD

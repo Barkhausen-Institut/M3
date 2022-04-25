@@ -1,0 +1,48 @@
+PWD(1)                             BSD General Commands Manual                             PWD(1)
+
+NAME
+     pwd -- return working directory name
+
+SYNOPSIS
+     pwd [-LP]
+
+DESCRIPTION
+     The pwd utility prints the absolute pathname of the current working directory to the stan-
+     dard output.
+
+     The options are as follows:
+
+     -L      If the PWD environment variable is an absolute pathname that references the current
+             directory and doesn't contain path components of "." or "..", then PWD is printed as
+             the name of the current directory.  Otherwise, act as if the -P option was given.
+
+     -P      Print the physical path to the current working directory, with symbolic links in the
+             path resolved.
+
+     The -L and -P options override each other and the command's actions are determined by the
+     last one specified.  The default if no options are given is -P.
+
+     For an explanation of the directory hierarchy, see hier(7).
+
+ENVIRONMENT
+     PWD  The presumptive logical path to the current working directory.
+
+EXIT STATUS
+     The pwd utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     ksh(1), getcwd(3), hier(7)
+
+STANDARDS
+     The pwd utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification, except
+     the standard says the default if no options are given should be to behave as if -L had been
+     specified.
+
+HISTORY
+     An pwd utility appeared in Version 5 AT&T UNIX.  Support for the -L option was added in
+     OpenBSD 5.6.
+
+CAVEATS
+     pwd also exists as a built-in to ksh(1), which may have a different default behavior.
+
+BSD                                        May 28, 2014                                       BSD

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <base/Types.h>
+#include <base/time/Instant.h>
 
 namespace m3 {
 
@@ -28,28 +29,28 @@ namespace m3 {
 class Random {
 public:
     /**
-     * Inits the random number generator with given seed
+     * Creates a new random number generator with given seed
      *
-     * @param seed the seed
+     * @param seed the seed to use (default = current timestamp)
      */
-    static void init(uint seed) {
-        _last = seed;
+    explicit Random(uint seed = TimeInstant::now().as_nanos()) noexcept
+        : _a(1103515245),
+          _c(12345),
+          _last(seed) {
     }
 
     /**
      * @return the next random number
      */
-    static int get() {
-        _last = _randa * _last + _randc;
+    int get() noexcept {
+        _last = _a * _last + _c;
         return (_last / 65536) % 32768;
     }
 
 private:
-    Random();
-
-    static uint _randa;
-    static uint _randc;
-    static uint _last;
+    uint _a;
+    uint _c;
+    uint _last;
 };
 
 }

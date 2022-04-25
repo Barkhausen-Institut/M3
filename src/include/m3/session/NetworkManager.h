@@ -29,6 +29,7 @@ namespace m3 {
 class UdpSocket;
 class TcpSocket;
 class RawSocket;
+class DNS;
 
 /**
  * Represents a session at the network service, allowing to create and use sockets
@@ -43,6 +44,7 @@ class NetworkManager : public ClientSession {
     friend class UdpSocket;
     friend class TcpSocket;
     friend class RawSocket;
+    friend class DNS;
 
     enum Operation {
         STAT            = GenericFile::STAT,
@@ -50,6 +52,7 @@ class NetworkManager : public ClientSession {
         NEXT_IN         = GenericFile::NEXT_IN,
         NEXT_OUT        = GenericFile::NEXT_OUT,
         COMMIT          = GenericFile::COMMIT,
+        TRUNCATE        = GenericFile::TRUNCATE,
         CLOSE           = GenericFile::CLOSE,
         CLONE           = GenericFile::CLONE,
         SET_TMODE       = GenericFile::SET_TMODE,
@@ -62,6 +65,7 @@ class NetworkManager : public ClientSession {
         ABORT,
         CREATE,
         GET_IP,
+        GET_NAMESRV,
         GET_SGATE,
         OPEN_FILE,
     };
@@ -87,6 +91,7 @@ private:
     }
 
     int32_t create(SocketType type, uint8_t protocol, const SocketArgs &args, capsel_t *caps);
+    IpAddr get_nameserver();
     IpAddr bind(int32_t sd, port_t *port);
     IpAddr listen(int32_t sd, port_t port);
     Endpoint connect(int32_t sd, Endpoint remote_ep);

@@ -413,7 +413,7 @@ pub fn main() -> i32 {
                     is.reply_error(Code::None).ok();
                     hdl.close_sess(sid, is.rgate())
                 },
-                Operation::STAT => Err(Error::new(Code::NotSup)),
+                Operation::STAT => hdl.with_chan(is, |c, is| c.stat(is)),
                 Operation::SEEK => Err(Error::new(Code::NotSup)),
                 _ => Err(Error::new(Code::InvArgs)),
             }

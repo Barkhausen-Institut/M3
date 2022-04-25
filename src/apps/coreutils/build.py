@@ -1,22 +1,11 @@
 dirs = [
-    'cat',
-    'cp',
-    'echo',
-    'ln',
-    'ls',
-    'mkdir',
+    'hashsum',
+    'man',
     'netcat',
-    'paste',
     'rand',
     'readelf',
-    'rm',
-    'rmdir',
-    'hashsum',
     'sink',
-    'stat',
     'time',
-    'tr',
-    'wc',
 ]
 
 def build(gen, env):

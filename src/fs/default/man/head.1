@@ -1,0 +1,52 @@
+HEAD(1)                            BSD General Commands Manual                            HEAD(1)
+
+NAME
+     head -- display first few lines of files
+
+SYNOPSIS
+     head [-count | -n count] [file ...]
+
+DESCRIPTION
+     The head utility copies the first count lines of each specified file to the standard output.
+     If no files are named, head copies lines from the standard input.  If count is omitted, it
+     defaults to 10.
+
+     The options are as follows:
+
+     -count | -n count
+             Copy the first count lines of each input file to the standard output.  count must be
+             a positive decimal integer.
+
+     If more than one file is specified, head precedes the output of each file with the follow-
+     ing, in order to distinguish files:
+
+           ==> file <==
+
+EXIT STATUS
+     The head utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     To display the first 500 lines of the file foo:
+
+           $ head -n 500 foo
+
+     head can be used in conjunction with tail(1) in the following way to, for example, display
+     only line 500 from the file foo:
+
+           $ head -n 500 foo | tail -1
+
+SEE ALSO
+     cat(1), cut(1), less(1), more(1), tail(1)
+
+STANDARDS
+     The head utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The historic syntax -count is supported by this implementation.
+
+HISTORY
+     The head utility first appeared in 1BSD.
+
+AUTHORS
+     Bill Joy, August 24, 1977.
+
+BSD                                      October 25, 2015                                     BSD

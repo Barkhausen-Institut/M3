@@ -34,10 +34,11 @@ use m3::session::ServerSession;
 use m3::tcu::{Label, Message};
 use m3::tiles::Activity;
 use m3::vec;
-use m3::vfs::{FileEvent, GenFileOp};
+use m3::vfs::{FileEvent, FileInfo, FileMode, GenFileOp};
 use m3::{goff, send_vmsg};
 
 pub const LOG_DEF: bool = false;
+pub const LOG_INOUT: bool = false;
 
 const BUF_SIZE: usize = 256;
 
@@ -157,7 +158,7 @@ impl Channel {
     fn next_in(&mut self, is: &mut GateIStream<'_>) -> Result<(), Error> {
         let _: usize = is.pop()?;
 
-        log!(crate::LOG_DEF, "[{}] vterm::next_in()", self.id);
+        log!(crate::LOG_INOUT, "[{}] vterm::next_in()", self.id);
 
         if self.writing {
             return Err(Error::new(Code::NoPerm));
@@ -195,7 +196,7 @@ impl Channel {
         self.pos = 0;
 
         log!(
-            crate::LOG_DEF,
+            crate::LOG_INOUT,
             "[{}] vterm::next_in() -> ({}, {})",
             self.id,
             self.pos,
@@ -211,7 +212,7 @@ impl Channel {
     fn next_out(&mut self, is: &mut GateIStream<'_>) -> Result<(), Error> {
         let _: usize = is.pop()?;
 
-        log!(crate::LOG_DEF, "[{}] vterm::next_out()", self.id);
+        log!(crate::LOG_INOUT, "[{}] vterm::next_out()", self.id);
 
         if !self.writing {
             return Err(Error::new(Code::NoPerm));
@@ -231,7 +232,7 @@ impl Channel {
         let nbytes: usize = is.pop()?;
 
         log!(
-            crate::LOG_DEF,
+            crate::LOG_INOUT,
             "[{}] vterm::commit(nbytes={})",
             self.id,
             nbytes
@@ -249,6 +250,17 @@ impl Channel {
         }
 
         is.reply_error(Code::None)
+    }
+
+    fn stat(&mut self, is: &mut GateIStream<'_>) -> Result<(), Error> {
+        let info = FileInfo {
+            mode: FileMode::IFCHR | FileMode::IRUSR | FileMode::IWUSR,
+            ..Default::default()
+        };
+
+        let mut reply = m3::mem::MsgBuf::borrow_def();
+        reply.set(info.to_response());
+        is.reply(&reply)
     }
 
     fn flush(&mut self, nbytes: usize) -> Result<(), Error> {
@@ -636,7 +648,7 @@ pub fn main() -> i32 {
         s.handle_ctrl_chan(&mut hdl)?;
 
         if let Some(msg) = serial_gate.fetch() {
-            log!(crate::LOG_DEF, "Got input message with {} bytes", {
+            log!(crate::LOG_INOUT, "Got input message with {} bytes", {
                 msg.header.length
             });
             handle_input(&mut hdl, msg);
@@ -659,7 +671,7 @@ pub fn main() -> i32 {
                     is.reply_error(Code::None).ok();
                     hdl.close_sess(sid, is.rgate())
                 },
-                GenFileOp::STAT => Err(Error::new(Code::NotSup)),
+                GenFileOp::STAT => hdl.with_chan(is, |c, is| c.stat(is)),
                 GenFileOp::SEEK => Err(Error::new(Code::NotSup)),
                 GenFileOp::SET_TMODE => hdl.with_chan(is, |c, is| c.set_tmode(is)),
                 GenFileOp::REQ_NOTIFY => hdl.with_chan(is, |c, is| c.request_notify(is)),

@@ -15,7 +15,7 @@
 
 use m3::com::Semaphore;
 use m3::errors::{Code, Error};
-use m3::net::{event::MTU, DGramSocket, DgramSocketArgs, Endpoint, State, UdpSocket};
+use m3::net::{DGramSocket, DgramSocketArgs, Endpoint, State, UdpSocket, MTU};
 use m3::session::NetworkManager;
 use m3::test;
 use m3::time::TimeDuration;

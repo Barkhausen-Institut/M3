@@ -16,20 +16,22 @@
  * General Public License version 2 for more details.
  */
 
+use m3::col::ToString;
 use m3::errors::Code;
 use m3::io::Write;
 use m3::test;
-use m3::vfs::{OpenFlags, VFS};
-use m3::{wv_assert_err, wv_assert_ok, wv_run_test};
+use m3::vfs::{FileMode, OpenFlags, VFS};
+use m3::{wv_assert_eq, wv_assert_err, wv_assert_ok, wv_run_test};
 
 pub fn run(t: &mut dyn test::WvTester) {
+    wv_run_test!(t, paths);
     wv_run_test!(t, mkdir_rmdir);
     wv_run_test!(t, link_unlink);
     wv_run_test!(t, rename);
 }
 
 fn setup() {
-    wv_assert_ok!(VFS::mkdir("/example", 0o755));
+    wv_assert_ok!(VFS::mkdir("/example", FileMode::from_bits(0o755).unwrap()));
 
     let mut file = wv_assert_ok!(VFS::open(
         "/example/myfile",
@@ -43,27 +45,80 @@ fn teardown() {
     wv_assert_ok!(VFS::rmdir("/example/"));
 }
 
+fn paths() {
+    wv_assert_eq!(VFS::canon_path(""), "".to_string());
+    wv_assert_eq!(VFS::canon_path("."), "".to_string());
+    wv_assert_eq!(VFS::canon_path(".."), "".to_string());
+    wv_assert_eq!(VFS::canon_path(".//foo/bar"), "foo/bar".to_string());
+    wv_assert_eq!(VFS::canon_path("./foo/..///bar"), "bar".to_string());
+    wv_assert_eq!(VFS::canon_path("..//.//..//foo/../bar/.."), "".to_string());
+    wv_assert_eq!(VFS::canon_path("../.test//foo/..///"), ".test".to_string());
+    wv_assert_eq!(VFS::canon_path("/foo/..//bar"), "/bar".to_string());
+
+    wv_assert_err!(VFS::set_cwd("/non-existing-dir"), Code::NoSuchFile);
+    wv_assert_err!(VFS::set_cwd("/test.txt"), Code::IsNoDir);
+    wv_assert_ok!(VFS::set_cwd(".././bin/./."));
+    wv_assert_eq!(VFS::cwd(), "/bin".to_string());
+
+    wv_assert_eq!(VFS::abs_path(""), "/bin".to_string());
+    wv_assert_eq!(VFS::abs_path("."), "/bin".to_string());
+    wv_assert_eq!(VFS::abs_path(".."), "/bin".to_string());
+    wv_assert_eq!(VFS::abs_path(".//foo/bar"), "/bin/foo/bar".to_string());
+    wv_assert_eq!(VFS::abs_path("./foo/..///bar"), "/bin/bar".to_string());
+    wv_assert_eq!(
+        VFS::abs_path("..//.//..//foo/../bar/.."),
+        "/bin".to_string()
+    );
+    wv_assert_eq!(
+        VFS::abs_path("../.test//foo/..///"),
+        "/bin/.test".to_string()
+    );
+
+    wv_assert_ok!(VFS::set_cwd("/"));
+}
+
 fn mkdir_rmdir() {
     setup();
 
     // create and remove directory within directory
-    wv_assert_ok!(VFS::mkdir("/parent", 0o755));
-    wv_assert_ok!(VFS::mkdir("/parent/child", 0o755));
+    wv_assert_ok!(VFS::mkdir("/parent", FileMode::from_bits(0o755).unwrap()));
+    wv_assert_ok!(VFS::mkdir(
+        "/parent/child",
+        FileMode::from_bits(0o755).unwrap()
+    ));
     wv_assert_ok!(VFS::rmdir("/parent/child"));
     wv_assert_ok!(VFS::rmdir("/parent"));
 
     // use weird paths
-    wv_assert_err!(VFS::mkdir("/foo/.", 0o755), Code::NoSuchFile);
-    wv_assert_err!(VFS::mkdir("/foo/..", 0o755), Code::NoSuchFile);
-    wv_assert_ok!(VFS::mkdir("/./../foo/", 0o755));
+    wv_assert_err!(
+        VFS::mkdir("/foo/.", FileMode::from_bits(0o755).unwrap()),
+        Code::NoSuchFile
+    );
+    wv_assert_err!(
+        VFS::mkdir("/foo/..", FileMode::from_bits(0o755).unwrap()),
+        Code::NoSuchFile
+    );
+    wv_assert_ok!(VFS::mkdir(
+        "/./../foo/",
+        FileMode::from_bits(0o755).unwrap()
+    ));
     wv_assert_err!(VFS::rmdir("/foo/."), Code::InvArgs);
     wv_assert_err!(VFS::rmdir("/foo/bar/.."), Code::NoSuchFile);
     wv_assert_ok!(VFS::rmdir("///.././foo///"));
 
     // test mkdir errors
-    wv_assert_err!(VFS::mkdir("/", 0o755), Code::Exists);
-    wv_assert_err!(VFS::mkdir("/example", 0o755), Code::Exists);
-    wv_assert_err!(VFS::mkdir("/example/foo/bar", 0o755), Code::NoSuchFile);
+    wv_assert_err!(
+        VFS::mkdir("/", FileMode::from_bits(0o755).unwrap()),
+        Code::Exists
+    );
+    wv_assert_err!(
+        VFS::mkdir("/example", FileMode::from_bits(0o755).unwrap()),
+        Code::Exists
+    );
+    wv_assert_err!(
+        VFS::mkdir("/example/foo/bar", FileMode::from_bits(0o755).unwrap()),
+        Code::NoSuchFile
+    );
 
     // test rmdir errors
     wv_assert_err!(VFS::rmdir("/example/foo/bar"), Code::NoSuchFile);

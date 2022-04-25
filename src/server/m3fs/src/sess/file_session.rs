@@ -257,6 +257,18 @@ impl FileSession {
         Ok(())
     }
 
+    fn revoke_cap(&mut self) {
+        if self.cur_sel != m3::kif::INVALID_SEL {
+            m3::tiles::Activity::own()
+                .revoke(
+                    m3::kif::CapRngDesc::new(m3::kif::CapType::OBJECT, self.cur_sel, 1),
+                    false,
+                )
+                .unwrap();
+            self.cur_sel = m3::kif::INVALID_SEL;
+        }
+    }
+
     pub fn set_ep(&mut self, ep: Selector) {
         self.epcap = ep;
     }
@@ -403,14 +415,7 @@ impl FileSession {
 
         reply_vmsg!(is, Code::None as u32, capoff, self.cur_bytes)?;
 
-        if self.cur_sel != m3::kif::INVALID_SEL {
-            m3::tiles::Activity::own()
-                .revoke(
-                    m3::kif::CapRngDesc::new(m3::kif::CapType::OBJECT, self.cur_sel, 1),
-                    false,
-                )
-                .unwrap();
-        }
+        self.revoke_cap();
         self.cur_sel = sel;
 
         Ok(())
@@ -455,6 +460,51 @@ impl FileSession {
         let mut reply = m3::mem::MsgBuf::borrow_def();
         reply.set(info.to_response());
         stream.reply(&reply)
+    }
+
+    pub fn file_path(&mut self, stream: &mut GateIStream<'_>) -> Result<(), Error> {
+        log!(
+            crate::LOG_SESSION,
+            "[{}] file::get_path(path={})",
+            self.session_id,
+            self.filename
+        );
+
+        reply_vmsg!(stream, Code::None as u32, self.filename)
+    }
+
+    pub fn file_truncate(&mut self, stream: &mut GateIStream<'_>) -> Result<(), Error> {
+        let off: usize = stream.pop()?;
+
+        log!(
+            crate::LOG_SESSION,
+            "[{}] file::truncate(path={}, off={})",
+            self.session_id,
+            self.filename,
+            off
+        );
+
+        let inode = inodes::get(self.ino)?;
+
+        if off as u64 > inode.size {
+            return Err(Error::new(Code::InvArgs));
+        }
+
+        let (fileoff, extpos) = inodes::get_seek_pos(&inode, off, SeekMode::SET)?;
+        inodes::truncate(&inode, &extpos)?;
+
+        // stay within the file bounds
+        if self.next_fileoff > fileoff {
+            self.next_fileoff = fileoff;
+            self.next_pos = extpos;
+        }
+
+        // revoke the current to remove the client's access to now deleted parts
+        // TODO we need to revoke the access from others as well, but clients are currently not
+        // prepared for that!
+        self.revoke_cap();
+
+        reply_vmsg!(stream, Code::None as u32, fileoff - extpos.off)
     }
 
     pub fn file_commit(&mut self, stream: &mut GateIStream<'_>) -> Result<(), Error> {
@@ -594,14 +644,7 @@ impl Drop for FileSession {
         crate::open_files_mut().remove_session(self.ino).unwrap();
 
         // revoke caps if needed
-        if self.cur_sel != m3::kif::INVALID_SEL {
-            m3::tiles::Activity::own()
-                .revoke(
-                    m3::kif::CapRngDesc::new(m3::kif::CapType::OBJECT, self.cur_sel, 1),
-                    false,
-                )
-                .unwrap();
-        }
+        self.revoke_cap();
     }
 }
 
@@ -637,6 +680,16 @@ impl M3FSSession for FileSession {
 
     fn fstat(&mut self, _stream: &mut GateIStream<'_>) -> Result<(), Error> {
         Err(Error::new(Code::NotSup))
+    }
+
+    fn get_path(&mut self, stream: &mut GateIStream<'_>) -> Result<(), Error> {
+        let _: usize = stream.pop()?;
+        self.file_path(stream)
+    }
+
+    fn truncate(&mut self, stream: &mut GateIStream<'_>) -> Result<(), Error> {
+        let _: usize = stream.pop()?;
+        self.file_truncate(stream)
     }
 
     fn mkdir(&mut self, _stream: &mut GateIStream<'_>) -> Result<(), Error> {

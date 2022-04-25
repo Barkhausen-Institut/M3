@@ -18,6 +18,7 @@
 
 use core::fmt;
 
+use crate::borrow::StringRef;
 use crate::cap::Selector;
 use crate::cell::RefCell;
 use crate::col::{String, ToString, Vec};
@@ -26,7 +27,7 @@ use crate::rc::Rc;
 use crate::serialize::Source;
 use crate::session::M3FS;
 use crate::tiles::{ChildActivity, StateSerializer};
-use crate::vfs::FileSystem;
+use crate::vfs::{FileSystem, VFS};
 
 /// A reference to a file system.
 pub type FSHandle = Rc<RefCell<dyn FileSystem>>;
@@ -88,9 +89,22 @@ impl MountTable {
             .map(|mp| mp.fs.clone())
     }
 
+    /// Returns the mount path of the mount with given id
+    pub fn path_of_id(&self, mid: usize) -> Option<&String> {
+        self.mounts
+            .iter()
+            .find(|mp| mp.fs.borrow().id() == mid)
+            .map(|mp| &mp.path)
+    }
+
     /// Resolves the given path to the file system image and the offset of the mount point within
-    /// the path.
-    pub fn resolve(&self, path: &str) -> Result<(FSHandle, usize), Error> {
+    /// the path. The given path is turned into an absolute path in case it's relative. The returned
+    /// offset refers to the absolute path.
+    pub fn resolve(&self, path: &mut StringRef<'_>) -> Result<(FSHandle, usize), Error> {
+        if !path.starts_with('/') {
+            path.set(VFS::cwd() + "/" + &*path);
+        }
+
         for m in &self.mounts {
             if path.starts_with(m.path.as_str()) {
                 return Ok((m.fs.clone(), m.path.len()));

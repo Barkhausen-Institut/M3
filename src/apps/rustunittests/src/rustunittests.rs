@@ -27,6 +27,7 @@ mod tboxlist;
 mod tbufio;
 mod tdir;
 mod tdlist;
+mod tenvvars;
 mod tfilemux;
 mod tfloat;
 mod tgenfile;
@@ -76,6 +77,7 @@ pub fn main() -> i32 {
     wv_run_suite!(tester, tbufio::run);
     wv_run_suite!(tester, tdir::run);
     wv_run_suite!(tester, tdlist::run);
+    wv_run_suite!(tester, tenvvars::run);
     wv_run_suite!(tester, tfilemux::run);
     wv_run_suite!(tester, tfloat::run);
     wv_run_suite!(tester, tgenfile::run);

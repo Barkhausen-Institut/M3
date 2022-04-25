@@ -43,6 +43,7 @@ public:
         NEXT_IN         = GenericFile::NEXT_IN,
         NEXT_OUT        = GenericFile::NEXT_OUT,
         COMMIT          = GenericFile::COMMIT,
+        TRUNCATE        = GenericFile::TRUNCATE,
         SYNC            = GenericFile::SYNC,
         CLOSE           = GenericFile::CLOSE,
         CLONE           = GenericFile::CLONE,

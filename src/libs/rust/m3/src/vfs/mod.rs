@@ -31,8 +31,6 @@ mod mounttable;
 mod vfs;
 mod waiter;
 
-/// File permissions.
-pub type FileMode = u16;
 /// A device ID
 pub type DevId = u8;
 /// An inode ID
@@ -42,7 +40,9 @@ pub type BlockId = u32;
 
 pub use self::bufio::{BufReader, BufWriter};
 pub use self::dir::{read_dir, DirEntry, ReadDir};
-pub use self::file::{File, FileEvent, FileInfo, Map, OpenFlags, Seek, SeekMode, StatResponse};
+pub use self::file::{
+    File, FileEvent, FileInfo, FileMode, Map, OpenFlags, Seek, SeekMode, StatResponse,
+};
 pub use self::fileref::FileRef;
 pub use self::filesystem::{FSOperation, FileSystem};
 pub(crate) use self::filetable::INV_FD;

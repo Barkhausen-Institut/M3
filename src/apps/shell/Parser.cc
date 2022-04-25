@@ -39,11 +39,29 @@ EXTERN_C void yyerror(char const *s) {
 
 EXTERN_C int yylex() {
     size_t start = line_pos;
+    size_t end = 0;
 
     char c;
     if(!eof) {
+        bool in_str = false;
         while((c = line[line_pos]) != '\0') {
-            if(c == '|' || c == ';' || c == '>' || c == '<'  || c == '=' || c == '$') {
+            if(in_str) {
+                line_pos++;
+                if(c == '"') {
+                    end = line_pos - 1;
+                    in_str = false;
+                    break;
+                }
+                continue;
+            }
+
+            if(c == '"') {
+                if(line_pos != start)
+                    break;
+                start = line_pos + 1;
+                in_str = true;
+            }
+            else if(c == '|' || c == ';' || c == '>' || c == '<'  || c == '=' || c == '$') {
                 if(line_pos == start) {
                     line_pos++;
                     return c;
@@ -65,9 +83,10 @@ EXTERN_C int yylex() {
     }
 
     if(line_pos > start) {
-        char *token = static_cast<char*>(malloc(line_pos - start + 1));
-        strncpy(token, line + start, line_pos - start);
-        token[line_pos - start] = '\0';
+        end = end ? end : line_pos;
+        char *token = static_cast<char*>(malloc(end - start + 1));
+        strncpy(token, line + start, end - start);
+        token[end - start] = '\0';
         yylval.str = token;
         return T_STRING;
     }

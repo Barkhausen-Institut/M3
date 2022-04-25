@@ -20,8 +20,8 @@ use m3::errors::{Code, Error};
 use m3::log;
 use m3::mem::size_of;
 use m3::net::{
-    event, DataQueue, Endpoint, IpAddr, NetEvent, NetEventChannel, NetEventType, Port, Sd,
-    SocketArgs, SocketType,
+    CloseReqMessage, ClosedMessage, ConnectedMessage, DataMessage, DataQueue, Endpoint, IpAddr,
+    NetEvent, NetEventChannel, NetEventType, Port, Sd, SocketArgs, SocketType,
 };
 use m3::rc::Rc;
 use m3::time::{TimeDuration, TimeInstant};
@@ -59,9 +59,9 @@ pub fn to_m3_ep(addr: IpEndpoint) -> Endpoint {
 
 #[derive(Debug)]
 pub enum SendNetEvent {
-    Connected(event::ConnectedMessage),
-    Closed(event::ClosedMessage),
-    CloseReq(event::CloseReqMessage),
+    Connected(ConnectedMessage),
+    Closed(ClosedMessage),
+    CloseReq(CloseReqMessage),
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -70,6 +70,7 @@ pub enum State {
     Bound,
     Connecting,
     Connected,
+    RemoteClosed,
 }
 
 /// Socket abstraction that unifies the different socket types
@@ -208,7 +209,7 @@ impl Socket {
                     }
                     self.state = State::Connected;
                     let ep = to_m3_ep(tcp_socket.remote_endpoint());
-                    Some(SendNetEvent::Connected(event::ConnectedMessage::new(ep)))
+                    Some(SendNetEvent::Connected(ConnectedMessage::new(ep)))
                 }
                 else if let Some(start) = self.connect_start {
                     if TimeInstant::now() >= start + CONNECT_TIMEOUT {
@@ -218,7 +219,7 @@ impl Socket {
                         self._local_port = None;
                         self.state = State::Closed;
                         self.send_queue.clear();
-                        Some(SendNetEvent::Closed(event::ClosedMessage::default()))
+                        Some(SendNetEvent::Closed(ClosedMessage::default()))
                     }
                     else {
                         None
@@ -229,17 +230,21 @@ impl Socket {
                 }
             },
 
-            (SocketType::Stream, State::Connected) => {
+            (SocketType::Stream, State::Connected | State::RemoteClosed) => {
                 let tcp_socket = iface.get_socket::<TcpSocket<'_>>(self.socket);
                 if !tcp_socket.is_open() {
                     self._local_port = None;
                     self.state = State::Closed;
                     self.send_queue.clear();
-                    Some(SendNetEvent::Closed(event::ClosedMessage::default()))
+                    Some(SendNetEvent::Closed(ClosedMessage::default()))
                 }
                 // remote side has closed the connection?
-                else if tcp_socket.state() == TcpState::CloseWait {
-                    Some(SendNetEvent::CloseReq(event::CloseReqMessage::default()))
+                else if self.state != State::RemoteClosed
+                    && tcp_socket.state() == TcpState::CloseWait
+                    && !tcp_socket.can_recv()
+                {
+                    self.state = State::RemoteClosed;
+                    Some(SendNetEvent::CloseReq(CloseReqMessage::default()))
                 }
                 else {
                     None
@@ -374,7 +379,7 @@ impl Socket {
         match self.ty {
             SocketType::Stream => {
                 let tcp_socket = iface.get_socket::<TcpSocket<'_>>(self.socket);
-                if self.state == State::Connected {
+                if self.state == State::Connected || self.state == State::RemoteClosed {
                     let addr = tcp_socket.remote_endpoint();
                     // don't even log errors here, since they occur often and are uninteresting
                     tcp_socket
@@ -492,7 +497,7 @@ impl Socket {
     ) -> bool {
         match event.msg_type() {
             NetEventType::DATA => {
-                let data = event.msg::<event::DataMessage>();
+                let data = event.msg::<DataMessage>();
                 let ip = IpAddr(data.addr as u32);
                 let port = data.port as Port;
 

@@ -1,0 +1,41 @@
+ECHO(1)                            BSD General Commands Manual                            ECHO(1)
+
+NAME
+     echo -- write arguments to the standard output
+
+SYNOPSIS
+     echo [-n] [string ...]
+
+DESCRIPTION
+     The echo utility writes any specified operands, separated by single blank (` ') characters
+     and followed by a newline (`\n') character, to the standard output.
+
+     When no operands are given, only the newline is written.  The -- operand, which generally
+     denotes an end to option processing, is treated as part of string.
+
+     The options are as follows:
+
+     -n      Do not print the trailing newline character.
+
+EXIT STATUS
+     The echo utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     csh(1), ksh(1), printf(1)
+
+STANDARDS
+     The echo utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flag [-n] conflicts with the behaviour mandated by the X/Open System Interfaces option
+     of the IEEE Std 1003.1-2008 ("POSIX.1") specification, which says it should be treated as
+     part of string.  Additionally, echo does not support any of the backslash character se-
+     quences mandated by XSI.
+
+     echo also exists as a built-in to csh(1) and ksh(1), though with a different syntax.
+
+     Where portability is paramount, use printf(1).
+
+HISTORY
+     An echo utility appeared in Version 2 AT&T UNIX.
+
+BSD                                       March 16, 2018                                      BSD

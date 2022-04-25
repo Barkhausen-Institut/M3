@@ -18,6 +18,7 @@
 
 #include <base/Common.h>
 #include <base/Config.h>
+#include <base/util/Math.h>
 #include <base/TCU.h>
 #include <heap/heap.h>
 #include <string.h>
@@ -142,7 +143,9 @@ USED void *heap_realloc(void *p, size_t size) {
     /* copy old content over and free old area */
     if(newp) {
         HeapArea *a = backwards(reinterpret_cast<HeapArea*>(p), sizeof(HeapArea));
-        memcpy(newp, p, (a->next & ~HEAP_USED_BITS) - sizeof(HeapArea));
+        size_t cpy_size = m3::Math::min(size,
+            static_cast<size_t>((a->next & ~HEAP_USED_BITS) - sizeof(HeapArea)));
+        memcpy(newp, p, cpy_size);
         heap_free(p);
     }
     return newp;

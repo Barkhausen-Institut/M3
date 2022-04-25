@@ -1,0 +1,87 @@
+RM(1)                              BSD General Commands Manual                              RM(1)
+
+NAME
+     rm -- remove directory entries
+
+SYNOPSIS
+     rm [-dfiPRrv] file ...
+
+DESCRIPTION
+     The rm utility attempts to remove the non-directory type files specified on the command
+     line.  If the permissions of the file do not permit writing, and the standard input device
+     is a terminal, the user is prompted (on the standard error output) for confirmation.
+
+     The options are as follows:
+
+     -d      Attempt to remove directories as well as other types of files.
+
+     -f      Attempt to remove the files without prompting for confirmation, regardless of the
+             file's permissions.  If the file does not exist, do not display a diagnostic message
+             or modify the exit status to reflect an error.  The -f option overrides any previous
+             -i options.
+
+     -i      Request confirmation before attempting to remove each file, regardless of the file's
+             permissions, or whether or not the standard input device is a terminal.  The -i op-
+             tion overrides any previous -f options.
+
+     -P      Attempt to overwrite regular writable files before deleting them.  Files are over-
+             written once with a random pattern.  Files with multiple links will be unlinked but
+             not overwritten.
+
+     -R      Attempt to remove the file hierarchy rooted in each file argument.  The -R option
+             implies the -d option.  If the -i option is specified, the user is prompted for con-
+             firmation before each directory (and its contents) are processed.  If the user does
+             not respond affirmatively, the file hierarchy rooted in that directory is skipped.
+
+     -r      Equivalent to -R.
+
+     -v      Display each file name after it was removed.
+
+     The rm utility removes symbolic links, not the files referenced by the links.
+
+     It is an error to attempt to remove the root directory or the files "." or "..".  It is for-
+     bidden to remove the file ".." merely to avoid the antisocial consequences of inadvertently
+     doing something like "rm -r .*".
+
+EXIT STATUS
+     The rm utility exits 0 if all of the named files or file hierarchies were removed, or if the
+     -f option was specified and all of the existing files or file hierarchies were removed.  If
+     an error occurs, rm exits with a value >0.
+
+EXAMPLES
+     Recursively remove all files contained within the foobar directory hierarchy:
+
+           $ rm -rf foobar
+
+     Either of these commands will remove the file -f:
+
+           $ rm -- -f
+           $ rm ./-f
+
+SEE ALSO
+     rmdir(1), unlink(2), fts_open(3), symlink(7)
+
+STANDARDS
+     The rm utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flags [-dPv] are extensions to that specification.
+
+HISTORY
+     An rm command appeared in Version 1 AT&T UNIX.
+
+     The rm utility differs from historical implementations in that the -f option only masks at-
+     tempts to remove non-existent files instead of masking a large variety of errors.
+
+     Also, historical BSD implementations prompted on the standard output, not the standard error
+     output.
+
+     The interactive mode used to be a dsw command, a carryover from the ancient past with an
+     amusing etymology.
+
+BUGS
+     The -P option assumes that both the underlying file system and storage medium write in
+     place.  This is true for the FFS and MS-DOS file systems and magnetic hard disks, but not
+     true for most flash storage.  In addition, only regular files are overwritten; other types
+     of files are not.
+
+BSD                                     September 2, 2019                                     BSD

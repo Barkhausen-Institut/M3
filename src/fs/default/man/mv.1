@@ -1,0 +1,83 @@
+MV(1)                              BSD General Commands Manual                              MV(1)
+
+NAME
+     mv -- move files
+
+SYNOPSIS
+     mv [-fiv] source target
+     mv [-fiv] source ... directory
+
+DESCRIPTION
+     In its first form, the mv utility moves the file named by the source operand to the destina-
+     tion path named by the target operand.  This form is assumed when the last operand does not
+     name an already existing directory.
+
+     In its second form, mv moves each file named by a source operand to the destination speci-
+     fied by the directory operand.  It is an error if the directory does not exist.  The desti-
+     nation path for each source operand is the pathname produced by the concatenation of the
+     directory operand, a slash, and the final pathname component of the named file.
+
+     In both forms, a source operand is skipped with an error message when the respective desti-
+     nation path is a non-empty directory, or when the source is a non-directory file but the
+     destination path is a directory, or vice versa.
+
+     The options are as follows:
+
+     -f      Do not prompt for confirmation before overwriting the destination path.  The -f op-
+             tion overrides any previous -i options.
+
+     -i      Causes mv to write a prompt to standard error before moving a file that would over-
+             write an existing file.  If the response from the standard input begins with the
+             character "y", the move is attempted.  The -i option overrides any previous -f op-
+             tions.
+
+     -v      Display the source and destination after each move.
+
+     The mv utility moves symbolic links, not the files referenced by the links.
+
+     If the destination path does not have a mode which permits writing, mv prompts the user for
+     confirmation as specified for the -i option.
+
+     Should the rename(2) call fail because the source and destination are on different file sys-
+     tems, mv will imitate cp(1) and rm(1) to accomplish the move.  The effect is equivalent to:
+
+           $ rm -df -- destination_path && \
+               cp -PRp -- source destination_path && \
+               rm -rf -- source
+
+EXIT STATUS
+     The mv utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Rename file foo to bar, overwriting bar if it already exists:
+
+           $ mv -f foo bar
+
+     Either of these commands will rename the file -f to bar, prompting for confirmation if bar
+     already exists:
+
+           $ mv -i -- -f bar
+           $ mv -i ./-f bar
+
+SEE ALSO
+     cp(1), rm(1), rename(2), symlink(7)
+
+STANDARDS
+     The mv utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flag [-v] is an extension to that specification.
+
+HISTORY
+     A mv command appeared in Version 1 AT&T UNIX.
+
+CAVEATS
+     In the second synopsis form, incompatible file types in source and directory cause partial
+     moves.  For example, if f and g are non-directory files and d and d/f are directories, the
+     command
+
+           $ mv f g d
+
+     will print an error message, leave f where it is, move g to d/g and return a non-zero exit
+     status.
+
+BSD                                     November 14, 2018                                     BSD

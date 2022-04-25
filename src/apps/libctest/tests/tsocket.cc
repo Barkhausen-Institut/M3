@@ -72,11 +72,11 @@ static void generic_echo(const char *addr, const char *port, int type) {
 
     WVASSERTEQ(getsockname(sfd, (struct sockaddr *)&local, &local_len), 0);
     WVASSERTEQ(sizeof(local), local_len);
-    WVASSERT(strcmp(inet_ntoa(local.sin_addr), "127.0.0.1") == 0);
+    WVASSERTSTREQ(inet_ntoa(local.sin_addr), "127.0.0.1");
 
     WVASSERTEQ(getpeername(sfd, (struct sockaddr *)&remote, &remote_len), 0);
     WVASSERTEQ(sizeof(remote), remote_len);
-    WVASSERT(strcmp(inet_ntoa(remote.sin_addr), "127.0.0.1") == 0);
+    WVASSERTSTREQ(inet_ntoa(remote.sin_addr), "127.0.0.1");
     WVASSERTEQ(remote.sin_port, atoi(port));
 
     char buf[BUF_SIZE];
@@ -94,7 +94,7 @@ static void generic_echo(const char *addr, const char *port, int type) {
     WVASSERTEQ(sendto(sfd, "zombie", 6, 0, rp->ai_addr, rp->ai_addrlen), 6);
     WVASSERTEQ(recvfrom(sfd, buf, BUF_SIZE, 0, (struct sockaddr *)&src, &src_len), 6);
     WVASSERTEQ(sizeof(src), src_len);
-    WVASSERT(strcmp(inet_ntoa(src.sin_addr), "127.0.0.1") == 0);
+    WVASSERTSTREQ(inet_ntoa(src.sin_addr), "127.0.0.1");
     WVASSERTEQ(src.sin_port, atoi(port));
     WVASSERT(strncmp(buf, "zombie", 6) == 0);
 
@@ -170,7 +170,7 @@ static int tcp_server() {
     WVASSERT(nread > 0);
 
     WVASSERTEQ(nread, 4);
-    WVASSERT(strcmp(inet_ntoa(peer_addr.sin_addr), "127.0.0.1") == 0);
+    WVASSERTSTREQ(inet_ntoa(peer_addr.sin_addr), "127.0.0.1");
 
     WVASSERTEQ(send(cfd, buf, static_cast<size_t>(nread), 0), nread);
 

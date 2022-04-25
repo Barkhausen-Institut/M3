@@ -16,12 +16,12 @@
 
 #![no_std]
 
-use m3::col::{ToString, Vec};
+use m3::col::{String, ToString, Vec};
 use m3::env;
 use m3::errors::{Code, Error, VerboseError};
 use m3::format;
 use m3::mem;
-use m3::net::{self, IpAddr, RawSocket, RawSocketArgs};
+use m3::net::{self, IpAddr, RawSocket, RawSocketArgs, DNS};
 use m3::println;
 use m3::session::NetworkManager;
 use m3::time::{TimeDuration, TimeInstant};
@@ -113,10 +113,28 @@ fn send_echo(
     sock.borrow_as().send(&buf[0..total as usize])
 }
 
-fn recv_reply(buf: &mut [u8], sock: &mut FileRef<RawSocket>) -> Result<(), VerboseError> {
+fn recv_reply(
+    buf: &mut [u8],
+    sock: &mut FileRef<RawSocket>,
+    timeout: TimeDuration,
+) -> Result<(), VerboseError> {
     let send_time = TimeInstant::now();
 
     loop {
+        // wait for a response
+        if !timeout.is_zero() {
+            let mut waiter = FileWaiter::default();
+            waiter.add(sock.fd(), FileEvent::INPUT);
+            waiter.wait_for(timeout);
+
+            if !sock.borrow_as().has_data() {
+                return Err(VerboseError::new(
+                    Code::Timeout,
+                    "ICMP reply timed out".to_string(),
+                ));
+            }
+        }
+
         sock.borrow_as().recv(buf)?;
         let recv_time = TimeInstant::now();
 
@@ -156,9 +174,9 @@ pub struct PingSettings {
     ttl: u8,
     nbytes: usize,
     count: u16,
-    interval: u64,
-    timeout: u64,
-    dest: IpAddr,
+    interval: TimeDuration,
+    timeout: TimeDuration,
+    dest: String,
 }
 
 impl core::default::Default for PingSettings {
@@ -167,9 +185,9 @@ impl core::default::Default for PingSettings {
             ttl: 64,
             nbytes: 56,
             count: 5,
-            interval: 1000,
-            timeout: 1000,
-            dest: IpAddr::unspecified(),
+            interval: TimeDuration::from_secs(1),
+            timeout: TimeDuration::ZERO,
+            dest: String::new(),
         }
     }
 }
@@ -181,7 +199,7 @@ fn usage() -> ! {
     println!("    -s <n>        : use <n> bytes of payload (default: 56)");
     println!("    -t <ttl>      : use <ttl> as time-to-live (default: 64)");
     println!("    -i <interval> : sleep <interval> ms between pings (default: 1000)");
-    println!("    -W <timeout>  : wait <timeout> ms for each reply (default: 1000)");
+    println!("    -W <timeout>  : wait <timeout> ms for each reply (default: 0 = infinite)");
     m3::exit(1);
 }
 
@@ -208,10 +226,10 @@ fn parse_args() -> Result<PingSettings, VerboseError> {
                 settings.ttl = parse_arg(args[i + 1], "time-to-live")?;
             },
             "-i" => {
-                settings.interval = parse_arg(args[i + 1], "interval")?;
+                settings.interval = TimeDuration::from_millis(parse_arg(args[i + 1], "interval")?);
             },
             "-W" => {
-                settings.timeout = parse_arg(args[i + 1], "timeout")?;
+                settings.timeout = TimeDuration::from_millis(parse_arg(args[i + 1], "timeout")?);
             },
             _ => break,
         }
@@ -219,7 +237,14 @@ fn parse_args() -> Result<PingSettings, VerboseError> {
         i += 2;
     }
 
-    settings.dest = parse_arg(args[i], "IP address")?;
+    if i >= args.len() {
+        return Err(VerboseError::new(
+            Code::InvArgs,
+            "Missing arguments".to_string(),
+        ));
+    }
+
+    settings.dest = args[i].to_string();
 
     if settings.nbytes > 1024 {
         return Err(VerboseError::new(
@@ -250,13 +275,22 @@ pub fn main() -> i32 {
     .expect("creating raw socket failed");
 
     let src_ip = nm.ip_addr().expect("Unable to get own IP address");
+
+    let mut dns = DNS::default();
+    let dest_ip = dns
+        .get_addr(nm, &settings.dest, TimeDuration::from_secs(3))
+        .expect(&format!("Unable to resolve name '{}'", settings.dest));
+
     let total = mem::size_of::<IPv4Header>() + mem::size_of::<ICMP>() + settings.nbytes;
     let mut buf = vec![0u8; total];
 
     let mut sent = 0;
     let mut received = 0;
 
-    println!("PING {} {} data bytes", settings.dest, settings.nbytes);
+    println!(
+        "PING {} ({}) {} data bytes",
+        settings.dest, dest_ip, settings.nbytes
+    );
 
     let mut waiter = FileWaiter::default();
     waiter.add(raw_socket.fd(), FileEvent::INPUT | FileEvent::OUTPUT);
@@ -267,7 +301,7 @@ pub fn main() -> i32 {
             &mut buf,
             &raw_socket,
             src_ip,
-            settings.dest,
+            dest_ip,
             settings.nbytes,
             i,
             settings.ttl,
@@ -275,10 +309,11 @@ pub fn main() -> i32 {
         .expect("Sending ICMP echo failed");
         sent += 1;
 
-        recv_reply(&mut buf, &mut raw_socket).expect("Receiving ICMP echo failed");
+        recv_reply(&mut buf, &mut raw_socket, settings.timeout)
+            .expect("Receiving ICMP echo failed");
         received += 1;
 
-        waiter.sleep_for(TimeDuration::from_millis(settings.interval));
+        waiter.sleep_for(settings.interval);
     }
 
     let end = TimeInstant::now();

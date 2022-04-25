@@ -147,6 +147,31 @@ size_t GenericFile::seek(size_t offset, int whence) {
     return _goff + off;
 }
 
+String GenericFile::path() {
+    String path;
+    GateIStream reply = send_receive_vmsg(*_sg, GET_PATH, _id);
+    reply.pull_result();
+    reply >> path;
+
+    const char *mount = Activity::own().mounts()->path_of_id(_fs_id);
+
+    OStringStream abspath;
+    abspath << mount << "/" << path;
+    return abspath.str();
+}
+
+void GenericFile::truncate(size_t length) {
+    if(_writing)
+        commit();
+
+    GateIStream reply = send_receive_vmsg(*_sg, TRUNCATE, _id, length);
+    reply.pull_result();
+    // reset position in case we were behind the truncated position
+    reply >> _goff;
+    // we've lost access to the previous extent
+    _pos = _len = 0;
+}
+
 NOINLINE bool GenericFile::receive_notify(uint event, bool fetch) {
     // not received the event yet?
     if((_notify_received & event) == 0) {
@@ -345,7 +370,7 @@ FileRef<File> GenericFile::clone() const {
 
     KIF::CapRngDesc crd(KIF::CapRngDesc::OBJ, Activity::own().alloc_sels(2), 2);
     do_clone(Activity::own(), crd);
-    auto file = std::unique_ptr<File>(new GenericFile(flags(), crd.start()));
+    auto file = std::unique_ptr<File>(new GenericFile(flags(), crd.start(), _fs_id));
     return Activity::own().files()->alloc(std::move(file));
 }
 

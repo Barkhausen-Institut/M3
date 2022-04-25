@@ -31,6 +31,40 @@
 
 using namespace m3;
 
+template<typename F>
+static void test_path(F func, const char *in, const char *out) {
+    char dst[256];
+    size_t len = func(dst, sizeof(dst), in);
+    WVASSERTEQ(len, strlen(out));
+    WVASSERTSTREQ(dst, out);
+}
+
+static void paths() {
+    test_path(VFS::canon_path, "", "");
+    test_path(VFS::canon_path, ".", "");
+    test_path(VFS::canon_path, "..", "");
+    test_path(VFS::canon_path, ".//foo/bar", "foo/bar");
+    test_path(VFS::canon_path, "./foo/..///bar", "bar");
+    test_path(VFS::canon_path, "..//.//..//foo/../bar/..", "");
+    test_path(VFS::canon_path, "../.test//foo/..///", ".test");
+    test_path(VFS::canon_path, "/foo/..//bar", "/bar");
+
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::set_cwd("/non-existing-dir"); });
+    WVASSERTERR(Errors::IS_NO_DIR, [] { VFS::set_cwd("/test.txt"); });
+    VFS::set_cwd(".././bin/./.");
+    WVASSERTSTREQ(VFS::cwd(), "/bin");
+
+    test_path(VFS::abs_path, "", "/bin");
+    test_path(VFS::abs_path, ".", "/bin");
+    test_path(VFS::abs_path, "..", "/bin");
+    test_path(VFS::abs_path, ".//foo/bar", "/bin/foo/bar");
+    test_path(VFS::abs_path, "./foo/..///bar", "/bin/bar");
+    test_path(VFS::abs_path, "..//.//..//foo/../bar/..", "/bin");
+    test_path(VFS::abs_path, "../.test//foo/..///", "/bin/.test");
+
+    VFS::set_cwd("/");
+}
+
 static void dir_listing() {
     // read a dir with known content
     const char *dirname = "/largedir";
@@ -70,13 +104,11 @@ static void meta_operations() {
     VFS::mkdir("/example", 0755);
     WVASSERTERR(Errors::EXISTS, [] { VFS::mkdir("/example", 0755); });
     WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::mkdir("/example/foo/bar", 0755); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::mkdir("nomount", 0755); });
 
     FileInfo info;
     VFS::stat("/example", info);
     WVASSERT(M3FS_ISDIR(info.mode));
     WVASSERTERR(Errors::NO_SUCH_FILE, [&info] { VFS::stat("/example/foo", info); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [&info] { VFS::stat("nomount", info); });
 
     {
         FStream f("/example/myfile", FILE_W | FILE_CREATE);
@@ -97,22 +129,19 @@ static void meta_operations() {
     }
 
     WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rmdir("/example/foo/bar"); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rmdir("nomount"); });
     WVASSERTERR(Errors::IS_NO_DIR, [] { VFS::rmdir("/example/myfile"); });
     WVASSERTERR(Errors::DIR_NOT_EMPTY, [] { VFS::rmdir("/example"); });
 
     WVASSERTERR(Errors::IS_DIR, [] { VFS::link("/example", "/newpath"); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::link("nomount", "/newpath"); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::link("/example", "nomount"); });
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::link("/example/myfile", "/foo/bar"); });
     VFS::link("/example/myfile", "/newpath");
 
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rename("/example/myfile", "nomount"); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rename("nomount", "/example/myfile"); });
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rename("/example/myfile", "/foo/bar"); });
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rename("/foo/bar", "/example/myfile"); });
     VFS::rename("/example/myfile", "/example/myfile2");
 
     WVASSERTERR(Errors::IS_DIR, [] { VFS::unlink("/example"); });
     WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::unlink("/example/foo"); });
-    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::unlink("nomount"); });
     VFS::unlink("/example/myfile2");
 
     VFS::rmdir("/example");
@@ -142,8 +171,45 @@ static void delete_file() {
     WVASSERTERR(Errors::NO_SUCH_FILE, [&tmp_file] { VFS::open(tmp_file, FILE_R); });
 }
 
+static void relative_paths() {
+    VFS::set_cwd("/");
+
+    VFS::mkdir("example", 0755);
+    WVASSERTERR(Errors::EXISTS, [] { VFS::mkdir("example", 0755); });
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::mkdir("example/foo/bar", 0755); });
+
+    FileInfo info;
+    VFS::stat("example", info);
+    WVASSERT(M3FS_ISDIR(info.mode));
+    WVASSERTERR(Errors::NO_SUCH_FILE, [&info] { VFS::stat("example/foo", info); });
+
+    {
+        FStream f("./../example/myfile", FILE_W | FILE_CREATE);
+        f << "test\n";
+    }
+
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::rmdir("example/foo/bar"); });
+    WVASSERTERR(Errors::IS_NO_DIR, [] { VFS::rmdir("example/myfile"); });
+    WVASSERTERR(Errors::DIR_NOT_EMPTY, [] { VFS::rmdir("example"); });
+
+    WVASSERTERR(Errors::IS_DIR, [] { VFS::link("example", "newpath"); });
+    VFS::link("example/myfile", "./newpath");
+    VFS::rename("example/myfile", "example/myfile2");
+
+    WVASSERTERR(Errors::IS_DIR, [] { VFS::unlink("example"); });
+    WVASSERTERR(Errors::NO_SUCH_FILE, [] { VFS::unlink("example/foo"); });
+    VFS::unlink("./example/myfile2");
+
+    VFS::rmdir("example");
+    VFS::unlink("newpath");
+
+    VFS::set_cwd(nullptr);
+}
+
 void tfsmeta() {
+    RUN_TEST(paths);
     RUN_TEST(dir_listing);
     RUN_TEST(meta_operations);
     RUN_TEST(delete_file);
+    RUN_TEST(relative_paths);
 }

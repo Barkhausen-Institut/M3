@@ -35,8 +35,10 @@ public:
     explicit SerialFile() noexcept : File(FILE_RW) {
     }
 
-    virtual Errors::Code try_stat(FileInfo &) const override {
-        return Errors::NOT_SUP;
+    virtual Errors::Code try_stat(FileInfo &info) const override {
+        memset(&info, 0, sizeof(info));
+        info.mode = M3FS_IFCHR | M3FS_MODE_READ | M3FS_MODE_WRITE;
+        return Errors::NONE;
     }
     virtual size_t seek(size_t, int) override {
         throw Exception(Errors::NOT_SUP);

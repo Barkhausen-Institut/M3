@@ -353,6 +353,13 @@ impl ChildActivity {
             senv.set_argc(args.len());
             senv.set_argv(arch::loader::write_arguments(&mem, &mut off, args)?);
 
+            // write env vars
+            senv.set_envp(arch::loader::write_arguments(
+                &mem,
+                &mut off,
+                env::vars_raw(),
+            )?);
+
             // write file table
             {
                 let mut fds_vec = Vec::new();
@@ -481,6 +488,14 @@ impl ChildActivity {
                     .mounts()
                     .serialize(&self.mounts, &mut mounts);
                 arch::loader::write_env_values(pid, "ms", mounts.words());
+
+                // write env vars
+                let mut vars_vec = Vec::new();
+                let mut vars = StateSerializer::new(&mut vars_vec);
+                for var in env::vars_raw() {
+                    vars.push_str(&var);
+                }
+                arch::loader::write_env_values(pid, "vars", vars.words());
 
                 // write data
                 arch::loader::write_env_values(pid, "data", &self.data);

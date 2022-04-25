@@ -218,6 +218,20 @@ public:
     ssize_t write_all(const void *buffer, size_t count);
 
     /**
+     * Truncates the file to given length.
+     */
+    virtual void truncate(UNUSED size_t length) {
+        throw Exception(Errors::NOT_SUP);
+    }
+
+    /**
+     * @return the absolute path for this file, including its mount point
+     */
+    virtual String path() {
+        throw Exception(Errors::NOT_SUP);
+    }
+
+    /**
      * Flush the locally written data to the file system.
      */
     virtual void flush() {

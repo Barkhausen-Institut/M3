@@ -46,11 +46,9 @@ impl GateManager {
     }
 
     pub fn get(&self, name: &str) -> Option<&RecvGate> {
-        for (gname, gate) in &self.gates {
-            if gname == name {
-                return Some(gate);
-            }
-        }
-        None
+        self.gates
+            .iter()
+            .find(|(gname, _gate)| gname == name)
+            .map(|(_name, gate)| gate)
     }
 }

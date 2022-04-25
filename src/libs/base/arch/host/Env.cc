@@ -83,6 +83,7 @@ Env::Env(EnvBackend *backend, int logfd)
     : tile_id(set_inst(this)),
       shared(false),
       first_std_ep(0),
+      envp(),
       _backend(backend),
       _logfd(logfd),
       _shm_prefix(),

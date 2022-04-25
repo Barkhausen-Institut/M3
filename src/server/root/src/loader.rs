@@ -69,16 +69,10 @@ impl vfs::File for BootFile {
 
     fn stat(&self) -> Result<vfs::FileInfo, Error> {
         Ok(vfs::FileInfo {
-            devno: 0,
-            inode: 0,
-            mode: 0,
-            links: 0,
+            mode: vfs::FileMode::FILE_DEF,
             size: self.size as usize,
-            lastaccess: 0,
-            lastmod: 0,
             extents: 1,
-            blocksize: 0,
-            firstblock: 0,
+            ..Default::default()
         })
     }
 

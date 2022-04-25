@@ -1,0 +1,101 @@
+JOIN(1)                            BSD General Commands Manual                            JOIN(1)
+
+NAME
+     join -- relational database operator
+
+SYNOPSIS
+     join [-1 field] [-2 field] [-a file_number | -v file_number] [-e string] [-o list] [-t char]
+          file1 file2
+
+DESCRIPTION
+     The join utility performs an "equality join" on the specified files and writes the result to
+     the standard output.  The "join field" is the field in each file by which the files are com-
+     pared.  The first field in each line is used by default.  There is one line in the output
+     for each pair of lines in file1 and file2 which have identical join fields.  Each output
+     line consists of the join field, the remaining fields from file1 and then the remaining
+     fields from file2.
+
+     The default field separators are tab and space characters.  In this case, multiple tabs and
+     spaces count as a single field separator, and leading tabs and spaces are ignored.  The de-
+     fault output field separator is a single space character.
+
+     Many of the options use file and field numbers.  Both file numbers and field numbers are 1
+     based, i.e., the first file on the command line is file number 1 and the first field is
+     field number 1.
+
+     When the default field delimiter characters are used, the files to be joined should be or-
+     dered in the collating sequence of sort(1), using the -b option, on the fields on which they
+     are to be joined, otherwise join may not report all field matches.  When the field delimiter
+     characters are specified by the -t option, the collating sequence should be the same as
+     sort(1) without the -b option.
+
+     If one of the arguments file1 or file2 is `-', the standard input is used.
+
+     The options are as follows:
+
+     -1 field
+             Join on the field'th field of file1.
+
+     -2 field
+             Join on the field'th field of file2.
+
+     -a file_number
+             In addition to the default output, produce a line for each unpairable line in file
+             file_number.
+
+     -e string
+             Replace empty output fields with string.
+
+     -o list
+             Specifies the fields that will be output from each file for each line with matching
+             join fields.  Each element of list has the form "file_number.field", where
+             file_number is a file number and field is a field number, or the form "0" (zero),
+             representing the join field.  The elements of list must be either comma (`,') or
+             whitespace separated.  (The latter requires quoting to protect it from the shell, or
+             a simpler approach is to use multiple -o options.)
+
+     -t char
+             Use character char as a field delimiter for both input and output.  Every occurrence
+             of char in a line is significant.
+
+     -v file_number
+             Do not display the default output, but display a line for each unpairable line in
+             file file_number.  The options -v 1 and -v 2 may be specified at the same time.
+
+EXIT STATUS
+     The join utility exits 0 on success, and >0 if an error occurs.
+
+SEE ALSO
+     awk(1), comm(1), lam(1), paste(1), sort(1), uniq(1)
+
+STANDARDS
+     The join utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     In the absence of the -o option, historical versions of join wrote non-matching lines with-
+     out reordering the fields.  The current version writes the join field first, followed by the
+     remaining fields.
+
+     For compatibility with historical versions of join, the following options are available:
+
+     -a          In addition to the default output, produce a line for each unpairable line in
+                 both file1 and file2.
+
+     -j field    Join on the field'th field of both file1 and file2.
+
+     -j1 field   Join on the field'th field of file1.
+
+     -j2 field   Join on the field'th field of file2.
+
+     -o list ...
+                 Historical implementations of join permitted multiple arguments to the -o op-
+                 tion.  These arguments were of the form "file_number.field_number" as described
+                 for the current -o option.  This has obvious difficulties in the presence of
+                 files named "1.2".
+
+     These options are available only so historical shell scripts don't require modification and
+     should not be used.
+
+HISTORY
+     A join utility appeared in Version 7 AT&T UNIX.
+
+BSD                                      January 19, 2014                                     BSD

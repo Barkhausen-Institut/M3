@@ -128,9 +128,11 @@ int_enum! {
         const NEXT_IN       = GenFileOp::NEXT_IN.val;
         const NEXT_OUT      = GenFileOp::NEXT_OUT.val;
         const COMMIT        = GenFileOp::COMMIT.val;
+        const TRUNCATE      = GenFileOp::TRUNCATE.val;
         const SYNC          = GenFileOp::SYNC.val;
         const CLOSE         = GenFileOp::CLOSE.val;
         const CLONE         = GenFileOp::CLONE.val;
+        const GET_PATH      = GenFileOp::GET_PATH.val;
         const SET_TMODE     = GenFileOp::SET_TMODE.val;
         const SET_DEST      = GenFileOp::SET_DEST.val;
         const ENABLE_NOTIFY = GenFileOp::ENABLE_NOTIFY.val;
@@ -205,6 +207,7 @@ impl M3FSRequestHandler {
             M3FSOperation::NEXT_IN => self.exec_on_sess(input, |sess, is| sess.next_in(is)),
             M3FSOperation::NEXT_OUT => self.exec_on_sess(input, |sess, is| sess.next_out(is)),
             M3FSOperation::COMMIT => self.exec_on_sess(input, |sess, is| sess.commit(is)),
+            M3FSOperation::TRUNCATE => self.exec_on_sess(input, |sess, is| sess.truncate(is)),
             M3FSOperation::CLOSE => match self.exec_on_sess(input, |sess, is| sess.close(is)) {
                 Ok(true) => {
                     // get session id, then notify caller that we closed, finally close self
@@ -216,6 +219,7 @@ impl M3FSRequestHandler {
                 Err(e) => Err(e),
             },
             M3FSOperation::STAT => self.exec_on_sess(input, |sess, is| sess.stat(is)),
+            M3FSOperation::GET_PATH => self.exec_on_sess(input, |sess, is| sess.get_path(is)),
             M3FSOperation::SEEK => self.exec_on_sess(input, |sess, is| sess.seek(is)),
             M3FSOperation::FSTAT => self.exec_on_sess(input, |sess, is| sess.fstat(is)),
             M3FSOperation::MKDIR => self.exec_on_sess(input, |sess, is| sess.mkdir(is)),

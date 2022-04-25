@@ -21,13 +21,14 @@
 #include <base/Panic.h>
 #include <base/Init.h>
 
+#include <m3/EnvVars.h>
 #include <m3/session/ResMng.h>
 #include <m3/stream/FStream.h>
+#include <m3/Syscalls.h>
+#include <m3/tiles/Activity.h>
 #include <m3/vfs/FileTable.h>
 #include <m3/vfs/MountTable.h>
 #include <m3/vfs/VFS.h>
-#include <m3/Syscalls.h>
-#include <m3/tiles/Activity.h>
 
 #include <sys/fcntl.h>
 #include <sys/stat.h>
@@ -111,7 +112,10 @@ static void *read_from(const char *suffix, void *dst, size_t &size) {
             dst = malloc(size);
         }
 
-        read(fd, dst, size);
+        ssize_t res = read(fd, dst, size);
+        if(res < 0)
+            return nullptr;
+        size = static_cast<size_t>(res);
         unlink(path);
         close(fd);
         return dst;
@@ -180,6 +184,21 @@ void OwnActivity::init_fs() {
 
     len = sizeof(_data);
     read_from("data", _data, len);
+
+    if(read_from("vars", buf.get(), len)) {
+        Unmarshaller um(reinterpret_cast<unsigned char*>(&*buf.get()), len);
+        while(um.remaining() > 0) {
+            String s;
+            um >> s;
+            size_t pos = static_cast<size_t>(strchr(s.c_str(), '=') - s.c_str());
+            char *key = static_cast<char*>(malloc(pos + 1));
+            assert(key != nullptr);
+            strncpy(key, s.c_str(), pos);
+            key[pos] = '\0';
+            EnvVars::set(key, s.c_str() + pos + 1);
+            free(key);
+        }
+    }
 
     // TCU is ready now; notify parent
     int pipefd;
@@ -283,6 +302,11 @@ void ChildActivity::do_exec(int argc, const char **argv, uintptr_t func_addr) {
 
         len = Activity::own().files()->serialize(*this, buf.get(), STATE_BUF_SIZE);
         write_file(pid, "fds", buf.get(), len);
+
+        Marshaller m(buf.get(), STATE_BUF_SIZE);
+        for(size_t i = 0; i < EnvVars::count(); ++i)
+            m << EnvVars::vars()[i];
+        write_file(pid, "vars", buf.get(), m.total());
 
         write_file(pid, "data", _data, sizeof(_data));
 

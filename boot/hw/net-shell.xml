@@ -22,7 +22,7 @@
                     <tiles type="boom+nic" count="1" />
                     <tiles type="core" count="1" />
                     <dom tile="boom+nic">
-                        <app args="/sbin/net net 192.168.42.200" daemon="1">
+                        <app args="/sbin/net -n 194.94.42.132 -g 192.168.42.1 -a 255.255.255.0 net 192.168.42.200" daemon="1">
                             <serv name="net" />
                         </app>
                     </dom>

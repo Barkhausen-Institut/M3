@@ -29,6 +29,7 @@ pub struct EnvData {
     pub tile_desc: TileDescRaw,
     pub argc: u32,
     pub argv: u64,
+    pub envp: u64,
     pub first_sel: u32,
     pub kmem_sel: u32,
     pub platform: u64,
@@ -49,6 +50,7 @@ impl EnvData {
             tile_desc: tile_desc.value(),
             argc: argc as u32,
             argv: argv as u64,
+            envp: 0, // not supported on host
             first_sel: first_sel as u32,
             kmem_sel: kmem_sel as u32,
             platform: crate::envdata::Platform::HOST.val,

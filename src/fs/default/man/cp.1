@@ -1,0 +1,118 @@
+CP(1)                              BSD General Commands Manual                              CP(1)
+
+NAME
+     cp -- copy files
+
+SYNOPSIS
+     cp [-afipv] [-R [-H | -L | -P]] source target
+     cp [-afipv] [-R [-H | -L | -P]] source ... directory
+
+DESCRIPTION
+     In the first synopsis form, the cp utility copies the contents of the source file to the
+     target file.  In the second synopsis form, the contents of each named source file are copied
+     to the destination directory.  The names of the files themselves are not changed.  If cp de-
+     tects an attempt to copy a file to itself, the copy will fail.
+
+     The options are as follows:
+
+     -a      Archive mode.  Same as -RpP.
+
+     -f      For each existing destination pathname, remove it and create a new file, without
+             prompting for confirmation, regardless of its permissions.  The -f option overrides
+             any previous -i options.
+
+     -H      If the -R option is also specified, symbolic links on the command line are followed.
+             Symbolic links encountered in the tree traversal are not followed.
+
+     -i      Write a prompt to the standard error output before copying a file that would over-
+             write an existing file.  If the response from the standard input begins with the
+             character `y', the file copy is attempted.  The -i option overrides any previous -f
+             options.
+
+     -L      If the -R option is also specified, all symbolic links are followed.
+
+     -P      If the -R option is also specified, no symbolic links are followed.
+
+     -p      Preserve in the copy as many of the modification time, access time, file flags, file
+             mode, user ID, and group ID as allowed by permissions.
+
+             If the user ID and group ID cannot be preserved, no error message is displayed and
+             the exit value is not altered.
+
+             If the source file has its set-user-ID bit on and the user ID cannot be preserved,
+             the set-user-ID bit is not preserved in the copy's permissions.  If the source file
+             has its set-group-ID bit on and the group ID cannot be preserved, the set-group-ID
+             bit is not preserved in the copy's permissions.  If the source file has both its
+             set-user-ID and set-group-ID bits on, and either the user ID or group ID cannot be
+             preserved, neither the set-user-ID nor set-group-ID bits are preserved in the copy's
+             permissions.
+
+     -R      If source designates a directory, cp copies the directory and the entire subtree
+             connected at that point.  Created directories have the same mode as the correspond-
+             ing source directory, unmodified by the process's umask.
+
+             This option also causes symbolic links to be copied, rather than followed, and spe-
+             cial files to be created, rather than being copied as normal files.  However, cp
+             copies hard linked files as separate files.  To preserve hard links, use a utility
+             such as pax(1) or tar(1) instead.
+
+     -v      Display the source and destination after each copy.
+
+     For each destination file that already exists, its contents are overwritten if permissions
+     allow, but its mode, user ID, and group ID are unchanged.
+
+     In the second synopsis form, the destination specified by the directory operand must exist
+     unless there is only one named source which is a directory and the -R flag is specified.
+
+     If the destination file does not exist, the mode of the source file is used as modified by
+     the file mode creation mask (umask, see csh(1)).  If the source file has its set-user-ID bit
+     on, that bit is removed unless both the source file and the destination file are owned by
+     the same user.  If the source file has its set-group-ID bit on, that bit is removed unless
+     both the source file and the destination file are in the same group and the user is a member
+     of that group.  If both the set-user-ID and set-group-ID bits are set, all of the above con-
+     ditions must be fulfilled or both bits are removed.
+
+     Appropriate permissions are required for file creation or overwriting.
+
+     When a file containing large blocks of zero-valued bytes is copied, cp will attempt to cre-
+     ate a sparse file.
+
+     Symbolic links are always followed unless the -R flag is set, in which case symbolic links
+     are not followed, by default.  The -H or -L flags (in conjunction with the -R flag) cause
+     symbolic links to be followed as described above.  The -H, -L, and -P options are ignored
+     unless the -R option is specified.  In addition, these options override each other and the
+     command's actions are determined by the last one specified.
+
+EXIT STATUS
+     The cp utility exits 0 on success, and >0 if an error occurs.
+
+EXAMPLES
+     Make a copy of file foo named bar:
+
+           $ cp foo bar
+
+     Copy a group of files to the /tmp directory:
+
+           $ cp *.txt /tmp
+
+     Copy the directory junk and all of its contents (including any subdirectories) to the /tmp
+     directory:
+
+           $ cp -R junk /tmp
+
+SEE ALSO
+     mv(1), umask(2), fts_open(3), symlink(7)
+
+STANDARDS
+     The cp utility is compliant with the IEEE Std 1003.1-2008 ("POSIX.1") specification.
+
+     The flags [-av] are extensions to that specification.
+
+     Historic versions of the cp utility had an -r option.  This implementation supports that op-
+     tion; however, its use is strongly discouraged, as it does not correctly copy special files,
+     symbolic links or FIFOs.
+
+HISTORY
+     A cp command appeared in Version 1 AT&T UNIX.
+
+BSD                                     September 2, 2019                                     BSD
