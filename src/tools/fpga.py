@@ -66,12 +66,15 @@ def add_mod(dram, addr, name, offset):
 
 def tile_desc(i, vm):
     tile_desc = (3 << 3) | 1 if vm else pmp_size | (3 << 3) | 0
-    if i < 5:
-        tile_desc |= 1 << 8 # Rocket core
-    else:
-        tile_desc |= 1 << 7 # BOOM core
-    if i == 6:
+    if i > 3:
         tile_desc |= 1 << 9 # NIC
+    tile_desc |= 1 << 8 # Rocket core
+    # if i < 5:
+    #     tile_desc |= 1 << 8 # Rocket core
+    # else:
+    #     tile_desc |= 1 << 7 # BOOM core
+    # if i == 6:
+    #     tile_desc |= 1 << 9 # NIC
     return tile_desc
 
 def load_boot_info(dram, mods, tiles, vm):
