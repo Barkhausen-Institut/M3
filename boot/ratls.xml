@@ -7,10 +7,6 @@
                     <serv name="m3fs" />
                     <physmem addr="0" size="$fs.size" />
                 </app>
-                <app args="vterm" daemon="1">
-                    <serv name="vterm" />
-                    <serial />
-                </app>
             </dom>
             <dom>
                 <app args="pager maxcli=3 $fs.size" usermem="768M">
@@ -27,8 +23,7 @@
                         <app args="/bin/ratls-dashboard" daemon="1">
                             <rgate name="report" msgsize="2048" slots="1" />
                             <sgate name="command" />
-                            <sess name="net" args="bufs=1M socks=1" />
-                            <sess name="vterm" />
+                            <sess name="net" args="bufs=1M socks=2 tcp=5588" />
                         </app>
                     </dom>
                     <dom>

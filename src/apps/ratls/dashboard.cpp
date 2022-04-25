@@ -33,7 +33,6 @@
 #include <m3/com/RecvGate.h>
 #include <m3/com/GateStream.h>
 #include <m3/stream/Standard.h>
-#include <m3/session/VTerm.h>
 
 #else
 
@@ -148,21 +147,7 @@ public:
         rgate(RecvGate::create_named("report")),
         sgate(SendGate::create_named("command"))
     {
-
         rgate.activate();
-
-        VTerm *vterm;
-        try {
-            vterm = new VTerm("vterm");
-
-            // change stdin, stdout, and stderr to vterm
-            const fd_t fds[] = {STDIN_FD, STDOUT_FD, STDERR_FD};
-            for(fd_t fd : fds)
-                Activity::own().files()->set(fd, vterm->create_channel(fd == STDIN_FD));
-        }
-        catch(const Exception &e) {
-            errmsg("Unable to open vterm: " << e.what());
-        }
     }
 
     virtual void sendCommandToClient(std::string command) {
