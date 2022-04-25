@@ -152,8 +152,7 @@ public:
 
     virtual void sendCommandToClient(std::string command) {
         String cmd = command.c_str();
-        // FIXME: actually send command to client
-        send_receive_vmsg(sgate, 0);
+        send_receive_vmsg(sgate, cmd);
     }
 
     virtual std::string receiveReportFromClient() {
