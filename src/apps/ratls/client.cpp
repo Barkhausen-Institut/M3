@@ -23,7 +23,15 @@
 #include "benchmark.h"
 #include "demo.h"
 
+#if defined(__m3__)
 #include <Tpm2.h>
+const char * const tls_cert_chain_path = "/tls/fullchain.pem";
+const char * const tls_priv_key_path = "/tls/privkey.pem";
+#else
+#include <tss/Tpm2.h>
+const char * const tls_cert_chain_path = "data/fullchain.pem";
+const char * const tls_priv_key_path = "data/privkey.pem";
+#endif
 
 using namespace Err;
 using namespace TpmCpp;
@@ -59,6 +67,8 @@ std::vector<TPM2B_DIGEST> expectedPcrValues = {
 };*/
 
 std::vector<uint32_t> sealingPcrSlots = { 7, 23 };
+
+// ************************************************************************************************
 
 SOCKET openConnection(char const *hostname, int port) {
     
@@ -97,8 +107,8 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SE
 
     SSL *ssl = SSL_new(ctx);
 
-    BI::demoClient.setConnectionStatus(BI::DemoStatus::Connecting);
-    BI::demoClient.setTlsStatus(BI::DemoStatus::Connecting, "");
+    BI::demoClient.setConnectionStatus(BI::DemoStatus::Connecting, BI::DemoReport::NoSend);
+    BI::demoClient.setTlsStatus(BI::DemoStatus::Connecting, "", BI::DemoReport::NoSend);
     BI::demoClient.setAttestationStatus(BI::DemoStatus::Connecting, "", "", "");
 
     Benchmarking::startMeasure(Benchmarking::OpType::TCP);
@@ -127,35 +137,47 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SE
         resume = true;
     }
 
-    if(attested)Benchmarking::measureSingleValue(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+    if (attested)Benchmarking::measureSingleValue(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
     else Benchmarking::measureSingleValue(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
 
-    if(attested)Benchmarking::startMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+    if (attested)Benchmarking::startMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
     else Benchmarking::startMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
 
     int status = SSL_connect(ssl);
     if (status != 1) {
-        if(attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+        if (attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
         else Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
 
         printf("%s\n", ERR_error_string(SSL_get_error(ssl, status), NULL));
         ERR_print_errors_fp(stderr);
         return;
     }
-    if(attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
+    if (attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
     else Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
 
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Ok);
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Active);
 
-    int32_t val = 54;
+    int32_t val = 42;
     SSL_write(ssl, &val, sizeof(val));
 
-    SSL_shutdown(ssl);
+    char reply[1024];
+    int res = SSL_read(ssl, reply, sizeof(reply));
+    printf("SSL_read: %d; reply='%s'\n", res, reply);
+
+    res = SSL_shutdown(ssl);
+    printf("1st SSL_shutdown: %d\n", res);
+    if (res == 0) {
+        char tmp[1024];
+        printf("SSL_read: %d\n", SSL_read(ssl, tmp, sizeof(tmp)));
+        res = SSL_shutdown(ssl);
+        printf("2nd SSL_shutwown: %d\n", res);
+    }
 
     SSL_free(ssl);
 
     closesocket(connectSocket);
+
     BI::demoClient.reset();
 }
 
@@ -194,6 +216,25 @@ RATLS::RAQuote* remoteAttestCB(uint8_t *nonce, size_t nonceLen) {
     return tpmRoT->remoteAttest(pcrSlotsToAttest, nonce, nonceLen);
 }
 
+static std::string extractHexStringFromSerialization(std::string haystack, std::string needle,
+                                                     size_t hexBytesOffset, size_t numBytes) {
+
+    // extract hex bytes of format "3BB02D05 4F48637F ..." from serialized string
+    size_t needlePos = haystack.find(needle) + needle.length();
+    size_t hexBytesLength = numBytes * 2 + (numBytes / 4) - 1;
+    std::string hexBytes = haystack.substr(needlePos + hexBytesOffset, hexBytesLength);
+
+    // remove spaces
+    for (size_t spacePos = 8; spacePos < hexBytes.length(); spacePos += 8)
+        hexBytes.erase(spacePos, 1);
+
+    // add ":" after each hex byte
+    for (size_t colonPos = 2; colonPos < hexBytes.length(); colonPos += 1 + 2)
+        hexBytes.insert(colonPos, 1, ':');
+
+    return hexBytes;
+}
+
 bool checkQuoteCB(RATLS::RAQuote &raQuote, uint8_t *nonceExpected, size_t nonceExpectedLen) {
     bool ok = tpmRoT->checkQuote(raQuote, pcrSlotsToAttest, expectedPcrValues, nonceExpected, nonceExpectedLen);
 
@@ -206,16 +247,16 @@ bool checkQuoteCB(RATLS::RAQuote &raQuote, uint8_t *nonceExpected, size_t nonceE
     TPMT_PUBLIC pubKey;
     pubKey.Deserialize(SerializationType::JSON, publicJson);
 
-    //printf("%s%s", pubKey.ToString().c_str(), quote.ToString().c_str());
+    // printf("%s%s", pubKey.ToString().c_str(), quote.ToString().c_str());
+
+    std::string pubKeyStr = extractHexStringFromSerialization(pubKey.ToString(), "BYTE[] buffer = [", 13, 32);
+    std::string pcrDigest = extractHexStringFromSerialization(quote.ToString(), "BYTE[] pcrDigest = [", 0, 32);
 
     if (ok) {
-        BI::demoClient.setAttestationStatus(
-            BI::DemoStatus::Ok,
-            "01:02:03:04:05:06:07:08:09:0a:01:02:03:04:05:06",
-            "b1:b2:b3:b4:b5:b6:b7:b8:b9:ba:b1:b2:b3:b4:b5:b6",
-            "RATLS Demo");
+        BI::demoClient.setAttestationStatus(BI::DemoStatus::Ok, pubKeyStr, pcrDigest, "RATLS Demo");
     } else {
-        BI::demoClient.setAttestationStatus(BI::DemoStatus::Error, "", "", "RATLS Demo");
+        BI::demoClient.setAttestationStatus(BI::DemoStatus::Error, pubKeyStr, pcrDigest, "RATLS Demo");
+        BI::demoClient.reset();
     }
     return ok;
 }
@@ -246,19 +287,23 @@ uint8_t *unsealSessionSecretCB(uint8_t *sealingData, size_t sealingDataLength, s
     return tpmRoT->unseal(sealAuthValue, sealingPcrSlots, sealingData, sealingDataLength, unsealedDataLength);
 }
 
+// ************************************************************************************************
+
 int main(int argc, char const *argv[]) {
+
     try {
         Benchmarking::startMeasure(Benchmarking::OpType::Setup);
 
         setlinebuf(stdout);
+
+        BI::demoClient.parseCommandLine(argc, argv);
+        BI::demoClient.init();
+        BI::demoClient.setVerbose(false);
+
         RATLS::TpmDevInfo tpmDevInfo = RATLS::TpmRoT::parseCommandLine(argc, argv);
         chk(tpmDevInfo.initMode != RATLS::TpmInitMode::Invalid, "no or invalid tpm init mode on command line");
         
         tpmRoT = chk(new RATLS::TpmRoT(tpmDevInfo, "ratls-test"), "init TPM");
-
-        BI::demoClient.parseCommandLine(argc, argv);
-        BI::demoClient.init("127.0.0.1", 5000);
-        BI::demoClient.setVerbose(false);
 
         chk(argc > 1, "No server address specified");
         char const *serverAddress = argv[1];
@@ -313,7 +358,7 @@ int main(int argc, char const *argv[]) {
 #ifdef __linux__
         FILE *server_cert_file;
         X509 *server_cert;
-        server_cert_file = chksys(fopen("/tls/fullchain.pem", "r"), "open cert chain file");
+        server_cert_file = chksys(fopen(tls_cert_chain_path, "r"), "open cert chain file");
         server_cert = PEM_read_X509(server_cert_file, nullptr, nullptr, nullptr);
         fclose(server_cert_file);
         
@@ -335,40 +380,41 @@ int main(int argc, char const *argv[]) {
         
         SSL_CTX_set_ecdh_auto(ctx, 1);
 
-        if (SSL_CTX_use_certificate_file(ctx, "/tls/fullchain.pem", SSL_FILETYPE_PEM) <= 0) {
+        if (SSL_CTX_use_certificate_file(ctx, tls_cert_chain_path, SSL_FILETYPE_PEM) <= 0) {
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
-        if (SSL_CTX_use_PrivateKey_file(ctx, "/tls/privkey.pem", SSL_FILETYPE_PEM) <= 0) {
+        if (SSL_CTX_use_PrivateKey_file(ctx, tls_priv_key_path, SSL_FILETYPE_PEM) <= 0) {
             ERR_print_errors_fp(stderr);
             exit(EXIT_FAILURE);
         }
 
-        SSL_CTX_use_certificate_chain_file(ctx, "/tls/fullchain.pem");
+        SSL_CTX_use_certificate_chain_file(ctx, tls_cert_chain_path);
 
-        if(benchmarkData.performBenchmarking) {
+        if (benchmarkData.performBenchmarking) {
             printf("Running client benchmark with %d samples\n", benchmarkData.numSamples);
             printf("   %d attested hanndshakes\n", benchmarkData.numSamples);
-            if(benchmarkData.resumeSessions) {
+            if (benchmarkData.resumeSessions) {
                 printf(" + %d resumed handshakes\n", benchmarkData.numSamples);
             }
-            if(benchmarkData.performPureSSLHandshakes) {
+            if (benchmarkData.performPureSSLHandshakes) {
                 printf(" + %d pure ssl handshakes\n", benchmarkData.numSamples);
             }
-            if(benchmarkData.performPureSSLHandshakes && benchmarkData.resumeSessions) {
+            if (benchmarkData.performPureSSLHandshakes && benchmarkData.resumeSessions) {
                 printf(" + %d resumed pure ssl handshakes\n", benchmarkData.numSamples);
             }
         }
 
         Benchmarking::stopMeasure(Benchmarking::OpType::Setup);
 
-        if(benchmarkData.performBenchmarking) {
+        if (benchmarkData.performBenchmarking) {
+
             SSL_CTX_sess_set_new_cb(ctx, callbackNewSession);
-            if(benchmarkData.performPureSSLHandshakes) {
+            if (benchmarkData.performPureSSLHandshakes) {
                 for (uint32_t i = 0; i < benchmarkData.numSamples; i++) {
                     doConnection(serverAddress, ctx, false);
-                    if(benchmarkData.resumeSessions) {
+                    if (benchmarkData.resumeSessions) {
                         doConnection(serverAddress, ctx, false, currentSession);
                     }
                 }
@@ -388,7 +434,7 @@ int main(int argc, char const *argv[]) {
             ///printf("Performing Benchmark ... \n");
             for (uint32_t i = 0; i < benchmarkData.numSamples; i++) {
                 doConnection(serverAddress, ctx, true);
-                if(benchmarkData.resumeSessions) {
+                if (benchmarkData.resumeSessions) {
                     doConnection(serverAddress, ctx, true, currentSession);
                 }
                 //printf("Benchmark: %d/%d\n", i, benchmarkData.numSamples);
@@ -416,7 +462,9 @@ int main(int argc, char const *argv[]) {
             printf("   %3ld RESUMED ATTESTED HANDSHAKE\n", Benchmarking::getSingleValue(Benchmarking::OpType::ResumedHandshake));
 
             Benchmarking::writeBenchmarksToFile(benchmarkData.outputPath);
-        } else {
+
+        } else if (BI::demoClient.clientIsDemo()) {
+
             raContext.customVerifyCallback = verifyCB;
             raContext.createRequestCB = createRequestCB;
             raContext.remoteAttestCB = remoteAttestCB;
@@ -427,9 +475,24 @@ int main(int argc, char const *argv[]) {
             raContext.customNewSession = callbackNewSession;
             RATLS::enableClientRemoteAttestation(&raContext, ctx);
 
-            while(true) {
+            while (true) {
                 BI::demoClient.waitForCommand();
+                doConnection(serverAddress, ctx, true);
+            }
 
+        } else {
+
+            raContext.customVerifyCallback = verifyCB;
+            raContext.createRequestCB = createRequestCB;
+            raContext.remoteAttestCB = remoteAttestCB;
+            raContext.checkQuoteCB = checkQuoteCB;
+            raContext.sealSessionSecretCB = sealSessionSecretCB;
+            raContext.unsealSessionSecretCB = unsealSessionSecretCB;
+            raContext.maxSessionTicketsNum = 2;
+            raContext.customNewSession = callbackNewSession;
+            RATLS::enableClientRemoteAttestation(&raContext, ctx);
+
+            for (int i = 0; i < 1; i++) {
                 doConnection(serverAddress, ctx, true);
             }
         }
@@ -440,7 +503,7 @@ int main(int argc, char const *argv[]) {
         cerr << "ratls-test-client: " << exc.what() << "\nExiting...\n";
     }
 
-    if(tpmRoT) tpmRoT->terminateTpm();
+    if (tpmRoT) tpmRoT->terminateTpm();
 
     return 0;
 }

@@ -24,9 +24,11 @@ asynchronous command received from user / dashboard controls:
 	command:{connect}
 	mode:{tls-attest,tls}
 	sensor-data:<numeric string value>
+	ra-expectation:{error,ok} [ignored by client]
 
 asynchronous report sent to dashboard:
 
+	mode:{tls-attest,tls}
 	status:{idle,error,connecting,active,restarting}
 	status-tls:{ok,error}
 	status-attest:{ok,error,unknown}
@@ -37,6 +39,7 @@ asynchronous report sent to dashboard:
 
 example reports for client:
 
+	mode:tls-attest
 	status:idle
 	status-tls:idle
 	status-attest:idle
@@ -44,7 +47,8 @@ example reports for client:
 	peer-attest-pubkey:
 	peer-attest-hash:
 	peer-attest-info:
-
+    ===
+	mode:tls-attest
 	status:connecting
 	status-tls:idle
 	status-attest:idle
@@ -52,7 +56,8 @@ example reports for client:
 	peer-attest-pubkey:
 	peer-attest-hash:
 	peer-attest-info:
-
+    ===
+	mode:tls-attest
 	status:connecting
 	status-tls:idle
 	status-attest:ok
@@ -60,7 +65,8 @@ example reports for client:
 	peer-attest-pubkey:01:02:03:04:05:06:07:08:09:0a:01:02:03:04:05:06
 	peer-attest-hash:b1:b2:b3:b4:b5:b6:b7:b8:b9:ba:b1:b2:b3:b4:b5:b6
 	peer-attest-info:RATLS Demo
-
+    ===
+	mode:tls-attest
 	status:connecting
 	status-tls:ok
 	status-attest:ok
@@ -68,7 +74,8 @@ example reports for client:
 	peer-attest-pubkey:01:02:03:04:05:06:07:08:09:0a:01:02:03:04:05:06
 	peer-attest-hash:b1:b2:b3:b4:b5:b6:b7:b8:b9:ba:b1:b2:b3:b4:b5:b6
 	peer-attest-info:RATLS Demo
-
+    ===
+	mode:tls-attest
 	status:ok
 	status-tls:ok
 	status-attest:ok
@@ -76,7 +83,8 @@ example reports for client:
 	peer-attest-pubkey:01:02:03:04:05:06:07:08:09:0a:01:02:03:04:05:06
 	peer-attest-hash:b1:b2:b3:b4:b5:b6:b7:b8:b9:ba:b1:b2:b3:b4:b5:b6
 	peer-attest-info:RATLS Demo
-
+    ===
+	mode:tls-attest
 	status:active
 	status-tls:ok
 	status-attest:ok
@@ -84,7 +92,8 @@ example reports for client:
 	peer-attest-pubkey:01:02:03:04:05:06:07:08:09:0a:01:02:03:04:05:06
 	peer-attest-hash:b1:b2:b3:b4:b5:b6:b7:b8:b9:ba:b1:b2:b3:b4:b5:b6
 	peer-attest-info:RATLS Demo
-
+    ===
+	mode:tls-attest
 	status:idle
 	status-tls:idle
 	status-attest:idle
@@ -95,12 +104,23 @@ example reports for client:
 
 */
 
+#if defined(__m3__)
 #include <m3/com/GateStream.h>
+#else
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+
+using namspace m3;
+#endif
 
 #include <cstdio>
 
 #include "demo.h"
+#include "dashboard.h"
 #include "errorhelper.h"
+
+using namespace Err;
 
 // ************************************************************************************************
 
@@ -121,6 +141,11 @@ static std::vector<std::string> demoStatusString = {
 	"active",
 	"restarting",
 	"unknown"
+};
+
+static std::vector<std::string> demoModeString = {
+	"tls",
+	"tls-attest"
 };
 
 // ************************************************************************************************
@@ -149,17 +174,28 @@ void DemoBase::parseCommandLine(int &argc, char const *argv[]) {
 
 // ************************************************************************************************
 
-void DemoClient::init(std::string dashBoardHost, int dashBoardPort) {
+void DemoClient::init() {
 
-	// FIXME: open socket, etc.
+	if (!clientIsDemo())
+		return;
 
-	fd = -1;
-	reset(false);
+#if ! defined(__m3__)
+	commandPipeFd = chksys(open(RATLS_DASHBOARD_CONNECTOR_COMMAND_FIFO, O_RDONLY),
+	                       "open dashboard command fifo");
+	reportPipeFd = chksys(open(RATLS_DASHBOARD_CONNECTOR_REPORT_FIFO, O_WRONLY),
+	                      "open dashboard report fifo");
+#endif
+
+	reset(DemoReport::NoSend);
 }
 
 
-void DemoClient::reset(bool send) {
+void DemoClient::reset(DemoReport sendMode) {
 
+	if (!clientIsDemo())
+		return;
+
+	mode = DemoMode::TlsAttest;
 	connectionStatus = DemoStatus::Idle;
 	tlsStatus = DemoStatus::Idle;
 	attestationStatus = DemoStatus::Idle;
@@ -169,47 +205,83 @@ void DemoClient::reset(bool send) {
 	attestationInfo = "";
 	text = "";
 
-	if(send) {
-		printf("Sending reset...\n");
+	if (sendMode == DemoReport::Send) {
+		sendReport();
+#if defined(__m3__)
+		printf("Sending reset\n");
 		m3::send_receive_vmsg(report, "");
 		printf("Received reset ACK\n");
+#else
+		char const resetReport[] = ""; 
+		size_t resetSize = strlen(resetReport) + 1; // "" + null byte
+		chksys(write(reportPipeFd, &resetSize, sizeof(resetSize)), "write reset report size");
+		chksys(write(reportPipeFd, &resetReport, resetSize), "write empty reset report");
+#endif
 	}
 }
 
 
-void DemoClient::waitForCommand() {
+std::string DemoClient::waitForCommand() {
+
+	if (!clientIsDemo())
+		return "";
+
+#if defined(__m3__)
 	printf("Waiting for command...\n");
+    m3::String cmd;
 	auto is = m3::receive_msg(command);
-	printf("Received command\n");
+    is >> cmd;
 	m3::reply_vmsg(is, 0);
+	printf("Ack'ed command\n");
+	return cmd.c_str();
+#else
+	char cmdBuf[RATLS_DASHBOARD_MESSAGE_SIZE];
+	size_t cmdSize;
+	chksys(read(commandPipeFd, &cmdSize, sizeof(cmdSize)), "read command size");
+	chksys(read(commandPipeFd, cmdBuf, std::min(cmdSize, sizeof(cmdBuf))), "read command");
+	cmdBuf[sizeof(cmdBuf)-1] = 0;
+	return std::string(cmdBuf);
+#endif
 }
 
 
-void DemoClient::setConnectionStatus(DemoStatus s) {
+void DemoClient::setConnectionStatus(DemoStatus s, DemoReport sendMode) {
+
+	if (!clientIsDemo())
+		return;
 
 	connectionStatus = s;
 
-	sendReport();
+	if (sendMode == DemoReport::Send)
+		sendReport();
 }
 
 
-void DemoClient::setTlsStatus(DemoStatus s, std::string cert) {
+void DemoClient::setTlsStatus(DemoStatus s, std::string cert, DemoReport sendMode) {
+
+	if (!clientIsDemo())
+		return;
 
 	tlsStatus = s;
 	tlsCertificate = cert;
 
-	sendReport();
+	if (sendMode == DemoReport::Send)
+		sendReport();
 }
 
 
-void DemoClient::setAttestationStatus(DemoStatus s, std::string pubKey, std::string hash, std::string info) {
+void DemoClient::setAttestationStatus(DemoStatus s, std::string pubKey, std::string hash,
+                                      std::string info, DemoReport sendMode) {
+	if (!clientIsDemo())
+		return;
 
 	attestationStatus = s;
 	attestationPubKey = pubKey;
 	attestationHash = hash;
 	attestationInfo = info;
 
-	sendReport();
+	if (sendMode == DemoReport::Send)
+		sendReport();
 }
 
 
@@ -217,6 +289,7 @@ char const *DemoClient::reportAsText() {
 
 	try {
 		text = "";
+		text += "mode:" + demoModeString.at(mode) + "\n";
 		text += "status:" + demoStatusString.at(connectionStatus) + "\n";
 		text += "status-tls:" + demoStatusString.at(tlsStatus) + "\n";
 		text += "status-attest:" + demoStatusString.at(attestationStatus) + "\n";
@@ -241,15 +314,20 @@ char const *DemoClient::reportAsText() {
 
 
 void DemoClient::sendReport() {
-	const char *report_str = reportAsText();
+	const char *reportStr = reportAsText();
 
 	if (verbose) {
-		printf("-------- BI RATLS DEMO - BEGIN --------\n");
-		printf("%s", report_str);
-		printf("--------- BI RATLS DEMO - END ---------\n");
+		printf("%s", reportStr);
+		printf("===\n");
 	}
 
-	m3::send_receive_vmsg(report, m3::String(report_str));
+#if defined(__m3__)
+	m3::send_receive_vmsg(report, m3::String(reportStr));
+#else
+	size_t reportSize = strlen(reportStr) + 1; // length + null byte
+	chksys(write(reportPipeFd, &reportSize, sizeof(reportSize)), "write report size");
+	chksys(write(reportPipeFd, reportStr, reportSize), "write report");
+#endif
 }
 
 // ************************************************************************************************

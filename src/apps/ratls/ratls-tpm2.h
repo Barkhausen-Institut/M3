@@ -1,7 +1,12 @@
 #pragma once
 
 #include <vector>
+
+#if defined(__m3__)
 #include <Tpm2.h>
+#else
+#include <tss/Tpm2.h>
+#endif
 
 #include "ratls.h"
 

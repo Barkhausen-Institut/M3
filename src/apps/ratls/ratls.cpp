@@ -20,7 +20,7 @@ RASession* getRASessionForSSLSession(SSL* ssl) {
 
 void setupRATLS() {
     NID_cert_ext_ra_quote = OBJ_create(CERT_EXT_RA_QUOTE, "RA Quote", "RA Quote");
-    std::cout << NID_cert_ext_ra_quote << std::endl;
+    // std::cout << NID_cert_ext_ra_quote << std::endl;
 
     raContextDataIndex = SSL_get_ex_new_index(0, (char*)"remote attestation context", NULL, NULL, NULL);
     raSessionFlagIndex = SSL_get_ex_new_index(0, (char*)"remote attestation session flag", NULL, NULL, NULL);
@@ -338,8 +338,8 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
 
     // only parse if session was not resumed
     if (extType == EXT_RA_REQ) {
-        // SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
-        // RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
+        SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
+        RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         RARequestData d;
         d.deserialize((uint8_t*)in, inlen);
@@ -420,8 +420,8 @@ int callbackParseExtensionRAClient(SSL *ssl, unsigned int extType,
 
 #ifdef TLS1_3_CERT_MSG_EXT
     if (extType == EXT_RA_RES_TLS1_3) {
-        // SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
-        // RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
+        SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
+        RAClientContext *raContext = (RAClientContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         // if we are parsing the servers certificate
         // and we are at the root certificate (chainidx == 0)
@@ -778,8 +778,8 @@ int callbackParseExtensionRAServer(SSL *ssl, unsigned int extType,
     //std::cout << "[PARSE] extensions callback for context " << context << " and extension type " << extType << " and chain idx " << chainidx << std::endl;
 
     if (extType == EXT_RA_REQ) {
-        // SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
-        // RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
+        SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
+        RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         RARequestData d;
         d.deserialize((uint8_t*)in, inlen);
@@ -866,8 +866,8 @@ int callbackParseExtensionRAServer(SSL *ssl, unsigned int extType,
 
 #ifdef TLS1_3_CERT_MSG_EXT
     if (extType == EXT_RA_RES_TLS1_3) {
-        // SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
-        // RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
+        SSL_CTX *sslCtx = SSL_get_SSL_CTX(ssl);
+        RAServerContext *raContext = (RAServerContext*)SSL_CTX_get_ex_data(sslCtx, raContextDataIndex);
 
         if (context == SSL_EXT_TLS1_3_CERTIFICATE) {
             RAQuote* quote = new RAQuote();

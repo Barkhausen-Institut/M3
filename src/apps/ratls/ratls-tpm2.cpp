@@ -7,7 +7,11 @@
 #include <string>
 #include <stdexcept>
 
+#if defined(__m3__)
 #include <Tpm2.h>
+#else
+#include <tss/Tpm2.h>
+#endif
 
 #include "errorhelper.h"
 #include "ratls-tpm2.h"
@@ -29,14 +33,16 @@ TpmDevInfo TpmRoT::parseCommandLine(int &argc, char const *argv[]) {
         std::string mode = argv[1];
         std::string devName = argv[2];
 
-        if (mode == "--tpm-hardware") {
+        if (mode == "--tpm-null") {
+            devInfo = { TpmInitMode::Null, devName };
+
+#if ! defined(__m3__)
+        } else if (mode == "--tpm-hardware") {
             devInfo = { TpmInitMode::Hardware, devName };
 
         } else if (mode == "--tpm-simulator") {
             devInfo = { TpmInitMode::Simulator, devName };
-
-        } else if (mode == "--tpm-null") {
-            devInfo = { TpmInitMode::Null, devName };
+#endif
         }
 
         if (devInfo.initMode != TpmInitMode::Invalid) {
@@ -216,15 +222,17 @@ TpmRoT::TpmRoT(TpmDevInfo tpmDevInfo, std::string appName) {
 bool TpmRoT::initTpm(std::string appName) {
 
     switch (devInfo.initMode) {
-        // case TpmInitMode::Hardware:
-        //     device = chk(new TpmCharDevice(devInfo.devName), "new TpmCharDevice");
-        // break;
-        // case TpmInitMode::Simulator:
-        //     device = chk(new TpmUnixDevice(devInfo.devName), "new TpmUnixDevice");
-        //     break;
         case TpmInitMode::Null:
             device = chk(new TpmNullDevice(), "new TpmNullDevice");
             break;
+#if ! defined(__m3__)
+        case TpmInitMode::Hardware:
+            device = chk(new TpmCharDevice(devInfo.devName), "new TpmCharDevice");
+            break;
+        case TpmInitMode::Simulator:
+            device = chk(new TpmUnixDevice(devInfo.devName), "new TpmUnixDevice");
+            break;
+#endif
         default:
             throw std::runtime_error("invalid init mode");
     }
@@ -371,7 +379,7 @@ uint8_t *TpmRoT::seal(TpmCpp::ByteVec authValue, std::vector<uint32_t> pcrSlots,
 
 uint8_t *TpmRoT::unseal(TpmCpp::ByteVec authValue, std::vector<UINT32> &pcrSlots,
                         uint8_t *sealingData, size_t sealingDataLength, size_t *unsealedDataLength) {
-
+    
     Benchmarking::startMeasure(Benchmarking::OpType::Unseal);
 
     using namespace TpmCpp;
@@ -385,7 +393,7 @@ uint8_t *TpmRoT::unseal(TpmCpp::ByteVec authValue, std::vector<UINT32> &pcrSlots
     std::string sealedObjectJson = std::string((char*)sealingData, sealingDataLength);
 
     CreateResponse sealedObject;
-    // bool deserialized = sealedObject.Deserialize(SerializationType::JSON, sealedObjectJson);
+    bool deserialized = sealedObject.Deserialize(SerializationType::JSON, sealedObjectJson);
     TPM_HANDLE sealedKey = tpm.Load(storageKey, sealedObject.outPrivate, sealedObject.outPublic);
     sealedKey.SetAuth(authValue);
 
@@ -446,11 +454,11 @@ void TpmRoT::terminateTpm() {
     if(storageKey) {
     //    tpm.FlushContext(storageKey);
     }
-
+    
     if(attestationKey) {
     //    tpm.FlushContext(attestationKey);
     }
-
+    
     if(device) {
         delete device;
         device = nullptr;

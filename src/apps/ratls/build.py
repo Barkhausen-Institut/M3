@@ -1,13 +1,14 @@
 def build(gen, env):
-    env.m3_exe(gen, out = 'ratls-dashboard', ins = ['dashboard.cpp'])
-
     env = env.clone()
 
     env['CPPFLAGS'] += [
         '-D__linux__=1',
+        '-D__m3__=1',
         '-D_GNU_SOURCE',
         '-D_TPMCPPLIB',
     ]
+
+    env.m3_exe(gen, out = 'ratls-dashboard', ins = ['dashboard.cpp'])
 
     # disable LTO to reduce link times
     env.remove_flag('CXXFLAGS', '-flto')

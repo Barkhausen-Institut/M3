@@ -10,7 +10,11 @@ simple commands from the user who controls the demo.
 
 #pragma once
 
+#if defined(__m3__)
 #include <m3/com/SendGate.h>
+#endif
+
+#include <unistd.h>
 
 #include <string>
 #include <vector>
@@ -20,6 +24,16 @@ simple commands from the user who controls the demo.
 namespace BI {
 
 // ************************************************************************************************
+
+typedef enum {
+	Send = 0,
+	NoSend = 1
+} DemoReport;
+
+typedef enum {
+	Tls = 0,
+	TlsAttest = 1
+} DemoMode;
 
 typedef enum {
 	Idle = 0,
@@ -48,30 +62,53 @@ protected:
 class DemoClient : public DemoBase {
 public:
 	DemoClient()
+#if defined(__m3__)
 		: report(m3::SendGate::create_named("report")),
-		  command(m3::RecvGate::create_named("command")) {
+		  command(m3::RecvGate::create_named("command")),
+#else
+		: commandPipeFd(-1),
+		  reportPipeFd(-1),
+#endif
+		  verbose(false)
+	{
+#if defined(__m3__)
 		command.activate();
-		verbose = false;
-		init("", 0);
+#endif
 	}
 
-	void init(std::string dashBoardHost, int dashBoardPort);
-	void reset(bool send = true);
+	~DemoClient() {
+#if ! defined(__m3__)
+		if (commandPipeFd >= 0)
+			close(commandPipeFd);
+		if (reportPipeFd >= 0)
+			close(reportPipeFd);
+#endif
+	}
+
+	void init();
+	void reset(DemoReport sendMode = DemoReport::Send);
 	void setVerbose(bool v) { verbose = v; }
 
-	void waitForCommand();
+	std::string waitForCommand();
 
-	void setConnectionStatus(DemoStatus s);
-	void setTlsStatus(DemoStatus s, std::string cert);
-	void setAttestationStatus(DemoStatus s, std::string pubKey, std::string hash, std::string info);
+	void setConnectionStatus(DemoStatus s, DemoReport sendMode = DemoReport::Send);
+	void setTlsStatus(DemoStatus s, std::string cert, DemoReport sendMode = DemoReport::Send);
+	void setAttestationStatus(DemoStatus s, std::string pubKey, std::string hash,
+	                          std::string info, DemoReport sendMode = DemoReport::Send);
 
 protected:
 	char const *reportAsText();
 	void sendReport();
 
+#if defined(__m3__)
 	m3::SendGate report;
 	m3::RecvGate command;
+#else
+	int commandPipeFd;
+	int reportPipeFd;
+#endif
 
+	DemoMode mode;
 	DemoStatus connectionStatus;
 	DemoStatus tlsStatus;
 	DemoStatus attestationStatus;
@@ -82,8 +119,6 @@ protected:
 
 	std::string text;
 	bool verbose;
-
-	int fd;
 };
 
 // ************************************************************************************************
