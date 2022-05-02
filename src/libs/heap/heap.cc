@@ -234,3 +234,10 @@ uintptr_t heap_used_end() {
         return reinterpret_cast<uintptr_t>(heap_begin + 1);
     return reinterpret_cast<uintptr_t>(forward(last, last->next & ~HEAP_USED_BITS) + 1);
 }
+
+EXTERN_C void *__p2m3_malloc(size_t) __attribute__((__alias__("heap_alloc")));
+EXTERN_C void *__p2m3___libc_malloc(size_t) __attribute__((__alias__("heap_alloc")));
+EXTERN_C void *__p2m3_calloc(size_t, size_t) __attribute__((__alias__("heap_calloc")));
+EXTERN_C void *__p2m3___libc_calloc(size_t, size_t) __attribute__((__alias__("heap_calloc")));
+EXTERN_C void *__p2m3_realloc(void *, size_t) __attribute__((__alias__("heap_realloc")));
+EXTERN_C void __p2m3_free(void *) __attribute__((__alias__("heap_free")));
