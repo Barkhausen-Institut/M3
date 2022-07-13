@@ -24,6 +24,7 @@ use base::rc::Rc;
 use base::tcu;
 
 use crate::cap::{Capability, KObject, MGateObject};
+use crate::ktcu;
 use crate::mem::Allocation;
 use crate::platform;
 use crate::syscalls::{get_request, reply_success, send_reply};
@@ -74,6 +75,9 @@ pub fn tile_quota_async(
         eps_id: tile.ep_quota().id(),
         eps_total: tile.ep_quota().total(),
         eps_left: tile.ep_quota().left(),
+        bw_id: tile.bw_quota().id(),
+        bw_total: tile.bw_quota().rate(),
+        bw_left: tile.bw_quota().rate(),
         time_id: time.id(),
         time_total: time.total(),
         time_left: time.remaining(),
@@ -94,8 +98,9 @@ pub fn tile_set_quota_async(
     let r: syscalls::TileSetQuota = get_request(msg)?;
     sysc_log!(
         act,
-        "tile_set_quota(tile={}, time={}, pts={})",
+        "tile_set_quota(tile={}, bw={}, time={}, pts={})",
         r.tile,
+        r.bw,
         r.time,
         r.pts
     );
@@ -122,6 +127,9 @@ pub fn tile_set_quota_async(
 
     // the root tile object has always the same id for the time quota and the pts quota
     TileMux::set_quota_async(tilemux, tile.time_quota_id(), r.time, r.pts)?;
+
+    tile.bw_quota().set(r.bw);
+    ktcu::set_memory_bandwidth(tile.tile(), tile.bw_quota()).unwrap();
 
     reply_success(msg);
     Ok(())

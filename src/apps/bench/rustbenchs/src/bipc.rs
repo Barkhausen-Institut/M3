@@ -17,6 +17,7 @@ use m3::cap::Selector;
 use m3::com::{recv_msg, RecvGate, SGateArgs, SendGate};
 use m3::errors::Code;
 use m3::rc::Rc;
+use m3::tcu;
 use m3::test::{DefaultWvTester, WvTester};
 use m3::tiles::{Activity, ActivityArgs, ChildActivity, RunningActivity, Tile};
 use m3::time::{CycleInstant, Profiler, TimeDuration};
@@ -49,7 +50,7 @@ fn pingpong_local(t: &mut dyn WvTester) {
     let tile = Activity::own().tile().clone();
     // give the child half of our time quota (minimize timer interrupts)
     let own_quota = wv_assert_ok!(tile.quota()).time().total();
-    let tile = wv_assert_ok!(tile.derive(None, Some(own_quota / 2), None));
+    let tile = wv_assert_ok!(tile.derive(None, None, Some(own_quota / 2), None));
     pingpong_with_tile(t, "local", tile);
 }
 
@@ -101,14 +102,15 @@ fn pingpong_with_multiple(t: &mut dyn WvTester) {
     let tile = wv_assert_ok!(Tile::get("compat"));
     // use long time slices for childs (minimize timer interrupts)
     wv_assert_ok!(tile.set_quota(
+        tcu::MEM_BW_UNLIMITED,
         TimeDuration::from_secs(1),
         tile.quota().unwrap().page_tables().remaining(),
     ));
 
     // split time quota between childs
     let cur_quota = wv_assert_ok!(tile.quota()).time().total();
-    let tile1 = wv_assert_ok!(tile.derive(None, Some(cur_quota / 2), None));
-    let tile2 = wv_assert_ok!(tile.derive(None, Some(cur_quota / 2), None));
+    let tile1 = wv_assert_ok!(tile.derive(None, None, Some(cur_quota / 2), None));
+    let tile2 = wv_assert_ok!(tile.derive(None, None, Some(cur_quota / 2), None));
 
     let mut act1 = wv_assert_ok!(ChildActivity::new_with(tile1, ActivityArgs::new("recv1")));
     let mut act2 = wv_assert_ok!(ChildActivity::new_with(tile2, ActivityArgs::new("recv2")));

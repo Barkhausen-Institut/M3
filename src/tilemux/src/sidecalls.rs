@@ -47,14 +47,15 @@ fn activity_init(msg: &'static tcu::Message) -> Result<(), Error> {
 
     log!(
         LogFlags::MuxSideCalls,
-        "sidecall::activity_init(act={}, time={}, pt={}, eps_start={})",
+        "sidecall::activity_init(act={}, bw={}, time={}, pt={}, eps_start={})",
         r.act_id,
+        r.bw_quota,
         r.time_quota,
         r.pt_quota,
         r.eps_start
     );
 
-    activities::add(r.act_id, r.time_quota, r.pt_quota, r.eps_start)
+    activities::add(r.act_id, r.bw_quota, r.time_quota, r.pt_quota, r.eps_start)
 }
 
 fn activity_ctrl(msg: &'static tcu::Message) -> Result<(), Error> {

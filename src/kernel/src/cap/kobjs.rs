@@ -15,13 +15,15 @@
 
 use base::build_vmsg;
 use base::cell::{Cell, Ref, RefCell, RefMut, StaticCell};
-use base::errors::{Code, Error};
+use base::col::ToString;
+use base::errors::{Code, Error, VerboseError};
+use base::format;
 use base::io::LogFlags;
 use base::kif::{self, service, tilemux::QuotaId};
 use base::log;
 use base::mem::{size_of, GlobAddr, GlobOff, MsgBuf, PhysAddr, VirtAddr};
 use base::rc::{Rc, SRc, Weak};
-use base::tcu::{ActId, EpId, Label, TileId};
+use base::tcu::{self, ActId, EpId, Label, TileId};
 
 use core::fmt;
 use core::ptr;
@@ -573,10 +575,70 @@ impl EPQuota {
     }
 }
 
+#[derive(Debug)]
+pub struct BWQuota {
+    id: QuotaId,
+    next_id: Rc<RefCell<QuotaId>>,
+    rate: Cell<u32>,
+}
+
+impl BWQuota {
+    pub fn new(id: QuotaId, next_id: Rc<RefCell<QuotaId>>, rate: u32) -> Rc<Self> {
+        Rc::new(Self {
+            id,
+            next_id,
+            rate: Cell::from(rate),
+        })
+    }
+
+    pub fn id(&self) -> QuotaId {
+        self.id
+    }
+
+    pub fn rate(&self) -> u32 {
+        self.rate.get()
+    }
+
+    pub fn set(&self, rate: u32) {
+        self.rate.set(rate);
+    }
+
+    pub fn derive(&self, rate: u32) -> Result<Rc<Self>, VerboseError> {
+        // enough bandwidth for the derive?
+        if self.rate() != tcu::MEM_BW_UNLIMITED && self.rate() < rate {
+            return Err(VerboseError::new(
+                Code::NoSpace,
+                format!(
+                    "Insufficient memory bandwidth (have {}, need {})",
+                    self.rate(),
+                    rate
+                ),
+            ));
+        }
+
+        // are all bandwidth registers already in use?
+        let next_id = *self.next_id.borrow();
+        if next_id == tcu::MAX_BW_REGS as QuotaId {
+            return Err(VerboseError::new(
+                Code::NoSpace,
+                "All memory-bandwidth quotas in use".to_string(),
+            ));
+        }
+
+        *self.next_id.borrow_mut() = next_id + 1;
+        // unlimited quotas are not reduced, but stay unlimited
+        if self.rate() != tcu::MEM_BW_UNLIMITED {
+            self.rate.set(self.rate.get() - rate);
+        }
+        Ok(Self::new(next_id, self.next_id.clone(), rate))
+    }
+}
+
 pub struct TileObject {
     tile: TileId,
     cur_acts: Cell<u32>,
     ep_quota: Rc<EPQuota>,
+    bw_quota: Rc<BWQuota>,
     time_quota: QuotaId,
     pt_quota: QuotaId,
     derived: bool,
@@ -586,6 +648,7 @@ impl TileObject {
     pub fn new(
         tile: TileId,
         ep_quota: Rc<EPQuota>,
+        bw_quota: Rc<BWQuota>,
         time_quota: QuotaId,
         pt_quota: QuotaId,
         derived: bool,
@@ -594,17 +657,19 @@ impl TileObject {
             tile,
             cur_acts: Cell::from(0),
             ep_quota: ep_quota.clone(),
+            bw_quota: bw_quota.clone(),
             time_quota,
             pt_quota,
             derived,
         });
         log!(
             LogFlags::KernTiles,
-            "Tile[{}, {:#x}]: {} new TileObject with EPs={}, time={}, pts={}",
+            "Tile[{}, {:#x}]: {} new TileObject with EPs={}, bw={}, time={}, pts={}",
             tile,
             &*res as *const _ as usize,
             if derived { "derived" } else { "created" },
             ep_quota.total,
+            bw_quota.rate(),
             time_quota,
             pt_quota,
         );
@@ -625,6 +690,10 @@ impl TileObject {
 
     pub fn ep_quota(&self) -> &Rc<EPQuota> {
         &self.ep_quota
+    }
+
+    pub fn bw_quota(&self) -> &Rc<BWQuota> {
+        &self.bw_quota
     }
 
     pub fn time_quota_id(&self) -> QuotaId {
@@ -648,7 +717,7 @@ impl TileObject {
         self.cur_acts.set(self.activities() - 1);
     }
 
-    pub fn alloc(&self, eps: u32) {
+    pub fn alloc_eps(&self, eps: u32) {
         log!(
             LogFlags::KernTiles,
             "Tile[{}, {:#x}]: allocating {} EPs ({} left)",
@@ -661,7 +730,7 @@ impl TileObject {
         self.ep_quota.left.set(self.ep_quota.left() - eps);
     }
 
-    pub fn free(&self, eps: u32) {
+    pub fn free_eps(&self, eps: u32) {
         assert!(self.ep_quota.left() + eps <= self.ep_quota.total);
         self.ep_quota.left.set(self.ep_quota.left() + eps);
         log!(
@@ -679,7 +748,7 @@ impl TileObject {
         // have the same EP quota, but they are already gone).
         if !Rc::ptr_eq(&self.ep_quota, &parent.ep_quota) {
             // grant the EPs back to our parent
-            parent.free(self.ep_quota.left());
+            parent.free_eps(self.ep_quota.left());
             assert!(self.ep_quota.left() == self.ep_quota.total);
         }
 
@@ -831,7 +900,7 @@ impl Drop for EPObject {
         if !self.is_std {
             tilemng::tilemux(self.tile.tile).free_eps(self.ep, 1 + self.replies);
 
-            self.tile.free(1 + self.replies);
+            self.tile.free_eps(1 + self.replies);
         }
     }
 }

@@ -287,6 +287,10 @@ pub fn create_activity_async(
             tcu::STD_EPS_COUNT
         );
     }
+    // memory-bandwidth = 0 is illegal
+    if tile.bw_quota().rate() == 0 {
+        sysc_err!(Code::InvArgs, "Tile cap has memory bandwidth of 0");
+    }
 
     let kmem = get_kobj!(act, r.kmem, KMem);
     // TODO kmem quota stuff

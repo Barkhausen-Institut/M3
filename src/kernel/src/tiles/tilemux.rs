@@ -14,7 +14,7 @@
  */
 
 use base::build_vmsg;
-use base::cell::RefMut;
+use base::cell::{RefCell, RefMut};
 use base::cfg;
 use base::col::{BitArray, Vec};
 use base::env;
@@ -29,7 +29,7 @@ use base::tcu::{self, ActId, EpId, TileId};
 use core::cmp;
 
 use crate::cap::{
-    EPObject, EPQuota, GateObject, MGateObject, RGateObject, SGateObject, TileObject,
+    BWQuota, EPObject, EPQuota, GateObject, MGateObject, RGateObject, SGateObject, TileObject,
 };
 use crate::ktcu;
 use crate::platform;
@@ -49,6 +49,11 @@ impl TileMux {
         let tile_obj = TileObject::new(
             tile,
             EPQuota::new((tcu::AVAIL_EPS - tcu::FIRST_USER_EP) as u32),
+            BWQuota::new(
+                kif::tilemux::IDLE_QUOTA_ID,
+                Rc::new(RefCell::new(kif::tilemux::IDLE_QUOTA_ID + 1)),
+                tcu::MEM_BW_UNLIMITED,
+            ),
             kif::tilemux::DEF_QUOTA_ID,
             kif::tilemux::DEF_QUOTA_ID,
             false,
@@ -474,6 +479,7 @@ impl TileMux {
     pub fn activity_init_async(
         tilemux: RefMut<'_, Self>,
         act: ActId,
+        bw_quota: quota::Id,
         time_quota: quota::Id,
         pt_quota: quota::Id,
         eps_start: EpId,
@@ -481,6 +487,7 @@ impl TileMux {
         let mut buf = MsgBuf::borrow_def();
         let msg = kif::tilemux::ActInit {
             act_id: act as u64,
+            bw_quota,
             time_quota,
             pt_quota,
             eps_start,

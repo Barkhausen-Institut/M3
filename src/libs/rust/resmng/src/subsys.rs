@@ -27,7 +27,7 @@ use m3::log;
 use m3::mem::{size_of, GlobOff};
 use m3::rc::Rc;
 use m3::server::DEF_MAX_CLIENTS;
-use m3::tcu::TileId;
+use m3::tcu::{TileId, MEM_BW_UNLIMITED};
 use m3::tiles::{Activity, ChildActivity, Tile, TileArgs};
 use m3::time::TimeDuration;
 use m3::util::math;
@@ -436,6 +436,7 @@ impl Subsystem {
             let (mut pt_sharer, shared_pts) = split_pts(tile_quota.page_tables().remaining(), dom);
 
             let mut domain_total_eps = tile_quota.endpoints().remaining();
+            let mut domain_total_bw = 0;
             let mut domain_total_time = TimeDuration::default();
             let mut domain_total_pts = 0;
             let mut domain_kmem_bytes = 0;
@@ -447,7 +448,15 @@ impl Subsystem {
             }
 
             for cfg in dom.apps() {
-                // accumulate child time, pts, and kmem
+                // accumulate memory bandwidth, child time, pts, and kmem
+                domain_total_bw = match (cfg.mem_bw, domain_total_bw) {
+                    // if it's already unlimited, keep that
+                    (_, cur) if cur == MEM_BW_UNLIMITED => MEM_BW_UNLIMITED,
+                    // if not and there is a bandwidth specified, accumulate them
+                    (Some(bw), cur) => cur + bw.rate,
+                    // if there is no bandwidth specified, we need unlimited
+                    (None, _) => MEM_BW_UNLIMITED,
+                };
                 domain_total_time += cfg.time().unwrap_or(DEF_TIME_SLICE);
                 domain_total_pts += cfg.page_tables().unwrap_or(shared_pts / pt_sharer);
                 domain_kmem_bytes += cfg.kernel_mem().unwrap_or(def_kmem);
@@ -480,7 +489,11 @@ impl Subsystem {
             // set initial quota for this tile
             tile_usage
                 .tile_obj()
-                .set_quota(child_total_time, tile_quota.page_tables().total())
+                .set_quota(
+                    MEM_BW_UNLIMITED, // TileMux is currently not restricted
+                    child_total_time,
+                    tile_quota.page_tables().total(),
+                )
                 .map_err(|e| {
                     VerboseError::new(
                         e.code(),
@@ -495,18 +508,24 @@ impl Subsystem {
             // derive a new tile object for the entire domain (so that they cannot change the PMP EPs)
             let domain_pe_usage = if dom.apps().iter().next().unwrap().domains().is_empty() {
                 let domain_eps = Some(domain_total_eps);
+                let domain_bw = if domain_total_bw > 0 {
+                    Some(domain_total_bw)
+                }
+                else {
+                    None
+                };
                 let domain_time = Some(domain_total_time);
                 let domain_pts = Some(domain_total_pts);
 
                 Some(
                     tile_usage
-                        .derive(domain_eps, domain_time, domain_pts)
+                        .derive(domain_eps, domain_bw, domain_time, domain_pts)
                         .map_err(|e| {
                             VerboseError::new(
                                 e.code(),
                                 format!(
-                                    "Unable to derive new tile with eps={:?}, time={:?}, pts={:?}",
-                                    domain_eps, domain_time, domain_pts,
+                                    "Unable to derive new tile with eps={:?}, bw={:?}, time={:?}, pts={:?}",
+                                    domain_eps, domain_bw, domain_time, domain_pts,
                                 ),
                             )
                         })?,
@@ -522,20 +541,23 @@ impl Subsystem {
                     // a resource manager has to be able to set PMPs and thus needs the root tile
                     (None, tile_usage.clone())
                 }
-                else if cfg.eps().is_some() || cfg.time().is_some() || cfg.page_tables().is_some()
+                else if cfg.eps.is_some()
+                    || cfg.mem_bw.is_some()
+                    || cfg.time.is_some()
+                    || cfg.pts.is_some()
                 {
                     // if the child wants any specific quota, derive from the base tile object
                     let base = domain_pe_usage.as_ref().unwrap();
                     (
                         // keep the base object around in case there are no other children using it
                         Some(base.clone()),
-                        base.derive(cfg.eps(), cfg.time(), cfg.page_tables())
+                        base.derive(cfg.eps(), cfg.mem_bw.map(|bw| bw.rate), cfg.time(), cfg.page_tables())
                             .map_err(|e| {
                                 VerboseError::new(
                                     e.code(),
                                     format!(
-                                        "Unable to derive new tile with {:?} EPs, {:?} time, {:?} pts",
-                                        cfg.eps(), cfg.time(), cfg.page_tables(),
+                                        "Unable to derive new tile with {:?} EPs, bw={:?}, {:?} time, {:?} pts",
+                                        cfg.eps(), cfg.mem_bw, cfg.time(), cfg.page_tables(),
                                     ),
                                 )
                             })?,

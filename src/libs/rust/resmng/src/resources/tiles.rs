@@ -327,15 +327,17 @@ impl TileUsage {
     pub fn derive(
         &self,
         eps: Option<u32>,
+        bw: Option<u32>,
         time: Option<TimeDuration>,
         pts: Option<usize>,
     ) -> Result<TileUsage, Error> {
-        let tile = self.tile_obj().derive(eps, time, pts)?;
+        let tile = self.tile_obj().derive(eps, bw, time, pts)?;
         let _quota = tile.quota().unwrap();
         log!(
             LogFlags::ResMngTiles,
-            "Deriving {}: (eps={:?}, time={:?}, pts={:?})",
+            "Deriving {}: (eps={:?}, bw={:?}, time={:?}, pts={:?})",
             self.tile_id(),
+            _quota.mem_bw(),
             _quota.endpoints(),
             _quota.time(),
             _quota.page_tables(),

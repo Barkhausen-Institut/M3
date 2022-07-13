@@ -149,6 +149,14 @@ pub const NO_REPLIES: EpId = INVALID_EP;
 /// Represents unlimited credits for send EPs
 pub const UNLIM_CREDITS: u32 = 0x3F;
 
+/// The max. number of bytes the TCU can transfer without being throttled according to the memory
+/// bandwidth
+pub const MEM_BW_BUDGET: u16 = 16 * 1024;
+/// The rate value for "unlimited" memory bandwidth
+pub const MEM_BW_UNLIMITED: u32 = 0xFFFF_FFFF;
+/// The number of memory-bandwidth quota registers
+pub const MAX_BW_REGS: usize = 4;
+
 /// The base address of the TCU's MMIO area
 pub const MMIO_ADDR: VirtAddr = VirtAddr::new(0xF000_0000);
 /// The size of the TCU's MMIO area
@@ -159,6 +167,9 @@ pub const MMIO_PRIV_ADDR: VirtAddr = VirtAddr::new(MMIO_ADDR.as_raw() + MMIO_SIZ
 pub const MMIO_PRIV_SIZE: usize = cfg::PAGE_SIZE * 2;
 
 /// The number of external registers
+#[cfg(feature = "gem5")]
+pub const EXT_REGS: usize = 2 + MAX_BW_REGS;
+#[cfg(any(feature = "hw", feature = "hw22"))]
 pub const EXT_REGS: usize = 2;
 cfg_if! {
     if #[cfg(feature = "hw22")] {
@@ -183,6 +194,8 @@ pub enum ExtReg {
     Features,
     /// For external commands
     ExtCmd,
+    /// Controls the memory bandwidth of the TCU
+    MemBandWidth,
 }
 
 bitflags! {

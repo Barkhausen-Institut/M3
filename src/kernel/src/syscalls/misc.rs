@@ -98,7 +98,7 @@ pub fn alloc_ep(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), Ve
     );
     try_kmem_quota!(act.obj_caps().borrow_mut().insert_as_child(cap, r.act));
 
-    dst_act.tile().alloc(ep_count);
+    dst_act.tile().alloc_eps(ep_count);
     tilemux.alloc_eps(epid, ep_count);
 
     let mut kreply = MsgBuf::borrow_def();
