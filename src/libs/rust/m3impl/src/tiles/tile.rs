@@ -39,19 +39,25 @@ pub struct Tile {
 #[derive(Default)]
 pub struct TileQuota {
     eps: Quota<u32>,
+    bw: Quota<u32>,
     time: Quota<u64>,
     pts: Quota<usize>,
 }
 
 impl TileQuota {
     /// Creates a new `TileQuota` object from given quotas.
-    pub fn new(eps: Quota<u32>, time: Quota<u64>, pts: Quota<usize>) -> Self {
-        Self { eps, time, pts }
+    pub fn new(eps: Quota<u32>, bw: Quota<u32>, time: Quota<u64>, pts: Quota<usize>) -> Self {
+        Self { eps, bw, time, pts }
     }
 
     /// Returns the endpoint quota
     pub fn endpoints(&self) -> &Quota<u32> {
         &self.eps
+    }
+
+    /// Returns the memory-bandwidth quota (in bytes/millisecond)
+    pub fn mem_bw(&self) -> &Quota<u32> {
+        &self.bw
     }
 
     /// Returns the time quota
@@ -69,8 +75,9 @@ impl fmt::Debug for TileQuota {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         write!(
             f,
-            "TileQuota[eps={}, time={}, pts={}]",
+            "TileQuota[eps={}, bw={}b/ms, time={}, pts={}]",
             self.endpoints(),
+            self.mem_bw(),
             self.time(),
             self.page_tables()
         )
@@ -142,16 +149,17 @@ impl Tile {
     /// Derives a new tile object from `self` with a subset of the resources, removing them from
     /// `self`
     ///
-    /// The three resources are the number of EPs, the time slice length in nanoseconds, and the
-    /// number of page tables.
+    /// The four resources are the number of EPs, the memory bandwidth in bytes/millisecond, the
+    /// time slice length in nanoseconds, and the number of page tables.
     pub fn derive(
         &self,
         eps: Option<u32>,
+        bw: Option<u32>,
         time: Option<u64>,
         pts: Option<usize>,
     ) -> Result<Rc<Self>, Error> {
         let sel = Activity::own().alloc_sel();
-        syscalls::derive_tile(self.sel(), sel, eps, time, pts)?;
+        syscalls::derive_tile(self.sel(), sel, eps, bw, time, pts)?;
         Ok(Rc::new(Tile {
             cap: Capability::new(sel, CapFlags::empty()),
             desc: self.desc(),
@@ -181,11 +189,11 @@ impl Tile {
     }
 
     /// Sets the quota of the tile with given selector to specified initial values (given time slice
-    /// length and number of page tables).
+    /// length, bytes per millisecond memory bandwidth, and number of page tables).
     ///
     /// This call requires a root tile capability.
-    pub fn set_quota(&self, time: u64, pts: usize) -> Result<(), Error> {
-        syscalls::tile_set_quota(self.sel(), time, pts)
+    pub fn set_quota(&self, bw: u32, time: u64, pts: usize) -> Result<(), Error> {
+        syscalls::tile_set_quota(self.sel(), bw, time, pts)
     }
 }
 

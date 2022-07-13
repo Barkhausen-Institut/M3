@@ -107,18 +107,20 @@ impl TileUsage {
     pub fn derive(
         &self,
         eps: Option<u32>,
+        bw: Option<u32>,
         time: Option<u64>,
         pts: Option<usize>,
     ) -> Result<TileUsage, Error> {
-        let tile = self.tile_obj().derive(eps, time, pts)?;
+        let tile = self.tile_obj().derive(eps, bw, time, pts)?;
         if let Some(idx) = self.idx {
             get().tiles[idx].add_user();
         }
         let _quota = tile.quota().unwrap();
         log!(
             crate::LOG_TILES,
-            "Deriving Tile{}: (eps={}, time={}, pts={})",
+            "Deriving Tile{}: (eps={}, bw={}, time={}, pts={})",
             self.tile_id(),
+            _quota.mem_bw(),
             _quota.endpoints(),
             _quota.time(),
             _quota.page_tables(),

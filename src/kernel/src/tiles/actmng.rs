@@ -121,6 +121,7 @@ impl ActivityMng {
             TileMux::activity_init_async(
                 tilemng::tilemux(act.tile_id()),
                 act.id(),
+                act.tile().bw_quota().id(),
                 act.tile().time_quota_id(),
                 act.tile().pt_quota_id(),
                 act.eps_start(),

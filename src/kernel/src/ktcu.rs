@@ -15,15 +15,18 @@
 
 use base::cell::{StaticCell, StaticRefCell};
 use base::cfg;
+use base::env;
 use base::errors::{Code, Error};
 use base::goff;
 use base::kif;
 use base::mem;
+use base::rc::Rc;
 use base::tcu::{
     ActId, EpId, ExtCmdOpCode, ExtReg, Header, Label, Message, Reg, TileId, AVAIL_EPS, EP_REGS,
-    PMEM_PROT_EPS, TCU, UNLIM_CREDITS,
+    MEM_BW_BUDGET, MEM_BW_UNLIMITED, PMEM_PROT_EPS, TCU, UNLIM_CREDITS,
 };
 
+use crate::cap::BWQuota;
 use crate::platform;
 use crate::runtime::paging;
 use crate::tiles::KERNEL_ID;
@@ -259,6 +262,33 @@ pub fn deprivilege_tile(tile: TileId) -> Result<(), Error> {
     try_write_slice(tile, TCU::ext_reg_addr(ExtReg::FEATURES) as goff, &[
         features,
     ])
+}
+
+pub fn set_memory_bandwidth(tile: TileId, quota: &Rc<BWQuota>) -> Result<(), Error> {
+    if env::data().platform != env::Platform::GEM5.val {
+        // TODO unsupported
+        Ok(())
+    }
+    else {
+        // Set "unlimited" for the illegal rate of 0. we only support 0 to allow "intermediate" tile
+        // caps, where all bandwidth is derived into other tile caps. The intermediate tile caps
+        // cannot be used for activities, so that it doesn't matter which bandwidth is set in the
+        // TCU. However, we need to keep the TCU happy by not setting the rate to 0.
+        let rate = if quota.rate() == 0 {
+            MEM_BW_UNLIMITED
+        }
+        else {
+            quota.rate()
+        };
+
+        let reg: u64 =
+            (rate as u64) << 32 | (MEM_BW_BUDGET as u64) << 16 | (MEM_BW_BUDGET as u64) << 0;
+        try_write_slice(
+            tile,
+            TCU::ext_reg_addr(ExtReg::MEM_BANDWIDTH) as goff + (quota.id() as goff * 8),
+            &[reg],
+        )
+    }
 }
 
 pub fn reset_tile(tile: TileId) -> Result<(), Error> {

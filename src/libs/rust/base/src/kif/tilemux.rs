@@ -31,6 +31,7 @@ pub const IDLE_ID: u64 = 0xFFFE;
 
 pub type QuotaId = u64;
 
+pub const IDLE_QUOTA_ID: QuotaId = 0;
 pub const DEF_QUOTA_ID: QuotaId = 1;
 
 int_enum! {
@@ -64,6 +65,7 @@ int_enum! {
 #[repr(C)]
 pub struct ActInit {
     pub act_id: u64,
+    pub bw_quota: QuotaId,
     pub time_quota: QuotaId,
     pub pt_quota: QuotaId,
     pub eps_start: EpId,

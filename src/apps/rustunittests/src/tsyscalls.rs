@@ -27,7 +27,7 @@ use m3::kif::{CapRngDesc, CapType, Perm, INVALID_SEL, SEL_ACT, SEL_KMEM, SEL_TIL
 use m3::server::{Handler, Server, SessId, SessionContainer};
 use m3::session::{ServerSession, M3FS};
 use m3::syscalls;
-use m3::tcu::{AVAIL_EPS, FIRST_USER_EP, TOTAL_EPS};
+use m3::tcu::{AVAIL_EPS, FIRST_USER_EP, MEM_BW_UNLIMITED, TOTAL_EPS};
 use m3::test::WvTester;
 use m3::tiles::{Activity, ActivityArgs, ChildActivity, Tile};
 use m3::util::math;
@@ -704,26 +704,26 @@ fn derive_tile(t: &mut dyn WvTester) {
     // invalid dest selector
     wv_assert_err!(
         t,
-        syscalls::derive_tile(tile.sel(), SEL_ACT, Some(1), None, None),
+        syscalls::derive_tile(tile.sel(), SEL_ACT, Some(1), None, None, None),
         Code::InvArgs
     );
     // invalid ep count
     wv_assert_err!(
         t,
-        syscalls::derive_tile(tile.sel(), sel, Some(oquote_eps + 1), None, None),
+        syscalls::derive_tile(tile.sel(), sel, Some(oquote_eps + 1), None, None, None),
         Code::NoSpace
     );
     // invalid tile sel
     wv_assert_err!(
         t,
-        syscalls::derive_tile(SEL_ACT, sel, Some(1), None, None),
+        syscalls::derive_tile(SEL_ACT, sel, Some(1), None, None, None),
         Code::InvArgs
     );
 
     // transfer EPs
     {
         {
-            let tile2 = wv_assert_ok!(tile.derive(Some(1), None, None));
+            let tile2 = wv_assert_ok!(tile.derive(Some(1), None, None, None));
             let quota2 = wv_assert_ok!(tile2.quota()).endpoints().left();
             let nquota = wv_assert_ok!(tile.quota()).endpoints().left();
             wv_assert_eq!(t, quota2, 1);
@@ -736,7 +736,7 @@ fn derive_tile(t: &mut dyn WvTester) {
     // transfer time
     if oquota.time().total() > 100 {
         {
-            let tile2 = wv_assert_ok!(tile.derive(None, Some(100), None));
+            let tile2 = wv_assert_ok!(tile.derive(None, None, Some(100), None));
             let quota2 = wv_assert_ok!(tile2.quota()).time().total();
             let nquota = wv_assert_ok!(tile.quota()).time().total();
             wv_assert_eq!(t, quota2, 100);
@@ -897,13 +897,17 @@ fn tile_quota(t: &mut dyn WvTester) {
 
 fn tile_set_quota(t: &mut dyn WvTester) {
     // invalid selector
-    wv_assert_err!(t, syscalls::tile_set_quota(SEL_ACT, 0, 0), Code::InvArgs);
-
-    // cannot be called on derived tile caps
-    let der_tile = wv_assert_ok!(Activity::own().tile().derive(None, None, None));
     wv_assert_err!(
         t,
-        syscalls::tile_set_quota(der_tile.sel(), 100, 100),
+        syscalls::tile_set_quota(SEL_ACT, MEM_BW_UNLIMITED, 0, 0),
+        Code::InvArgs
+    );
+
+    // cannot be called on derived tile caps
+    let der_tile = wv_assert_ok!(Activity::own().tile().derive(None, None, None, None));
+    wv_assert_err!(
+        t,
+        syscalls::tile_set_quota(der_tile.sel(), MEM_BW_UNLIMITED, 100, 100),
         Code::NoPerm
     );
 }

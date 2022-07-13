@@ -344,6 +344,28 @@ pub struct SerialDesc {
     used: Cell<bool>,
 }
 
+#[derive(Copy, Clone, Default)]
+pub struct MemBandwidth {
+    pub(crate) rate: u32,
+}
+
+impl MemBandwidth {
+    pub fn new(rate: u32) -> Self {
+        Self { rate }
+    }
+}
+
+impl fmt::Debug for MemBandwidth {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
+        if self.rate < 1000 {
+            write!(f, "{}KB/s", self.rate)
+        }
+        else {
+            write!(f, "{}MB/s", self.rate / 1000)
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct Domain {
     pub(crate) pseudo: bool,
@@ -369,6 +391,7 @@ pub struct AppConfig {
     pub(crate) daemon: bool,
     pub(crate) getinfo: bool,
     pub(crate) eps: Option<u32>,
+    pub(crate) mem_bw: Option<MemBandwidth>,
     pub(crate) user_mem: Option<usize>,
     pub(crate) kern_mem: Option<usize>,
     pub(crate) time: Option<u64>,
@@ -675,6 +698,9 @@ impl AppConfig {
         }
         if let Some(eps) = self.eps {
             writeln!(f, "{:0w$}Endpoints[count={}],", "", eps, w = layer + 2)?;
+        }
+        if let Some(bw) = self.mem_bw {
+            writeln!(f, "{:0w$}Memory-BW[{:?}],", "", bw, w = layer + 2)?;
         }
         if let Some(t) = self.time {
             writeln!(f, "{:0w$}TimeSlice[{} ns],", "", t, w = layer + 2)?;

@@ -321,8 +321,8 @@ pub fn derive_kmem(kmem: Selector, dst: Selector, quota: usize) -> Result<(), Er
     send_receive_result(&buf)
 }
 
-/// Derives a new tile object at `dst` from `tile`, transferring a subset of the resources to the new tile
-/// object.
+/// Derives a new tile object at `dst` from `tile`, transferring a subset of the resources to the
+/// new tile object.
 ///
 /// If a value is not `None`, the corresponding amount is substracted from the current quota (and
 /// therefore, needs to be available). If a value is `None`, the quota will be shared with the
@@ -331,6 +331,7 @@ pub fn derive_tile(
     tile: Selector,
     dst: Selector,
     eps: Option<u32>,
+    bw: Option<u32>,
     time: Option<u64>,
     pts: Option<usize>,
 ) -> Result<(), Error> {
@@ -342,6 +343,7 @@ pub fn derive_tile(
             tile,
             dst,
             eps,
+            bw,
             time,
             pts,
         }
@@ -410,6 +412,7 @@ pub fn tile_quota(tile: Selector) -> Result<TileQuota, Error> {
     let reply: Reply<syscalls::TileQuotaReply> = send_receive(&buf)?;
     Ok(TileQuota::new(
         Quota::new(reply.data.eps_id, reply.data.eps_total, reply.data.eps_left),
+        Quota::new(reply.data.bw_id, reply.data.bw_total, reply.data.bw_left),
         Quota::new(
             reply.data.time_id,
             reply.data.time_total,
@@ -420,13 +423,19 @@ pub fn tile_quota(tile: Selector) -> Result<TileQuota, Error> {
 }
 
 /// Sets the quota of the tile with given selector to specified initial values (given time slice
-/// length and number of page tables). This call is only permitted for root tile capabilities.
-pub fn tile_set_quota(tile: Selector, time: u64, pts: usize) -> Result<(), Error> {
+/// length, bytes per millisecond memory bandwidth, and number of page tables). This call is only
+/// permitted for root tile capabilities.
+pub fn tile_set_quota(tile: Selector, bw: u32, time: u64, pts: usize) -> Result<(), Error> {
     let mut buf = SYSC_BUF.borrow_mut();
     build_vmsg!(
         buf,
         syscalls::Operation::TILE_SET_QUOTA,
-        syscalls::TileSetQuota { tile, time, pts }
+        syscalls::TileSetQuota {
+            tile,
+            bw,
+            time,
+            pts
+        }
     );
     send_receive_result(&buf)
 }

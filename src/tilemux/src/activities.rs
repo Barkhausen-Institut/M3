@@ -252,6 +252,7 @@ pub fn init() {
     unsafe {
         IDLE.set(Box::new(Activity::new(
             kif::tilemux::IDLE_ID,
+            quota::IDLE_ID,
             idle_quota,
             quota::get_pt(quota::IDLE_ID).unwrap(),
             0,
@@ -259,6 +260,7 @@ pub fn init() {
         )));
         OUR.set(Box::new(Activity::new(
             kif::tilemux::ACT_ID,
+            quota::IDLE_ID,
             our_quota,
             quota::get_pt(quota::IDLE_ID).unwrap(),
             0,
@@ -285,6 +287,7 @@ pub fn init() {
 
 pub fn add(
     id: Id,
+    bw_quota: quota::Id,
     time_quota: quota::Id,
     pt_quota: quota::Id,
     eps_start: tcu::EpId,
@@ -313,7 +316,9 @@ pub fn add(
         (0, None)
     };
 
-    let mut act = Box::new(Activity::new(id, time_quota, pt_quota, eps_start, root_pt));
+    let mut act = Box::new(Activity::new(
+        id, bw_quota, time_quota, pt_quota, eps_start, root_pt,
+    ));
 
     if pex_env().tile_desc.has_virtmem() {
         act.frames.push(frame);
@@ -614,6 +619,7 @@ pub fn remove(id: Id, status: i32, notify: bool, sched: bool) {
 impl Activity {
     pub fn new(
         id: Id,
+        bw_quota: kif::tilemux::QuotaId,
         time_quota: Rc<Quota<u64>>,
         pt_quota: Rc<PTQuota>,
         eps_start: tcu::EpId,
@@ -631,7 +637,7 @@ impl Activity {
             next: None,
             aspace,
             frames: Vec::new(),
-            act_reg: id,
+            act_reg: id | ((bw_quota as u64) << 32),
             state: ActState::Blocked,
             #[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
             fpu_state: arch::FPUState::default(),

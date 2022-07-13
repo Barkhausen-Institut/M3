@@ -219,6 +219,7 @@ pub struct DeriveTile {
     pub tile: CapSel,
     pub dst: CapSel,
     pub eps: Option<u32>,
+    pub bw: Option<u32>,
     pub time: Option<u64>,
     pub pts: Option<usize>,
 }
@@ -263,6 +264,7 @@ pub struct TileQuota {
 #[repr(C)]
 pub struct TileSetQuota {
     pub tile: CapSel,
+    pub bw: u32,
     pub time: u64,
     pub pts: usize,
 }
@@ -371,6 +373,9 @@ pub struct TileQuotaReply {
     pub eps_id: QuotaId,
     pub eps_total: u32,
     pub eps_left: u32,
+    pub bw_id: QuotaId,
+    pub bw_total: u32,
+    pub bw_left: u32,
     pub time_id: QuotaId,
     pub time_total: u64,
     pub time_left: u64,

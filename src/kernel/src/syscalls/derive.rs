@@ -25,6 +25,7 @@ use base::tcu;
 use crate::cap::{Capability, KObject};
 use crate::cap::{EPQuota, KMemObject, MGateObject, ServObject, TileObject};
 use crate::com::Service;
+use crate::ktcu;
 use crate::mem;
 use crate::syscalls::{get_request, reply_success};
 use crate::tiles::{tilemng, Activity, TileMux};
@@ -37,10 +38,11 @@ pub fn derive_tile_async(
     let r: syscalls::DeriveTile = get_request(msg)?;
     sysc_log!(
         act,
-        "derive_tile(tile={}, dst={}, eps={:?}, time={:?}, pts={:?})",
+        "derive_tile(tile={}, dst={}, eps={:?}, bw={:?}, time={:?}, pts={:?})",
         r.tile,
         r.dst,
         r.eps,
+        r.bw,
         r.time,
         r.pts,
     );
@@ -55,7 +57,7 @@ pub fn derive_tile_async(
         if !tile.has_quota(eps) {
             sysc_err!(Code::NoSpace, "Insufficient EPs");
         }
-        tile.alloc(eps);
+        tile.alloc_eps(eps);
 
         EPQuota::new(eps)
     }
@@ -74,7 +76,7 @@ pub fn derive_tile_async(
         ) {
             Err(e) => {
                 if let Some(eps) = r.eps {
-                    tile.free(eps);
+                    tile.free_eps(eps);
                 }
                 return Err(VerboseError::from(e));
             },
@@ -85,9 +87,28 @@ pub fn derive_tile_async(
         (tile.time_quota_id(), tile.pt_quota_id())
     };
 
+    let bw_quota = if let Some(bw) = r.bw {
+        let new_bw = tile.bw_quota().derive(bw)?;
+
+        ktcu::set_memory_bandwidth(tile.tile(), tile.bw_quota()).unwrap();
+        ktcu::set_memory_bandwidth(tile.tile(), &new_bw).unwrap();
+
+        new_bw
+    }
+    else {
+        tile.bw_quota().clone()
+    };
+
     let cap = Capability::new(
         r.dst,
-        KObject::Tile(TileObject::new(tile.tile(), ep_quota, time_id, pt_id, true)),
+        KObject::Tile(TileObject::new(
+            tile.tile(),
+            ep_quota,
+            bw_quota,
+            time_id,
+            pt_id,
+            true,
+        )),
     );
     // TODO we will leak the quota object in TileMux if this fails
     try_kmem_quota!(act.obj_caps().borrow_mut().insert_as_child(cap, r.tile));

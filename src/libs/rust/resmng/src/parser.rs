@@ -22,7 +22,7 @@ use m3::rc::Rc;
 use m3::tcu::Label;
 use m3::util::parse;
 
-use crate::config;
+use crate::config::{self, MemBandwidth};
 
 struct ConfigParser {
     chars: Vec<char>,
@@ -174,6 +174,7 @@ fn parse_app(p: &mut ConfigParser, start: usize) -> Result<config::AppConfig, Er
                 "time" => app.time = Some(parse::time(&v)?),
                 "pagetables" => app.pts = Some(parse::int(&v)? as usize),
                 "eps" => app.eps = Some(parse::int(&v)? as u32),
+                "mem-bw" => app.mem_bw = Some(parse_mem_bw(&v)?),
                 "daemon" => app.daemon = parse::bool(&v)?,
                 "getinfo" => app.getinfo = parse::bool(&v)?,
                 _ => return Err(Error::new(Code::InvArgs)),
@@ -312,6 +313,11 @@ fn parse_domain(p: &mut ConfigParser) -> Result<config::Domain, Error> {
 
     parse_close_tag(p, "dom")?;
     Ok(dom)
+}
+
+fn parse_mem_bw(bw: &str) -> Result<MemBandwidth, Error> {
+    let rate = parse::size(bw)? as u32;
+    Ok(MemBandwidth::new(rate))
 }
 
 fn parse_mount(p: &mut ConfigParser) -> Result<config::MountDesc, Error> {

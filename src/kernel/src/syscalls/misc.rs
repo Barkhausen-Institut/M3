@@ -99,7 +99,7 @@ pub fn alloc_ep(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), Ve
     );
     try_kmem_quota!(act.obj_caps().borrow_mut().insert_as_child(cap, r.act));
 
-    dst_act.tile().alloc(ep_count);
+    dst_act.tile().alloc_eps(ep_count);
     tilemux.alloc_eps(epid, ep_count);
 
     let mut kreply = MsgBuf::borrow_def();
@@ -232,6 +232,9 @@ pub fn tile_quota_async(
         eps_id: tile.ep_quota().id(),
         eps_total: tile.ep_quota().total(),
         eps_left: tile.ep_quota().left(),
+        bw_id: tile.bw_quota().id(),
+        bw_total: tile.bw_quota().rate(),
+        bw_left: tile.bw_quota().rate(),
         time_id: time.id(),
         time_total: time.total(),
         time_left: time.left(),
@@ -252,8 +255,9 @@ pub fn tile_set_quota_async(
     let r: syscalls::TileSetQuota = get_request(msg)?;
     sysc_log!(
         act,
-        "tile_set_quota(tile={}, time={}, pts={})",
+        "tile_set_quota(tile={}, bw={}, time={}, pts={})",
         r.tile,
+        r.bw,
         r.time,
         r.pts
     );
@@ -277,6 +281,9 @@ pub fn tile_set_quota_async(
     let tilemux = tilemng::tilemux(tile.tile());
     // the root tile object has always the same id for the time quota and the pts quota
     TileMux::set_quota_async(tilemux, tile.time_quota_id(), r.time, r.pts)?;
+
+    tile.bw_quota().set(r.bw);
+    ktcu::set_memory_bandwidth(tile.tile(), tile.bw_quota()).unwrap();
 
     reply_success(msg);
     Ok(())

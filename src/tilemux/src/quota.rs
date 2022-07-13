@@ -29,7 +29,7 @@ use num_traits::PrimInt;
 
 pub type Id = kif::tilemux::QuotaId;
 
-pub const IDLE_ID: Id = 0;
+pub const IDLE_ID: Id = kif::tilemux::IDLE_QUOTA_ID;
 
 pub const DEF_TIME_SLICE: TimeDuration = TimeDuration::from_millis(1);
 
