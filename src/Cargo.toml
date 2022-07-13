@@ -16,6 +16,7 @@ members = [
     "apps/disktest",
     "apps/hashmuxtests",
     "apps/info",
+    "apps/memconsumer",
     "apps/msgchan/msgchansnd",
     "apps/netechoserver",
     "apps/ping",
