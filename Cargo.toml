@@ -13,6 +13,7 @@ members = [
     "src/apps/disktest",
     "src/apps/hashmuxtests",
     "src/apps/info",
+    "src/apps/memconsumer",
     "src/apps/msgchan/msgchansnd",
     "src/apps/netechoserver",
     "src/apps/ping",

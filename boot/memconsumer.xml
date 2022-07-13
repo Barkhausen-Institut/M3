@@ -1,0 +1,31 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom mem-bw="256K;16K">
+                <app args="memconsumer" />
+            </dom>
+            <dom>
+                <app args="memconsumer" />
+            </dom>
+        </app>
+    </dom>
+</config>

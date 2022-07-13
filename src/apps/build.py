@@ -13,6 +13,7 @@ dirs = [
     'hello',
     'info',
     'libctest',
+    'memconsumer',
     'msgchan',
     'netechoserver',
     'noop',
