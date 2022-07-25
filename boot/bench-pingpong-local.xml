@@ -1,0 +1,17 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root sem=ready">
+            <dom tile="boom|core">
+                <app args="ppreceiver 1000 1" daemon="1" time="1s">
+                    <rgate name="chan" msgsize="64" slots="1" />
+                    <sem name="ready" />
+                </app>
+                <app args="ppsender 1000 0 1 2" time="1s">
+                    <sgate name="chan" label="1" />
+                    <sem name="ready" />
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

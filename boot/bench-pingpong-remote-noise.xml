@@ -1,0 +1,43 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root sem=ready1 sem=ready2 sem=ready3">
+            <dom tile="rocket|core">
+                <app args="ppreceiver 100000 2032">
+                    <rgate lname="chan" gname="chan2" msgsize="2048" slots="1" />
+                    <sem lname="ready" gname="ready2" />
+                </app>
+            </dom>
+            <dom tile="rocket|core">
+                <app args="ppsender 100000 0 2032 0">
+                    <sgate lname="chan" gname="chan2" label="1" />
+                    <sem lname="ready" gname="ready2" />
+                </app>
+            </dom>
+            <dom tile="rocket|core">
+                <app args="ppreceiver 100000 2032">
+                    <rgate lname="chan" gname="chan3" msgsize="2048" slots="1" />
+                    <sem lname="ready" gname="ready3" />
+                </app>
+            </dom>
+            <dom tile="boom+nic|core">
+                <app args="ppsender 100000 0 2032 0">
+                    <sgate lname="chan" gname="chan3" label="1" />
+                    <sem lname="ready" gname="ready3" />
+                </app>
+            </dom>
+            <dom tile="boom|core">
+                <app args="ppsender 10000 0 2032 1">
+                    <sgate lname="chan" gname="chan1" label="1" />
+                    <sem lname="ready" gname="ready1" />
+                </app>
+            </dom>
+            <dom tile="boom|core">
+                <app args="ppreceiver 10000 2032">
+                    <rgate lname="chan" gname="chan1" msgsize="2048" slots="1" />
+                    <sem lname="ready" gname="ready1" />
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

@@ -13,6 +13,7 @@ dirs = [
     'mem',
     'netlat',
     'noopbench',
+    'pingpong',
     'rustbenchs',
     'rustnetbenchs',
     'scale',
