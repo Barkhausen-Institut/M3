@@ -10,6 +10,7 @@ dirs = [
     'ipc',
     'loadgen',
     'netlat',
+    'pingpong',
     'rustbenchs',
     'rustnetbenchs',
     'scale',
