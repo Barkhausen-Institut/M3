@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "apps/bench/disturber",
     "apps/bench/facever",
     "apps/bench/fs",
     "apps/bench/hashmuxbenchs",
