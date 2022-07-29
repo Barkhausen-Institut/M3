@@ -3,6 +3,7 @@ dirs = [
     'bench-apps',
     'cppbenchs',
     'cppnetbenchs',
+    'disturber',
     'fs',
     'fstrace',
     'hashmuxbenchs',

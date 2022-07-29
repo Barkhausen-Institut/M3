@@ -1,0 +1,31 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="disturber compute 100000" daemon="1">
+                </app>
+            </dom>
+            <dom>
+                <app args="disturber compute 100000" daemon="1">
+                </app>
+            </dom>
+            <dom>
+                <app args="disturber compute 100000" daemon="1">
+                </app>
+            </dom>
+            <dom>
+                <app args="disturber compute 100000" daemon="1">
+                </app>
+            </dom>
+            <dom>
+                <app args="disturber compute 100000" daemon="1">
+                </app>
+            </dom>
+            <dom tile="boom|core">
+                <app args="disturber transfers 100">
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>
