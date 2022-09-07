@@ -502,6 +502,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "tcusleep"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "thread"
 version = "0.1.0"
 dependencies = [
