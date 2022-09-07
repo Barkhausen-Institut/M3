@@ -13,6 +13,7 @@ members = [
     "apps/bench/pingpong/ppreceiver",
     "apps/bench/rustbenchs",
     "apps/bench/rustnetbenchs",
+    "apps/bench/tcusleep",
     "apps/bench/voiceassist/vamic",
     "apps/bench/voiceassist/varcv",
     "apps/bench/ycsb/ycsbclient",

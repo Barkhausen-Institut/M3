@@ -1,0 +1,17 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="tcusleep sender 120" daemon="1">
+                    <sgate name="chan" label="1" />
+                </app>
+            </dom>
+            <dom>
+                <app args="tcusleep receiver 120">
+                    <rgate name="chan" msgsize="64" slots="1" />
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>
