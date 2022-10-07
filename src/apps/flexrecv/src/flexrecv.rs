@@ -21,9 +21,9 @@ use crate::{app::m3demo::*, datamessage::RawDataMessage, modulation::qam::QAMOrd
 #[no_mangle]
 pub fn main() -> i32 {
     //udp
-    let mut socket = UdpSocket::bind("0.0.0.0:0").expect("Fehler beim Erstellen des UDP sockets");
+    let socket = UdpSocket::bind("127.0.0.1:3000").expect("Fehler beim Erstellen des UDP sockets");
     socket
-        .connect("192.168.181.48:8847")
+        .connect("127.0.0.1:1337")
         .expect("Fehler beim setzen der Zieladresse des UDP sockets");
 
     //modulator
@@ -58,7 +58,7 @@ pub fn main() -> i32 {
         }
         */
         //samples contains the raw sample data
-        let packetsize = 1024;
+        let packetsize = 128;
 
         //create a buffer
         //each sample has two float values (real and imaginary part of the number), each is written as 4 bytes
@@ -93,8 +93,9 @@ pub fn main() -> i32 {
             }
 
             // send the packet
-            socket.send(&buffer);
-            // .expect("Fehler beim senden der UDP Daten.");
+            socket
+                .send(&buffer)
+                .expect("Fehler beim senden der UDP Daten.");
         }
 
         //send the remaining samples
@@ -120,8 +121,9 @@ pub fn main() -> i32 {
         }
 
         //send the packet
-        socket.send(&buffer[..numsamplesleft * 2 * 4]);
-        //     .expect("Fehler beim senden der UDP Daten.");
+        socket
+            .send(&buffer[..numsamplesleft * 2 * 4])
+            .expect("Fehler beim senden der UDP Daten.");
 
         //sending packets with a header
         /*
