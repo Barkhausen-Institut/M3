@@ -1,4 +1,8 @@
-use crate::imports::{vec, Vec};
+use std::f32::consts::SQRT_2;
+use std::vec;
+use std::vec::Vec;
+use std::convert::TryFrom;
+
 use num_complex::Complex;
 
 //The QAM is composed of two PAM symbols
@@ -13,8 +17,6 @@ use num_complex::Complex;
 //Some CPUs have FMA instructions which can better compute a * b + c
 //So the array indexing could be rewritten to index = ((x / dist) + ( -(xmin / dist))).round(), -(xmin / dist) could be pre-computed
 //The array indexing could be rewriten as: index = ((x * distinv) + offset).round(), offset = -(xmin / dist)
-
-use crate::float::{FloatOps, SQRT_2};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum QAMOrder {

@@ -1,4 +1,5 @@
-use crate::imports::{vec, Vec};
+use std::vec;
+use std::vec::Vec;
 
 // use std::env;
 // use std::fs::File;
@@ -7,7 +8,6 @@ use crate::imports::{vec, Vec};
 
 use crate::datamessage::*;
 use crate::fec::convolutionalcode::encode_convolutional;
-use crate::float::FloatOps;
 use crate::modulation::gfdm::*;
 use crate::modulation::qam::*;
 use crate::modulation::scrambler::scramble_data_with_number_increment;

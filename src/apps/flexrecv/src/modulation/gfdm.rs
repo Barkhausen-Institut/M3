@@ -2,6 +2,34 @@ use crate::datamessage::SampleDataMessage;
 use num_complex::{Complex, Complex32};
 use std::vec;
 
+/// Computes `e^(self)`, where `e` is the base of the natural logarithm.
+#[inline]
+pub fn complex_exp(n: Complex<f32>) -> Complex<f32> {
+    // formula: e^(a + bi) = e^a (cos(b) + i*sin(b)) = from_polar(e^a, b)
+
+    let Complex { re, mut im } = n;
+    // Treat the corner cases +∞, -∞, and NaN
+    if re.is_infinite() {
+        if re < 0.0 {
+            if !im.is_finite() {
+                return Complex::new(0.0, 0.0);
+            }
+        } else {
+            if im == 0.0 || !im.is_finite() {
+                if im.is_infinite() {
+                    im = f32::NAN;
+                }
+                return Complex::new(re, im);
+            }
+        }
+    } else if re.is_nan() && im == 0.0 {
+        return n;
+    }
+
+    // from_polar
+    Complex::new(re.exp() * im.cos(), re.exp() * im.sin())
+}
+
 //The GFDMTransformer struct handles modulation and demodulation by applying the transforms on the samples
 pub struct GFDMTransformer{
 
@@ -87,7 +115,7 @@ fn compute_fft(data : &mut [Complex32], fftdirection : FftDirection){
     //loop over the output elements over the transform
     for i in 0..buffer.len(){
         for j in 0..data.len(){
-             buffer[i] += (number * (i * j) as f32).exp() * data[j];
+             buffer[i] += complex_exp(number * (i * j) as f32) * data[j];
         }
     }
 

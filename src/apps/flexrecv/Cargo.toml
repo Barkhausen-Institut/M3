@@ -1,16 +1,16 @@
 [package]
-name = "flexible-transceiver-rust"
+name = "flexrecv"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
-path = "src/main.rs"
+path = "src/flexrecv.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-m3 = { path = "../../libs/rust/m3" }
+m3impl = { path = "../../libs/rust/m3impl" }
 num-complex = { version = "*", default-features = false }
 #rand = "*"
 #rustfft = "*"

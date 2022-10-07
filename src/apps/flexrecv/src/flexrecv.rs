@@ -1,35 +1,30 @@
-#![no_std]
 #![feature(core_intrinsics)]
 
 mod app;
 mod datamessage;
 mod fec;
-mod float;
-mod imports;
 mod modulation;
-mod network;
 
-use crate::imports::{println, sleep, vec, Duration, String, Vec};
-use crate::network::Network;
+#[allow(unused_extern_crates)]
+extern crate m3impl as m3;
 
-// use std::{net::UdpSocket, io};
-use app::m3demo::*;
-use num_complex::Complex;
-// use std::{thread, time};
+use std::net::UdpSocket;
+use std::println;
+use std::string::String;
+use std::thread::sleep;
+use std::time::Duration;
+use std::vec;
+use std::vec::Vec;
 
-use crate::{
-    datamessage::{RawDataMessage, SampleDataMessage},
-    modulation::qam::QAMOrder,
-};
+use crate::{app::m3demo::*, datamessage::RawDataMessage, modulation::qam::QAMOrder};
 
-fn main() {
+#[no_mangle]
+pub fn main() -> i32 {
     //udp
-    #[cfg(feature = "std")]
-    let socket = network::std::StdNetwork::new("192.168.181.48", 8847);
-    #[cfg(not(feature = "std"))]
-    let mut socket = network::m3::M3Network::new("192.168.181.48", 8847);
-    // let socket = UdpSocket::bind("0.0.0.0:0").expect("Fehler beim Erstellen des UDP sockets");
-    // socket.connect("192.168.181.48:8847").expect("Fehler beim setzen der Zieladresse des UDP sockets");
+    let mut socket = UdpSocket::bind("0.0.0.0:0").expect("Fehler beim Erstellen des UDP sockets");
+    socket
+        .connect("192.168.181.48:8847")
+        .expect("Fehler beim setzen der Zieladresse des UDP sockets");
 
     //modulator
     let mut sender = M3Sender::new(16, QAMOrder::QAM4, 64);
@@ -62,7 +57,6 @@ fn main() {
             println!("{}_", samples.get_sample_data()[i]);
         }
         */
-
         //samples contains the raw sample data
         let packetsize = 1024;
 
@@ -213,4 +207,5 @@ fn main() {
          */
     }
     println!("Hello, world!");
+    0
 }

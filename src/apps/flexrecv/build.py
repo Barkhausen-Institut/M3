@@ -1,2 +1,2 @@
 def build(gen, env):
-    env.m3_rust_exe(gen, out = 'flexible-transceiver-rust')
+    env.m3_rust_exe(gen, out = 'flexrecv', std = True)
