@@ -9,6 +9,7 @@ dirs = [
     'evilcompute',
     'faulter',
     'filterchain',
+    'flexrecv',
     'hashmuxtests',
     'hello',
     'info',
