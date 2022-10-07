@@ -1,159 +1,118 @@
 #!/bin/bash
 
-usage() {
-    echo "Usage: $1 <script> [--debug=<prog>]" 1>&2
+# ./linux.sh "command to be run on linux"
+# creates an M3 system with a kernel and one linux tile
+
+if [ "$M3_TARGET" != 'gem5' ]; then
+    echo '$M3_TARGET other than gem5 is not supported' >&2
     exit 1
+fi
+
+if [ "$M3_ISA" != 'riscv' ]; then
+    echo '$M3_ISA other than riscv is not supported' >&2
+    exit 1
+fi
+
+if [ -z "$M3_BENCH_LX_DIR" ]; then
+    echo '$M3_BENCH_LX_DIR not set' >&2
+    exit 1
+fi
+
+gem5_executable=platform/gem5/build/RISCV/gem5.opt
+
+if [ ! -f "$gem5_executable" ]; then
+    echo "$gem5_executable does not exist" >&2
+    exit 1
+fi
+
+M3_BUILD="${M3_BUILD:-release}"
+M3_OUT="${M3_OUT:-run}"
+GEM5_CPU="${GEM5_CPU:-TimingSimpleCPU}"
+
+build=build/$M3_TARGET-$M3_ISA-$M3_BUILD/linux
+buildroot_dir="$build/buildroot"
+disks_dir="$build/disks"
+linux_dir="$build/linux"
+bbl_dir="$build/bbl"
+m3_root=`pwd`
+
+mkdir -p "$buildroot_dir" "$disks_dir" "$linux_dir" "$bbl_dir"
+
+main() {
+    # buildroot
+    if [ ! -f "$disks_dir/root.img" ]; then
+        mk_buildroot
+    fi
+
+    # linux
+    if [ ! -f "$linux_dir/vmlinux" ]; then
+        mk_linux
+    fi
+
+    # bbl
+    if [ ! -f "$bbl_dir/bbl" ]; then
+        mk_bbl
+    fi
+
+    run_gem5
 }
 
-if [ "$1" = "-h" ] || [ "$1" = "--help" ] || [ "$1" = "-?" ]; then
-    usage "$0"
-fi
-
-build=build/$M3_TARGET-$M3_ISA-$M3_BUILD
-bindir=$build/bin
-hwssh=${M3_HW_SSH:-syn}
-
-if [ $# -lt 1 ]; then
-    usage "$0"
-fi
-script=$1
-shift
-
-debug=""
-for p in "$@"; do
-    case $p in
-        --debug=*)
-            debug=${p#--debug=}
-            ;;
-    esac
-done
-
-if [ "$M3_FS" = "" ]; then
-    M3_FS="default.img"
-fi
-export M3_FS
-
-if [ "$M3_HDD" = "" ]; then
-    M3_HDD_PATH="build/$M3_TARGET-$M3_ISA-$M3_BUILD/disk.img"
-else
-    M3_HDD_PATH=$M3_HDD
-fi
-
-generate_config() {
-    if [ ! -f "$1" ]; then
-        echo "error: '$1' is not a file" >&2 && exit 1
+mk_buildroot() {
+    if [ ! -f $buildroot_dir/.config ]; then
+        cp "$M3_BENCH_LX_DIR/configs/config-buildroot-riscv64" "$buildroot_dir/.config"
     fi
 
-    hd=$M3_HDD_PATH
-    fs=build/$M3_TARGET-$M3_ISA-$M3_BUILD/$M3_FS
-    fssize=$(stat --format="%s" "$fs")
-    sed "
-        s#\$fs.path#$fs#g;
-        s#\$fs.size#$fssize#g;
-        s#\$hd.path#$hd#g;
-    " < "$1" > "$2/boot-all.xml"
-
-    xmllint --schema misc/boot.xsd --noout "$2/boot-all.xml" > /dev/null || exit 1
-    # this can fail if there is no app element (e.g., standalone.xml)
-    xmllint --xpath /config/dom/app "$2/boot-all.xml" > "$2/boot.xml" || true
-}
-
-build_params_gem5() {
-    generate_config "$1" "$M3_OUT" || exit 1
-
-    kargs=$(perl -ne 'printf("'"$bindir"/'%s,", $1) if /<kernel\s.*args="(.*?)"/' < "$M3_OUT/boot-all.xml")
-    mods=$(perl -ne 'printf(",'"$bindir"'/%s", $1) if /app\s.*args="([^\/"\s]+).*"/' < "$M3_OUT/boot-all.xml")
-    mods="$M3_OUT/boot.xml$mods"
-
-    if [ "$M3_GEM5_DBG" = "" ]; then
-        M3_GEM5_DBG="Tcu"
-    fi
-    if [ "$M3_GEM5_CPU" = "" ]; then
-        if [ "$debug" != "" ]; then
-            M3_GEM5_CPU="TimingSimpleCPU"
-        else
-            M3_GEM5_CPU="DerivO3CPU"
-        fi
-    fi
-
-    M3_CORES=3
-
-    cmd=$kargs
-    c=$(echo -n "$cmd" | sed 's/[^,]//g' | wc -c)
-    while [ "$c" -lt "$M3_CORES" ]; do
-        cmd="$cmd$bindir/tilemux,"
-        c=$((c + 1))
-    done
-
-    if [[ $mods == *disk* ]] && [ "$M3_HDD" = "" ]; then
-        ./src/tools/disk.py create "$M3_HDD_PATH" "$build/$M3_FS"
-    fi
-
-    M3_GEM5_CPUFREQ=${M3_GEM5_CPUFREQ:-1GHz}
-    M3_GEM5_MEMFREQ=${M3_GEM5_MEMFREQ:-333MHz}
-    export M3_GEM5_TILES=$M3_CORES
-    export M3_GEM5_FS=/home/op/ba/bench-lx/build/riscv64/disks/bench.img
-    export M3_GEM5_IDE_DRIVE=$M3_HDD_PATH
-
-    params=$(mktemp)
-    trap 'rm -f $params' EXIT ERR INT TERM
-
-    {
-        echo -n "--outdir=$M3_OUT --debug-file=gem5.log --debug-flags=$M3_GEM5_DBG"
-        if [ "$M3_GEM5_PAUSE" != "" ]; then
-            echo -n " --listener-mode=on"
-        fi
-        if [ "$M3_GEM5_DBGSTART" != "" ]; then
-            echo -n " --debug-start=$M3_GEM5_DBGSTART"
-        fi
-        echo -n " config/linux.py --cpu-type $M3_GEM5_CPU --isa $M3_ISA"
-        echo -n " --cmd \"$bindir/kernel\" --mods \"$mods\""
-        echo -n " --cpu-clock=$M3_GEM5_CPUFREQ --sys-clock=$M3_GEM5_MEMFREQ"
-        if [ "$M3_GEM5_PAUSE" != "" ]; then
-            echo -n " --pausetile=$M3_GEM5_PAUSE"
-        fi
-    } > "$params"
-
-    if [ "$M3_ISA" = "x86_64" ]; then
-        gem5build="X86"
-    elif [ "$M3_ISA" = "arm" ]; then
-        gem5build="ARM"
-    elif [ "$M3_ISA" = "riscv" ]; then
-        gem5build="RISCV"
-    else
-        echo "Unsupported ISA: $M3_ISA" >&2
+    ( cd "$M3_BENCH_LX_DIR/buildroot" && make "O=$m3_root/$buildroot_dir" -j$(nproc) )
+    if [ $? -ne 0 ]; then
+        echo "buildroot compilation failed" >&2
         exit 1
     fi
 
-    export M5_PATH=$build
-    if [ "$DBG_GEM5" != "" ]; then
-        tmp=$(mktemp)
-        trap 'rm -f $tmp' EXIT ERR INT TERM
-        {
-            echo "b main"
-            echo -n "run "
-            cat "$params"
-            echo
-        } > "$tmp"
-        gdb --tui platform/gem5/build/$gem5build/gem5.debug "--command=$tmp"
-    else
-        if [ "$debug" != "" ]; then
-            xargs -a "$params" $build/tools/ignoreint platform/gem5/build/$gem5build/gem5.opt
-        else
-            xargs -a "$params" platform/gem5/build/$gem5build/gem5.opt
-        fi
+    rm -f "$disks_dir/root.img"
+    platform/gem5/util/gem5img.py init "$disks_dir/root.img" 128
+    tmp=`mktemp -d`
+    platform/gem5/util/gem5img.py mount "$disks_dir/root.img" $tmp
+    cpioimg=`readlink -f $buildroot_dir/images/rootfs.cpio`
+    ( cd $tmp && sudo cpio -id < $cpioimg )
+    platform/gem5/util/gem5img.py umount $tmp
+    rmdir $tmp
+}
+
+mk_linux() {
+    if [ ! -f "$linux_dir/.config" ]; then
+        cp "$M3_BENCH_LX_DIR/configs/config-linux-riscv64" "$linux_dir/.config"
+    fi
+
+    ( 
+        export PATH="$m3_root/$buildroot_dir/host/usr/bin:$PATH"
+        export ARCH=riscv
+        export CROSS_COMPILE=riscv64-linux-
+        cd "$M3_BENCH_LX_DIR/linux" && make "O=$m3_root/$linux_dir" -j$(nproc)
+    )
+    if [ $? -ne 0 ]; then
+        echo "linux compilation failed" >&2
+        exit 1
     fi
 }
 
-if [ "$M3_TARGET" = "gem5" ] || [ "$M3_RUN_GEM5" = "1" ]; then
-    build_params_gem5 "$script"
-else
-    echo "Unknown target '$M3_TARGET'"
-fi
+mk_bbl() {
+    (
+        export PATH="$m3_root/$buildroot_dir/host/usr/bin:$PATH"
+        cd "$bbl_dir" \
+            && RISCV=$m3_root/$buildroot_dir/host "$M3_BENCH_LX_DIR/riscv-pk/configure" \
+                --host=riscv64-linux \
+                "--with-payload=$m3_root/$linux_dir/vmlinux" \
+                --with-mem-start=0x10000000 \
+            && CFLAGS=" -D__riscv_compressed=1" make -j$(nproc)
+    )
+    if [ $? -ne 0 ]; then
+        echo "bbl/riscv-pk compilation failed" >&2
+        exit 1
+    fi
+}
 
-# ensure that we get into cooked mode again
-stty sane
+run_gem5() {
+    M3_BOOTLOADER=$bbl_dir/bbl "$gem5_executable" "--outdir=$M3_OUT" --debug-file=gem5.log config/linux.py --cpu-type "$GEM5_CPU" --isa riscv
+}
 
-if [ -f "$build/$M3_FS.out" ]; then
-    "$build/tools/m3fsck" "$build/$M3_FS.out" && echo "FS image '$build/$M3_FS.out' is valid"
-fi
+main
