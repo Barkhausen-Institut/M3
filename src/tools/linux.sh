@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# ./linux.sh "command to be run on linux"
+# ./linux.sh [--debug-flags=FLAGS]
 # creates an M3 system with a kernel and one linux tile
 
 if [ "$M3_TARGET" != 'gem5' ]; then
@@ -27,7 +27,8 @@ fi
 
 M3_BUILD="${M3_BUILD:-release}"
 M3_OUT="${M3_OUT:-run}"
-GEM5_CPU="${GEM5_CPU:-TimingSimpleCPU}"
+
+debug_flags=""
 
 build=build/$M3_TARGET-$M3_ISA-$M3_BUILD/linux
 buildroot_dir="$build/buildroot"
@@ -39,6 +40,19 @@ m3_root=`pwd`
 mkdir -p "$buildroot_dir" "$disks_dir" "$linux_dir" "$bbl_dir"
 
 main() {
+    # command line args
+    for arg in "$@"; do
+        case $arg in
+            --debug-flags=*)
+                debug_flags=${arg#--debug-flags=}
+                ;;
+            --help|-h)
+                echo "$0 [--debug-flags=FLAGS]"
+                exit 0
+        esac
+    done
+
+
     # buildroot
     if [ ! -f "$disks_dir/root.img" ]; then
         mk_buildroot
@@ -112,7 +126,13 @@ mk_bbl() {
 }
 
 run_gem5() {
-    M3_BOOTLOADER=$bbl_dir/bbl "$gem5_executable" "--outdir=$M3_OUT" --debug-file=gem5.log config/linux.py --cpu-type "$GEM5_CPU" --isa riscv
+    M3_BOOTLOADER=$bbl_dir/bbl "$gem5_executable" \
+        "--outdir=$M3_OUT" \
+        `if [ -n "$debug_flags" ]; then echo "--debug-flags=$debug_flags"; fi` \
+        --debug-file=gem5.log \
+        config/linux.py \
+        --cpu-type TimingSimpleCPU \
+        --isa riscv
 }
 
-main
+main "$@"
