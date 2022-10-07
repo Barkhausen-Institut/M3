@@ -1,0 +1,24 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root sem=net-udp sem=net-tcp">
+            <dom>
+                <app args="net -m 3 -d lo net 127.0.0.1" daemon="1">
+                    <serv name="net" />
+                </app>
+            </dom>
+            <dom>
+                <app args="netechoserver" daemon="1">
+                    <sess name="net" args="bufs=1M socks=2 udp=1337 tcp=1338" />
+                    <sem name="net-udp" />
+                    <sem name="net-tcp" />
+                </app>
+            </dom>
+            <dom>
+                <app args="flexrecv">
+                    <sess name="net" args="socks=2 udp=3000" />
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>
