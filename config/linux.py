@@ -25,10 +25,10 @@ assert os.path.isfile(bootloader), "$M3_BOOTLOADER is not a file"
 tiles = []
 linux_tile = createOSTile(noc=root.noc,
                           options=options,
-                          no=1,
+                          no=0,
                           kernel=bootloader,
-                          clParams='earlycon=sbi console=ttyS0 root=/dev/vda1',
-                          memTile=3,
+                          clParams='earlycon=sbi console=ttyS0', # root=/dev/vda1',
+                          memTile=2,
                           l1size='32kB',
                           l2size='256kB',
                           tcupos=0,
@@ -39,15 +39,15 @@ tiles.append(linux_tile)
 
 tile = createSerialTile(noc=root.noc,
                         options=options,
-                        no=2,
-                        memTile=3,
+                        no=1,
+                        memTile=2,
                         epCount=num_eps)
 tiles.append(tile)
 
 # tile = createStorageTile(noc=root.noc,
 #                             options=options,
 #                             no=2,
-#                             memTile=3,
+#                             memTile=2,
 #                             img0=None,
 #                             epCount=num_eps)
 # tiles.append(tile)
@@ -55,7 +55,7 @@ tiles.append(tile)
 
 tile = createMemTile(noc=root.noc,
                         options=options,
-                        no=3,
+                        no=2,
                         size='3072MB',
                         image=None,
                         imageNum=0,
