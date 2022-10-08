@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # compiles and runs an M3 system with a kernel and one linux tile
-help="$0 [--debug-flags=...] [--no-run]"
+help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...]"
 
 if [ "$M3_TARGET" != 'gem5' ]; then
     echo '$M3_TARGET other than gem5 is not supported' >&2
@@ -32,6 +32,7 @@ M3_OUT="${M3_OUT:-run}"
 # command line options
 debug_flags=""
 no_run=false
+gem5_cpu="TimingSimpleCPU"
 
 # directories
 build=build/$M3_TARGET-$M3_ISA-$M3_BUILD/linux
@@ -52,6 +53,9 @@ main() {
                 ;;
             --no-run)
                 no_run=true
+                ;;
+            --cpu-type=*)
+                gem5_cpu=${arg#--cpu-type=}
                 ;;
             --help|-h)
                 echo $help
@@ -141,7 +145,7 @@ run_gem5() {
         `if [ -n "$debug_flags" ]; then echo "--debug-flags=$debug_flags"; fi` \
         --debug-file=gem5.log \
         config/linux.py \
-        --cpu-type TimingSimpleCPU \
+        --cpu-type "$gem5_cpu" \
         --isa riscv
 }
 
