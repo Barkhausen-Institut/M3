@@ -94,7 +94,7 @@ mk_buildroot() {
 
 mk_linux() {
     if [ ! -f "$linux_dir/.config" ]; then
-        cp "$M3_BENCH_LX_DIR/configs/config-linux-riscv64" "$linux_dir/.config"
+        cp "$M3_BENCH_LX_DIR/configs/config-linux-riscv64-thin" "$linux_dir/.config"
     fi
 
     ( 
