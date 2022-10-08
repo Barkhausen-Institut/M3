@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# ./linux.sh [--debug-flags=FLAGS]
-# creates an M3 system with a kernel and one linux tile
+# compiles and runs an M3 system with a kernel and one linux tile
+help="$0 [--debug-flags=...] [--no-run]"
 
 if [ "$M3_TARGET" != 'gem5' ]; then
     echo '$M3_TARGET other than gem5 is not supported' >&2
@@ -25,11 +25,15 @@ if [ ! -f "$gem5_executable" ]; then
     exit 1
 fi
 
+# environment variables
 M3_BUILD="${M3_BUILD:-release}"
 M3_OUT="${M3_OUT:-run}"
 
+# command line options
 debug_flags=""
+no_run=false
 
+# directories
 build=build/$M3_TARGET-$M3_ISA-$M3_BUILD/linux
 buildroot_dir="$build/buildroot"
 disks_dir="$build/disks"
@@ -46,8 +50,11 @@ main() {
             --debug-flags=*)
                 debug_flags=${arg#--debug-flags=}
                 ;;
+            --no-run)
+                no_run=true
+                ;;
             --help|-h)
-                echo "$0 [--debug-flags=FLAGS]"
+                echo $help
                 exit 0
         esac
     done
@@ -69,7 +76,9 @@ main() {
         mk_bbl
     fi
 
-    run_gem5
+    if [ "$no_run" = false ]; then
+        run_gem5
+    fi
 }
 
 mk_buildroot() {
@@ -95,7 +104,7 @@ mk_buildroot() {
 
 mk_linux() {
     if [ ! -f "$linux_dir/.config" ]; then
-        cp "$M3_BENCH_LX_DIR/configs/config-linux-riscv64-thin" "$linux_dir/.config"
+        cp "$M3_BENCH_LX_DIR/configs/config-linux-riscv64" "$linux_dir/.config"
     fi
 
     ( 
