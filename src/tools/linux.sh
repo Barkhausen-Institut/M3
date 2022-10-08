@@ -61,6 +61,7 @@ main() {
     # linux
     if [ ! -f "$linux_dir/vmlinux" ]; then
         mk_linux
+        rm -f "$bbl_dir/bbl" # rebuild bbl if linux was rebuilt
     fi
 
     # bbl
