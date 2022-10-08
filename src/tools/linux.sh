@@ -140,7 +140,8 @@ mk_bbl() {
 }
 
 run_gem5() {
-    M3_BOOTLOADER=$bbl_dir/bbl "$gem5_executable" \
+    M3_ROOTFS="$disks_dir/root.img" \
+    M3_BOOTLOADER="$bbl_dir/bbl" "$gem5_executable" \
         "--outdir=$M3_OUT" \
         `if [ -n "$debug_flags" ]; then echo "--debug-flags=$debug_flags"; fi` \
         --debug-file=gem5.log \

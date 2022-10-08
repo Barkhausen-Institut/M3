@@ -13,22 +13,20 @@ bootloader = os.environ.get('M3_BOOTLOADER')
 assert bootloader is not None, "$M3_BOOTLOADER not specified"
 assert os.path.isfile(bootloader), "$M3_BOOTLOADER is not a file"
 
-# fsimg = os.environ.get('M3_GEM5_FS')
-# assert(os.path.isfile(fsimg))
-# fsimgnum = os.environ.get('M3_GEM5_FSNUM', '1')
+rootfs = os.environ.get('M3_ROOTFS')
+if rootfs is not None:
+    print(os.getcwd())
+    assert os.path.isfile(rootfs), f"$M3_ROOTFS ({rootfs}) is not a file"
 
-
-# disk image
-# hard_disk0 = os.environ.get('M3_GEM5_IDE_DRIVE')
-# assert(os.path.isfile(hard_disk0))
+mem_tile = 2
 
 tiles = []
 linux_tile = createOSTile(noc=root.noc,
                           options=options,
                           no=0,
                           kernel=bootloader,
-                          clParams='earlycon=sbi console=ttyS0', # root=/dev/vda1',
-                          memTile=2,
+                          clParams='earlycon=sbi console=ttyS0 root=/dev/vda1',
+                          memTile=mem_tile,
                           l1size='32kB',
                           l2size='256kB',
                           tcupos=0,
@@ -40,17 +38,9 @@ tiles.append(linux_tile)
 tile = createSerialTile(noc=root.noc,
                         options=options,
                         no=1,
-                        memTile=2,
+                        memTile=mem_tile,
                         epCount=num_eps)
 tiles.append(tile)
-
-# tile = createStorageTile(noc=root.noc,
-#                             options=options,
-#                             no=2,
-#                             memTile=2,
-#                             img0=None,
-#                             epCount=num_eps)
-# tiles.append(tile)
 
 
 tile = createMemTile(noc=root.noc,
@@ -61,5 +51,17 @@ tile = createMemTile(noc=root.noc,
                         imageNum=0,
                         epCount=num_eps)
 tiles.append(tile)
+
+
+if rootfs is not None:
+    print(f"using {rootfs} as file system on a storage tile")
+    tile = createStorageTile(noc=root.noc,
+                            options=options,
+                            no=3,
+                            memTile=mem_tile,
+                            img0=rootfs,
+                            epCount=num_eps)
+    tiles.append(tile)
+
 
 runSimulation(root, options, tiles)
