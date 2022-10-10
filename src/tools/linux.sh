@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # compiles and runs an M3 system with a kernel and one linux tile
-help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...]"
+help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...] [--rebuild-bbl]"
 
 if [ "$M3_TARGET" != 'gem5' ]; then
     echo '$M3_TARGET other than gem5 is not supported' >&2
@@ -56,6 +56,10 @@ main() {
                 ;;
             --cpu-type=*)
                 gem5_cpu=${arg#--cpu-type=}
+                ;;
+            --rebuild-bbl)
+                echo "removing old bbl build"
+                rm -rf "$bbl_dir"/*
                 ;;
             --help|-h)
                 echo $help
