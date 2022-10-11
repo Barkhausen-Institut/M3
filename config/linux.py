@@ -28,7 +28,6 @@ kernel_tile = createCoreTile(noc=root.noc,
                         memTile=mem_tile_no,
                         l1size='32kB',
                         l2size='256kB',
-                        tcupos=0,
                         epCount=num_eps)
 tiles.append(kernel_tile)
 
@@ -40,7 +39,6 @@ linux_tile = createOSTile(noc=root.noc,
                           memTile=mem_tile_no,
                           l1size='32kB',
                           l2size='256kB',
-                          tcupos=0,
                           epCount=num_eps)
 
 tiles.append(linux_tile)
