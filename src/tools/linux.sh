@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # compiles and runs an M3 system with a kernel and one linux tile
-help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...] [--rebuild-bbl]"
+help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...] [--rebuild-bbl] [--rebuild-gem5]"
 
 if [ "$M3_TARGET" != 'gem5' ]; then
     echo '$M3_TARGET other than gem5 is not supported' >&2
@@ -19,11 +19,6 @@ if [ -z "$M3_BENCH_LX_DIR" ]; then
 fi
 
 gem5_executable=platform/gem5/build/RISCV/gem5.opt
-
-if [ ! -f "$gem5_executable" ]; then
-    echo "$gem5_executable does not exist" >&2
-    exit 1
-fi
 
 # environment variables
 M3_BUILD="${M3_BUILD:-release}"
@@ -61,12 +56,25 @@ main() {
                 echo "removing old bbl build"
                 rm -rf "$bbl_dir"/*
                 ;;
+            --rebuild-gem5)
+                echo "removing old gem5 build"
+                rm -f "$gem5_executable"
+                ;;
             --help|-h)
                 echo $help
                 exit 0
+                ;;
+            *)
+                echo "unknown option: $arg" >&2
+                echo $help
+                exit 1
         esac
     done
 
+    # gem5
+    if [ ! -x "$gem5_executable" ]; then
+        mk_gem5
+    fi
 
     # buildroot
     if [ ! -f "$disks_dir/root.img" ]; then
@@ -86,6 +94,14 @@ main() {
 
     if [ "$no_run" = false ]; then
         run_gem5
+    fi
+}
+
+mk_gem5() {
+    ( cd platform/gem5 && scons build/RISCV/gem5.opt -j$(nproc) )
+    if [ $? -ne 0 ]; then
+        echo "gem5 compilation failed" >&2
+        exit 1
     fi
 }
 
