@@ -105,13 +105,16 @@ example reports for client:
 */
 
 #if defined(__m3__)
+
 #include <m3/com/GateStream.h>
+using namespace m3;
+
 #else
+
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 
-using namspace m3;
 #endif
 
 #include <cstdio>
