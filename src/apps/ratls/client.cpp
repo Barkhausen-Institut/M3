@@ -68,6 +68,8 @@ std::vector<TPM2B_DIGEST> expectedPcrValues = {
 
 std::vector<uint32_t> sealingPcrSlots = { 7, 23 };
 
+const int32_t defaultData = 42;
+
 // ************************************************************************************************
 
 SOCKET openConnection(char const *hostname, int port) {
@@ -98,18 +100,17 @@ SOCKET openConnection(char const *hostname, int port) {
     return chk(sock, "connect to socket");
 }
 
-int verifyCB(int preverifyOk, X509_STORE_CTX *ctx) {
-    return 1;
-}
-
-void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SESSION *session = nullptr) {
+void doConnection(int32_t value, char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SESSION *session = nullptr) {
     //printf("\n\n=================================\n");
 
     SSL *ssl = SSL_new(ctx);
 
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Connecting, BI::DemoReport::NoSend);
     BI::demoClient.setTlsStatus(BI::DemoStatus::Connecting, "", BI::DemoReport::NoSend);
-    BI::demoClient.setAttestationStatus(BI::DemoStatus::Connecting, "", "", "");
+    if (attested)
+        BI::demoClient.setAttestationStatus(BI::DemoStatus::Connecting, "", "", "");
+    else
+        BI::demoClient.setAttestationStatus(BI::DemoStatus::Unknown, "", "", "");
 
     Benchmarking::startMeasure(Benchmarking::OpType::TCP);
 
@@ -155,11 +156,12 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SE
     if (attested)Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedHandshake : Benchmarking::OpType::FullHandshake);
     else Benchmarking::stopMeasure(resume ? Benchmarking::OpType::ResumedPureSSL : Benchmarking::OpType::FullPureSSL);
 
+    if (!attested)
+        BI::demoClient.setTlsStatus(BI::DemoStatus::Ok, "Barkhausen Institute");
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Ok);
     BI::demoClient.setConnectionStatus(BI::DemoStatus::Active);
 
-    int32_t val = 42;
-    SSL_write(ssl, &val, sizeof(val));
+    SSL_write(ssl, &value, sizeof(value));
 
     char reply[1024];
     int res = SSL_read(ssl, reply, sizeof(reply));
@@ -179,6 +181,12 @@ void doConnection(char const *serverAddress, SSL_CTX *ctx, bool attested, SSL_SE
     closesocket(connectSocket);
 
     BI::demoClient.reset();
+}
+
+// ************************************************************************************************
+
+int verifyCB(int preverifyOk, X509_STORE_CTX *ctx) {
+    return 1;
 }
 
 int callbackNewSession(SSL *ssl, SSL_SESSION *sess) {
@@ -289,6 +297,83 @@ uint8_t *unsealSessionSecretCB(uint8_t *sealingData, size_t sealingDataLength, s
 
 // ************************************************************************************************
 
+SSL_CTX *createSSLContext() {
+
+    const SSL_METHOD *method = TLS_client_method();
+
+    SSL_CTX *ctx = SSL_CTX_new(method);
+    X509_STORE *store = SSL_CTX_get_cert_store(ctx);
+
+#ifdef _WIN32
+    // Load all root certificates from systems trust store
+    HCERTSTORE winStore;
+    PCCERT_CONTEXT certContext = NULL;
+    X509 *x509;
+
+    winStore = CertOpenSystemStore(NULL, L"ROOT");
+
+    if (winStore) {
+        while (certContext = CertEnumCertificatesInStore(winStore, certContext)) {
+            x509 = NULL;
+            x509 = d2i_X509(NULL, (const unsigned char**)&certContext->pbCertEncoded, certContext->cbCertEncoded);
+            if (x509) {
+                int i = X509_STORE_add_cert(store, x509);
+
+                if (i == 1) {
+                    char subject[1024];
+                    X509_NAME_oneline(X509_get_subject_name(x509), subject, sizeof(subject));
+                    //std::cout << "Root certificate added " << subject << std::endl;
+                }
+                X509_free(x509);
+            }
+        }
+
+        CertFreeCertificateContext(certContext);
+        CertCloseStore(winStore, 0);
+    }
+#endif
+#ifdef __linux__
+    FILE *server_cert_file;
+    X509 *server_cert;
+    server_cert_file = chksys(fopen(tls_cert_chain_path, "r"), "open cert chain file");
+    server_cert = PEM_read_X509(server_cert_file, nullptr, nullptr, nullptr);
+    fclose(server_cert_file);
+
+    chk(X509_STORE_add_cert(store, server_cert) == 1, "add server cert");
+    //X509_print_fp(stdout, server_cert);
+    char subject[1024];
+    X509_NAME_oneline(X509_get_subject_name(server_cert), subject, sizeof(subject));
+
+    //std::cout << "Root certificate added " << subject << std::endl;
+    //printf("\n\n=================================\n");
+
+    X509_free(server_cert);
+#endif
+
+    SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
+
+    long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1_2 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1 | SSL_OP_NO_COMPRESSION;
+    SSL_CTX_set_options(ctx, flags);
+
+    SSL_CTX_set_ecdh_auto(ctx, 1);
+
+    if (SSL_CTX_use_certificate_file(ctx, tls_cert_chain_path, SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    if (SSL_CTX_use_PrivateKey_file(ctx, tls_priv_key_path, SSL_FILETYPE_PEM) <= 0) {
+        ERR_print_errors_fp(stderr);
+        exit(EXIT_FAILURE);
+    }
+
+    SSL_CTX_use_certificate_chain_file(ctx, tls_cert_chain_path);
+
+    return ctx;
+}
+
+// ************************************************************************************************
+
 int main(int argc, char const *argv[]) {
 
     try {
@@ -317,80 +402,10 @@ int main(int argc, char const *argv[]) {
         SSL_load_error_strings();
         OPENSSL_add_all_algorithms_noconf();
 
+        SSL_CTX *ctx_ratls = createSSLContext();
+        SSL_CTX *ctx_tls = createSSLContext();
+
         RATLS::setupRATLS();
-
-        const SSL_METHOD *method;
-
-        method = TLS_client_method();
-
-        SSL_CTX *ctx = SSL_CTX_new(method);
-
-        X509_STORE *store = SSL_CTX_get_cert_store(ctx);
-
-#ifdef _WIN32
-        // Load all root certificates from systems trust store 
-        HCERTSTORE winStore;
-        PCCERT_CONTEXT certContext = NULL;
-        X509 *x509;
-
-        winStore = CertOpenSystemStore(NULL, L"ROOT");
-
-        if (winStore) {
-            while (certContext = CertEnumCertificatesInStore(winStore, certContext)) {
-                x509 = NULL;
-                x509 = d2i_X509(NULL, (const unsigned char**)&certContext->pbCertEncoded, certContext->cbCertEncoded);
-                if (x509) {
-                    int i = X509_STORE_add_cert(store, x509);
-
-                    if (i == 1) {
-                        char subject[1024];
-                        X509_NAME_oneline(X509_get_subject_name(x509), subject, sizeof(subject));
-                        //std::cout << "Root certificate added " << subject << std::endl;
-                    }
-                    X509_free(x509);
-                }
-            }
-
-            CertFreeCertificateContext(certContext);
-            CertCloseStore(winStore, 0);
-        }
-#endif
-#ifdef __linux__
-        FILE *server_cert_file;
-        X509 *server_cert;
-        server_cert_file = chksys(fopen(tls_cert_chain_path, "r"), "open cert chain file");
-        server_cert = PEM_read_X509(server_cert_file, nullptr, nullptr, nullptr);
-        fclose(server_cert_file);
-        
-        chk(X509_STORE_add_cert(store, server_cert) == 1, "add server cert");
-        //X509_print_fp(stdout, server_cert);
-        char subject[1024];
-        X509_NAME_oneline(X509_get_subject_name(server_cert), subject, sizeof(subject));
-
-        //std::cout << "Root certificate added " << subject << std::endl;
-        //printf("\n\n=================================\n");
-
-        X509_free(server_cert);
-#endif
-
-        SSL_CTX_set_session_cache_mode(ctx, SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
-
-        long flags = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 | SSL_OP_NO_TLSv1_2 | SSL_OP_NO_TLSv1_1 | SSL_OP_NO_TLSv1 | SSL_OP_NO_COMPRESSION;
-        SSL_CTX_set_options(ctx, flags);
-        
-        SSL_CTX_set_ecdh_auto(ctx, 1);
-
-        if (SSL_CTX_use_certificate_file(ctx, tls_cert_chain_path, SSL_FILETYPE_PEM) <= 0) {
-            ERR_print_errors_fp(stderr);
-            exit(EXIT_FAILURE);
-        }
-
-        if (SSL_CTX_use_PrivateKey_file(ctx, tls_priv_key_path, SSL_FILETYPE_PEM) <= 0) {
-            ERR_print_errors_fp(stderr);
-            exit(EXIT_FAILURE);
-        }
-
-        SSL_CTX_use_certificate_chain_file(ctx, tls_cert_chain_path);
 
         if (benchmarkData.performBenchmarking) {
             printf("Running client benchmark with %d samples\n", benchmarkData.numSamples);
@@ -410,12 +425,12 @@ int main(int argc, char const *argv[]) {
 
         if (benchmarkData.performBenchmarking) {
 
-            SSL_CTX_sess_set_new_cb(ctx, callbackNewSession);
+            SSL_CTX_sess_set_new_cb(ctx_tls, callbackNewSession);
             if (benchmarkData.performPureSSLHandshakes) {
                 for (uint32_t i = 0; i < benchmarkData.numSamples; i++) {
-                    doConnection(serverAddress, ctx, false);
+                    doConnection(defaultData, serverAddress, ctx_tls, false);
                     if (benchmarkData.resumeSessions) {
-                        doConnection(serverAddress, ctx, false, currentSession);
+                        doConnection(defaultData, serverAddress, ctx_tls, false, currentSession);
                     }
                 }
             }
@@ -429,13 +444,13 @@ int main(int argc, char const *argv[]) {
             raContext.unsealSessionSecretCB = unsealSessionSecretCB;
             raContext.maxSessionTicketsNum = 200;
             raContext.customNewSession = callbackNewSession;
-            RATLS::enableClientRemoteAttestation(&raContext, ctx);
+            RATLS::enableClientRemoteAttestation(&raContext, ctx_ratls);
 
             ///printf("Performing Benchmark ... \n");
             for (uint32_t i = 0; i < benchmarkData.numSamples; i++) {
-                doConnection(serverAddress, ctx, true);
+                doConnection(defaultData, serverAddress, ctx_ratls, true);
                 if (benchmarkData.resumeSessions) {
-                    doConnection(serverAddress, ctx, true, currentSession);
+                    doConnection(defaultData, serverAddress, ctx_ratls, true, currentSession);
                 }
                 //printf("Benchmark: %d/%d\n", i, benchmarkData.numSamples);
             }
@@ -473,11 +488,34 @@ int main(int argc, char const *argv[]) {
             raContext.unsealSessionSecretCB = unsealSessionSecretCB;
             raContext.maxSessionTicketsNum = 2;
             raContext.customNewSession = callbackNewSession;
-            RATLS::enableClientRemoteAttestation(&raContext, ctx);
+            RATLS::enableClientRemoteAttestation(&raContext, ctx_ratls);
 
             while (true) {
-                BI::demoClient.waitForCommand();
-                doConnection(serverAddress, ctx, true);
+                std::string cmd = BI::demoClient.waitForCommand();
+
+                size_t valuePos = cmd.find("sensor-data:") + strlen("sensor-data:");
+                int32_t value = -1;
+                try {
+                    size_t numCharsProcessed = 0;
+                    value = std::stoi(cmd.substr(valuePos), &numCharsProcessed, 10);
+                    printf("Received value %d with command\n", value);
+                }
+                catch (...) { }
+
+                if (cmd.find("command:connect\nmode:tls-attest\n") != std::string::npos) {
+                    printf("Command requested TLS+Attest connection\n");
+                    BI::demoClient.setMode(BI::DemoMode::TlsAttest);
+                    doConnection(value, serverAddress, ctx_ratls, true);
+
+                } else if (cmd.find("command:connect\nmode:tls\n") != std::string::npos) {
+                    printf("Command requested TLS-only connection\n");
+                    BI::demoClient.setMode(BI::DemoMode::Tls);
+                    doConnection(value, serverAddress, ctx_tls, false);
+
+                } else {
+                    printf("Unknown command:\n%s", cmd.c_str());
+                    BI::demoClient.reset();
+                }
             }
 
         } else {
@@ -490,10 +528,10 @@ int main(int argc, char const *argv[]) {
             raContext.unsealSessionSecretCB = unsealSessionSecretCB;
             raContext.maxSessionTicketsNum = 2;
             raContext.customNewSession = callbackNewSession;
-            RATLS::enableClientRemoteAttestation(&raContext, ctx);
+            RATLS::enableClientRemoteAttestation(&raContext, ctx_ratls);
 
             for (int i = 0; i < 1; i++) {
-                doConnection(serverAddress, ctx, true);
+                doConnection(defaultData, serverAddress, ctx_ratls, true);
             }
         }
 

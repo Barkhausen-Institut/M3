@@ -198,7 +198,6 @@ void DemoClient::reset(DemoReport sendMode) {
 	if (!clientIsDemo())
 		return;
 
-	mode = DemoMode::TlsAttest;
 	connectionStatus = DemoStatus::Idle;
 	tlsStatus = DemoStatus::Idle;
 	attestationStatus = DemoStatus::Idle;

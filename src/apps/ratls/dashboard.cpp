@@ -214,6 +214,8 @@ protected:
 
 int main() {
 
+    setlinebuf(stdout);
+
     try {
 #if defined(__m3__)
         M3Connector connector;

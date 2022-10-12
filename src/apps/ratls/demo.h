@@ -91,6 +91,7 @@ public:
 
 	std::string waitForCommand();
 
+	void setMode(DemoMode m) { mode = m; }
 	void setConnectionStatus(DemoStatus s, DemoReport sendMode = DemoReport::Send);
 	void setTlsStatus(DemoStatus s, std::string cert, DemoReport sendMode = DemoReport::Send);
 	void setAttestationStatus(DemoStatus s, std::string pubKey, std::string hash,
