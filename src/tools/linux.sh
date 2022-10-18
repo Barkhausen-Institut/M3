@@ -167,7 +167,9 @@ run_gem5() {
         --debug-file=gem5.log \
         config/linux.py \
         --cpu-type "$gem5_cpu" \
-        --isa riscv
+        --isa riscv \
+        --cpu-clock=1GHz \
+        --sys-clock=333MHz
 }
 
 main "$@"
