@@ -61,7 +61,7 @@ main() {
                 rm -f "$gem5_executable"
                 ;;
             --help|-h)
-                echo $help
+                echo "$help"
                 exit 0
                 ;;
             *)
@@ -150,7 +150,7 @@ mk_bbl() {
             && RISCV=$m3_root/$buildroot_dir/host "$M3_BENCH_LX_DIR/riscv-pk/configure" \
                 --host=riscv64-linux \
                 "--with-payload=$m3_root/$linux_dir/vmlinux" \
-                --with-mem-start=0x10000000 \
+                --with-mem-start=0x80000000 \
             && CFLAGS=" -D__riscv_compressed=1" make -j$(nproc)
     )
     if [ $? -ne 0 ]; then
