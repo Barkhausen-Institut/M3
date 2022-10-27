@@ -27,7 +27,8 @@ pub fn thread_startup() {
 
 pub fn workloop() -> ! {
     if thread::cur().is_main() {
-        ActivityMng::start_root_async().expect("starting root failed");
+        // ActivityMng::start_root_async().expect("starting root failed");
+        ActivityMng::start_linux_async().expect("starting linux failed");
     }
 
     while ActivityMng::count() > 0 {

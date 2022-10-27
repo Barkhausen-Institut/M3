@@ -37,6 +37,7 @@ use crate::workloop::thread_startup;
 bitflags! {
     pub struct ActivityFlags : u32 {
         const IS_ROOT     = 1;
+        const IS_LINUX    = 2;
     }
 }
 

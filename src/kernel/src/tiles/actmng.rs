@@ -272,6 +272,24 @@ impl ActivityMng {
         act.start_app_async(None)
     }
 
+    pub fn start_linux_async() -> Result<(), Error> {
+        // create dummy activity on tile 1
+        let tile = tilemng::tilemux(1).tile().clone();
+        let kmem = KMemObject::new(args::get().kmem - cfg::FIXED_KMEM);
+        let act = Self::create_activity_async(
+            "linux",
+            tile,
+            tcu::FIRST_USER_EP,
+            kmem,
+            ActivityFlags::IS_LINUX,
+        )
+        .expect("Unable to create Activity for linux");
+
+        // TODO: actually start linux from here
+
+        Ok(())
+    }
+
     pub fn remove_activity_async(id: tcu::ActId) {
         let mut actmng = INST.borrow_mut();
         // Replace item at position
