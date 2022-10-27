@@ -160,16 +160,14 @@ mk_bbl() {
 }
 
 run_gem5() {
-    M3_ROOTFS="$disks_dir/root.img" \
-    M3_BOOTLOADER="$bbl_dir/bbl" "$gem5_executable" \
+    "$gem5_executable" \
         "--outdir=$M3_OUT" \
         `if [ -n "$debug_flags" ]; then echo "--debug-flags=$debug_flags"; fi` \
         --debug-file=gem5.log \
         config/linux.py \
-        --cpu-type "$gem5_cpu" \
-        --isa riscv \
-        --cpu-clock=1GHz \
-        --sys-clock=333MHz
+        --disk-image "$disks_dir/root.img" \
+        --kernel "$bbl_dir/bbl" \
+        --cpu-type "$gem5_cpu"
 }
 
 main "$@"
