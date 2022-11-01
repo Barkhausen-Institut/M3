@@ -202,6 +202,13 @@ if [ $skipbuild -eq 0 ]; then
     fi
 fi
 
+# TODO: this is necessary because cargo needs to know
+# a cross-compile-gcc for riscv on linux
+# (see linux-deps/src/lxclient/.cargo/config for example)
+if [ -d build/gem5-riscv-release/linux-deps/buildroot/host/bin ]; then
+	export PATH="$(pwd)/build/gem5-riscv-release/linux-deps/buildroot/host/bin:$PATH"
+fi
+
 case "$cmd" in
     ninja)
         ninja -f $build/build.ninja "${ninjaargs[@]}" "$script" "$@"

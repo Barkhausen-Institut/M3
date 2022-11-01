@@ -383,5 +383,22 @@ env.sub_build(gen, 'src')
 # now that we know the rust crates to build, generate build edge to build the workspace with cargo
 env.cargo_ws(gen)
 
+class LinuxEnv(ninjagen.Env):
+    # TODO: this env only supports rust on riscv
+    def __init__(self):
+        assert isa == 'riscv'
+        assert target == 'gem5' or target == 'hw'
+        super().__init__()
+
+        triple = 'riscv64gc-unknown-linux-gnu'
+        self.vars['CRGFLAGS'] = ['--target', triple]
+        if btype != 'debug' and btype != 'coverage':
+            self.vars['CRGFLAGS'] += ['--release']
+        self.vars['RustBins'] = 'build/rust/' + triple + '/' + rustbuild
+
+linux_env = LinuxEnv()
+if os.path.exists('linux-deps'):
+    linux_env.sub_build(gen, 'linux-deps/src')
+
 # finally, write it to file
 gen.write_to_file(env['BUILDDIR'])
