@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # compiles and runs an M3 system with a kernel and one linux tile
-help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...] [--rebuild-bbl] [--rebuild-gem5]"
+help="$0 [--debug-flags=...] [--no-run] [--cpu-type=...] [--rebuild-(gem5|buildroot|linux|bbl)]"
 
 if [ "$M3_TARGET" != 'gem5' ]; then
     echo '$M3_TARGET other than gem5 is not supported' >&2
@@ -27,6 +27,11 @@ M3_OUT="${M3_OUT:-run}"
 # command line options
 debug_flags=""
 no_run=false
+rebuild_gem5=false
+rebuild_buildroot=false
+rebuild_linux=false
+rebuild_bbl=false
+
 gem5_cpu="TimingSimpleCPU"
 
 # directories
@@ -52,13 +57,18 @@ main() {
             --cpu-type=*)
                 gem5_cpu=${arg#--cpu-type=}
                 ;;
-            --rebuild-bbl)
-                echo "removing old bbl build"
-                rm -rf "$bbl_dir"/*
-                ;;
             --rebuild-gem5)
-                echo "removing old gem5 build"
-                rm -f "$gem5_executable"
+                rebuild_gem5=true
+                ;;
+            --rebuild-buildroot)
+                rebuild_buildroot=true
+                ;;
+            --rebuild-linux)
+                rebuild_linux=true
+                rebuild_bbl=true
+                ;;
+            --rebuild-bbl)
+                rebuild_bbl=true
                 ;;
             --help|-h)
                 echo "$help"
@@ -72,23 +82,22 @@ main() {
     done
 
     # gem5
-    if [ ! -x "$gem5_executable" ]; then
+    if [ ! -x "$gem5_executable" ] || [ "$rebuild_gem5" = true ]; then
         mk_gem5
     fi
 
     # buildroot
-    if [ ! -f "$disks_dir/root.img" ]; then
+    if [ ! -f "$disks_dir/root.img" ] || [ "$rebuild_buildroot" = true ]; then
         mk_buildroot
     fi
 
     # linux
-    if [ ! -f "$linux_dir/vmlinux" ]; then
+    if [ ! -f "$linux_dir/vmlinux" ] || [ "$rebuild_linux" = true ]; then
         mk_linux
-        rm -f "$bbl_dir/bbl" # rebuild bbl if linux was rebuilt
     fi
 
     # bbl
-    if [ ! -f "$bbl_dir/bbl" ]; then
+    if [ ! -f "$bbl_dir/bbl" ] || [ "$rebuild_bbl" = true ]; then
         mk_bbl
     fi
 
