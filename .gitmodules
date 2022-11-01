@@ -19,3 +19,6 @@
 [submodule "src/apps/bsdutils"]
 	path = src/apps/bsdutils
 	url = ../m3-bsdcoreutils.git
+[submodule "linux-deps"]
+	path = linux-deps
+	url = git@github.com:OliverPortee/m3-lx-deps.git
