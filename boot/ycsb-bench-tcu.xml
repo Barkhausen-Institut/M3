@@ -15,20 +15,14 @@
                     <tiles type="boom+nic|core" count="1" />
                     <tiles type="boom|core" count="2" />
                     <dom tile="boom|core">
-                        <app args="/sbin/m3fs -m 2 mem $fs.size" daemon="1">
-                            <serv lname="m3fs" gname="app_m3fs" />
-                            <physmem addr="0" size="$fs.size" />
-                        </app>
-                    </dom>
-                    <dom tile="boom|core">
-                        <app args="/bin/lvldbserver /tmp/foo 4 tcu">
-                            <sess lname="m3fs" gname="app_m3fs" />
+                        <app args="/bin/lvldbserver /tmp/foo 1 tcu">
+                            <sess lname="m3fs" gname="m3fs" />
                             <rgate name="req" msgsize="2048" slots="1" />
                         </app>
                     </dom>
                     <dom tile="boom+nic|core">
-                        <app args="/bin/ycsbclient tcu /data/small-workload.wl 4" daemon="1">
-                            <sess lname="m3fs" gname="app_m3fs" />
+                        <app args="/bin/ycsbclient tcu /data/long-read-workload.wl 1" daemon="1">
+                            <sess lname="m3fs" gname="m3fs" />
                             <sgate name="req" />
                         </app>
                     </dom>

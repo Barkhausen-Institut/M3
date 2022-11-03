@@ -49,8 +49,6 @@ int main(int argc, char **argv) {
 
     Executor *exec = Executor::create(file);
 
-    println("Creating handler {}..."_cf, argv[3]);
-
     OpHandler *hdl;
     if(strcmp(argv[3], "tcp") == 0) {
         port_t port = IStringStream::read_from<port_t>(argv[4]);
@@ -81,8 +79,11 @@ int main(int argc, char **argv) {
 
         bool run = true;
         while(run) {
+            auto old_xfer_time = GenericFile::xfer_time;
+            CycleInstant op_start = CycleInstant::from_cycles(0);
+
             Package pkg;
-            switch(hdl->receive(pkg)) {
+            switch(hdl->receive(pkg, op_start)) {
                 case OpHandler::STOP: run = false; continue;
                 case OpHandler::INCOMPLETE: continue;
                 case OpHandler::READY: break;
@@ -93,7 +94,10 @@ int main(int argc, char **argv) {
 
             size_t res_bytes = exec->execute(pkg);
 
-            if(!hdl->respond(res_bytes))
+            auto op_end = CycleInstant::now();
+
+            if(!hdl->respond(op_end.duration_since(op_start),
+                             GenericFile::xfer_time - old_xfer_time, res_bytes))
                 break;
 
             opcounter += 1;

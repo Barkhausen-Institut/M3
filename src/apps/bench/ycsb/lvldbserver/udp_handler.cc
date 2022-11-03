@@ -64,9 +64,11 @@ void UDPOpHandler::reset() {
     _ops = 0;
 }
 
-OpHandler::Result UDPOpHandler::receive(Package &pkg) {
+OpHandler::Result UDPOpHandler::receive(Package &pkg, CycleInstant &start) {
     if(_ops >= _total_ops)
         return Result::STOP;
+
+    start = CycleInstant::now();
 
     size_t read_size = from_bytes(wl_buffer + wl_pos, wl_size - wl_pos, pkg);
     wl_pos += read_size;

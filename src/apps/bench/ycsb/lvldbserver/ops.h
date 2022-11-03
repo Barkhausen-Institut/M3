@@ -66,10 +66,10 @@ private:
     std::vector<std::pair<std::string, std::string>> exec_scan(Package &pkg);
     void exec_update(Package &pkg);
 
-    m3::TimeDuration _t_insert;
-    m3::TimeDuration _t_read;
-    m3::TimeDuration _t_scan;
-    m3::TimeDuration _t_update;
+    m3::CycleDuration _t_insert;
+    m3::CycleDuration _t_read;
+    m3::CycleDuration _t_scan;
+    m3::CycleDuration _t_update;
     uint64_t _n_insert;
     uint64_t _n_read;
     uint64_t _n_scan;

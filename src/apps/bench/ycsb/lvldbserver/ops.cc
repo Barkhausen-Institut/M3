@@ -57,27 +57,27 @@ void LevelDBExecutor::reset_stats() {
     _n_read = 0;
     _n_scan = 0;
     _n_update = 0;
-    _t_insert = TimeDuration::ZERO;
-    _t_read = TimeDuration::ZERO;
-    _t_scan = TimeDuration::ZERO;
-    _t_update = TimeDuration::ZERO;
+    _t_insert = CycleDuration::from_raw(0);
+    _t_read = CycleDuration::from_raw(0);
+    _t_scan = CycleDuration::from_raw(0);
+    _t_update = CycleDuration::from_raw(0);
 }
 
 void LevelDBExecutor::print_stats(size_t num_ops) {
-    TimeDuration avg;
+    CycleDuration avg;
     println("    Key Value Database Timings for {} operations:"_cf, num_ops);
 
-    avg = _n_insert > 0 ? _t_insert / _n_insert : TimeDuration::ZERO;
-    println("        Insert: {},\t avg_time: {}"_cf, _t_insert, avg);
+    avg = _n_insert > 0 ? _t_insert / _n_insert : CycleDuration::from_raw(0);
+    println("        Insert: {},\t ops: {},\t avg_time: {}"_cf, _t_insert, _n_insert, avg);
 
-    avg = _n_read > 0 ? _t_read / _n_read : TimeDuration::ZERO;
-    println("        Read:   {},\t avg_time: {}"_cf, _t_read, avg);
+    avg = _n_read > 0 ? _t_read / _n_read : CycleDuration::from_raw(0);
+    println("        Read:   {},\t ops: {},\t avg_time: {}"_cf, _t_read, _n_read, avg);
 
-    avg = _n_update > 0 ? _t_update / _n_update : TimeDuration::ZERO;
-    println("        Update: {},\t avg_time: {}"_cf, _t_update, avg);
+    avg = _n_update > 0 ? _t_update / _n_update : CycleDuration::from_raw(0);
+    println("        Update: {},\t ops: {},\t avg_time: {}"_cf, _t_update, _n_update, avg);
 
-    avg = _n_scan > 0 ? _t_scan / _n_scan : TimeDuration::ZERO;
-    println("        Scan:   {},\t avg_time: {}"_cf, _t_scan, avg);
+    avg = _n_scan > 0 ? _t_scan / _n_scan : CycleDuration::from_raw(0);
+    println("        Scan:   {},\t ops: {},\t avg_time: {}"_cf, _t_scan, _n_scan, avg);
 }
 
 size_t LevelDBExecutor::execute(Package &pkg) {
@@ -93,23 +93,23 @@ size_t LevelDBExecutor::execute(Package &pkg) {
 
     switch(pkg.op) {
         case ::Operation::INSERT: {
-            auto start = TimeInstant::now();
+            auto start = CycleInstant::now();
             exec_insert(pkg);
-            _t_insert += TimeInstant::now().duration_since(start);
+            _t_insert += CycleInstant::now().duration_since(start);
             _n_insert++;
             return 4;
         }
 
         case ::Operation::UPDATE: {
-            auto start = TimeInstant::now();
+            auto start = CycleInstant::now();
             exec_insert(pkg);
-            _t_update += TimeInstant::now().duration_since(start);
+            _t_update += CycleInstant::now().duration_since(start);
             _n_update++;
             return 4;
         }
 
         case ::Operation::READ: {
-            auto start = TimeInstant::now();
+            auto start = CycleInstant::now();
             auto vals = exec_read(pkg);
             size_t bytes = 0;
             for(auto &pair : vals) {
@@ -118,13 +118,13 @@ size_t LevelDBExecutor::execute(Package &pkg) {
                 println("  found '{}' -> '{}'"_cf, pair.first.c_str(), pair.second.c_str());
 #endif
             }
-            _t_read += TimeInstant::now().duration_since(start);
+            _t_read += CycleInstant::now().duration_since(start);
             _n_read++;
             return bytes;
         }
 
         case ::Operation::SCAN: {
-            auto start = TimeInstant::now();
+            auto start = CycleInstant::now();
             auto vals = exec_scan(pkg);
             size_t bytes = 0;
             for(auto &pair : vals) {
@@ -133,7 +133,7 @@ size_t LevelDBExecutor::execute(Package &pkg) {
                 println("  found '{}'' -> '{}'"_cf, pair.first.c_str(), pair.second.c_str());
 #endif
             }
-            _t_scan += TimeInstant::now().duration_since(start);
+            _t_scan += CycleInstant::now().duration_since(start);
             _n_scan++;
             return bytes;
         }

@@ -41,8 +41,8 @@ public:
     virtual ~OpHandler() {
     }
 
-    virtual Result receive(Package &pkg) = 0;
-    virtual bool respond(size_t bytes);
+    virtual Result receive(Package &pkg, m3::CycleInstant &start) = 0;
+    virtual bool respond(m3::CycleDuration total, m3::CycleDuration xfer, size_t bytes);
     virtual void reset() {
     }
 
@@ -56,7 +56,7 @@ class TCPOpHandler : public OpHandler {
 public:
     explicit TCPOpHandler(m3::NetworkManager &nm, m3::port_t port);
 
-    virtual Result receive(Package &pkg) override;
+    virtual Result receive(Package &pkg, m3::CycleInstant &start) override;
 
 private:
     m3::Option<size_t> send(const void *data, size_t len) override;
@@ -70,7 +70,7 @@ public:
     explicit UDPOpHandler(m3::NetworkManager &nm, const char *workload, m3::IpAddr ip,
                           m3::port_t port);
 
-    virtual Result receive(Package &pkg) override;
+    virtual Result receive(Package &pkg, m3::CycleInstant &start) override;
     virtual void reset() override;
 
 private:
@@ -88,8 +88,8 @@ class TCUOpHandler : public OpHandler {
 public:
     explicit TCUOpHandler();
 
-    virtual Result receive(Package &pkg) override;
-    virtual bool respond(size_t bytes) override;
+    virtual Result receive(Package &pkg, m3::CycleInstant &start) override;
+    virtual bool respond(m3::CycleDuration total, m3::CycleDuration xfer, size_t bytes) override;
 
 private:
     m3::Option<size_t> send(const void *data, size_t len) override;

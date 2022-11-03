@@ -27,6 +27,8 @@
 
 namespace m3 {
 
+CycleDuration GenericFile::xfer_time;
+
 GenericFile::GenericFile(int flags, capsel_t caps, size_t fs_id, size_t id, epid_t mep,
                          SendGate *sg)
     : File(flags),
@@ -270,12 +272,14 @@ Option<size_t> GenericFile::write(const void *buffer, size_t count) {
 
     size_t amount = Math::min(count, _len - _pos);
     if(amount > 0) {
+        auto start = CycleInstant::now();
         if(flags() & FILE_NODATA) {
             if(count > 4)
                 CPU::compute(count / 4);
         }
         else
             _mg.write(buffer, amount, _off + _pos);
+        xfer_time += CycleInstant::now().duration_since(start);
         _pos += amount;
     }
     _writing = true;

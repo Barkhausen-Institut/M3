@@ -36,7 +36,7 @@ TCPOpHandler::TCPOpHandler(NetworkManager &nm, m3::port_t port)
     println("Accepted connection from {}"_cf, rem_ep);
 }
 
-OpHandler::Result TCPOpHandler::receive(Package &pkg) {
+OpHandler::Result TCPOpHandler::receive(Package &pkg, CycleInstant &start) {
     // First receive package size header
     union {
         uint32_t header_word;
@@ -54,6 +54,8 @@ OpHandler::Result TCPOpHandler::receive(Package &pkg) {
     // Receive the next package from the socket
     for(size_t i = 0; i < package_size;)
         i += receive(package_buffer + i, package_size - i).unwrap();
+
+    start = CycleInstant::now();
 
     // There is an edge case where the package size is 6, If thats the case, check if we got the
     // end flag from the client. In that case its time to stop the benchmark.

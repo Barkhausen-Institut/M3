@@ -23,6 +23,8 @@
 
 using namespace m3;
 
+static char result_buffer[1024];
+
 TCUOpHandler::TCUOpHandler()
     : _rgate(RecvGate::create_named("req")),
       _result(MemGate::create_global(MAX_RESULT_SIZE, MemGate::W)),
@@ -30,8 +32,10 @@ TCUOpHandler::TCUOpHandler()
     _rgate.activate();
 }
 
-OpHandler::Result TCUOpHandler::receive(Package &pkg) {
-    _last_req = new GateIStream(receive_msg(_rgate));
+OpHandler::Result TCUOpHandler::receive(Package &pkg, CycleInstant &start) {
+    auto req = receive_msg(_rgate);
+    start = CycleInstant::now();
+    _last_req = new GateIStream(std::move(req));
 
     // There is an edge case where the package size is 6, If thats the case, check if we got the
     // end flag from the client. In that case its time to stop the benchmark.
@@ -47,18 +51,15 @@ OpHandler::Result TCUOpHandler::receive(Package &pkg) {
     return Result::READY;
 }
 
-bool TCUOpHandler::respond(size_t bytes) {
-    char buffer[1024];
-    memset(buffer, 0, sizeof(buffer));
-
-    size_t total = 0;
-    while(total < bytes) {
-        size_t amount = Math::min(total - bytes, sizeof(buffer));
-        _result.write(buffer, amount, total);
-        total += amount;
+bool TCUOpHandler::respond(CycleDuration total, CycleDuration xfer, size_t bytes) {
+    size_t total_bytes = 0;
+    while(total_bytes < bytes) {
+        size_t amount = Math::min(total_bytes - bytes, sizeof(result_buffer));
+        _result.write(result_buffer, amount, total_bytes);
+        total_bytes += amount;
     }
 
-    reply_vmsg(*_last_req, bytes);
+    reply_vmsg(*_last_req, total.as_raw(), xfer.as_raw(), bytes);
     delete _last_req;
 
     return true;

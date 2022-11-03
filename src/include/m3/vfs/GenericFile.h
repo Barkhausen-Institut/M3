@@ -54,6 +54,8 @@ public:
         REQ_NOTIFY,
     };
 
+    static CycleDuration xfer_time;
+
     explicit GenericFile(int flags, capsel_t caps, size_t fs_id, size_t id = 0,
                          epid_t mep = TCU::INVALID_EP, SendGate *sg = nullptr);
     virtual ~GenericFile();

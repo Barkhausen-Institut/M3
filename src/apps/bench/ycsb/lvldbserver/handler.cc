@@ -63,7 +63,7 @@ size_t OpHandler::from_bytes(const uint8_t *package_buffer, size_t package_size,
     return pos;
 }
 
-bool OpHandler::respond(size_t bytes) {
+bool OpHandler::respond(m3::CycleDuration, m3::CycleDuration, size_t bytes) {
     char buffer[1024];
     memset(buffer, 0, sizeof(buffer));
 

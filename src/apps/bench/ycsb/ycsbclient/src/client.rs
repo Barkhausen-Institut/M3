@@ -32,13 +32,14 @@ use m3::{
     println,
     rc::Rc,
     session::NetworkManager,
+    time::{CycleDuration, CycleInstant},
     util::math::next_log2,
     vfs::{BufReader, OpenFlags},
 };
 
 mod importer;
 
-const VERBOSE: bool = false;
+const VERBOSE: bool = true;
 
 fn usage() {
     let name = env::args().next().unwrap();
@@ -167,22 +168,31 @@ fn tcu_sender(sgate: &SendGate, wl: &str, repeats: u32) {
             debug_assert!(importer::Package::from_bytes(&operation).is_ok());
 
             if VERBOSE {
-                println!("Sending operation with {} bytes...", operation.len());
+                println!("client: sending {} bytes", operation.len());
             }
 
             BUF.borrow_mut()[0..operation.len()].copy_from_slice(&operation);
+
+            let start = CycleInstant::now();
+
             sgate
                 .send_aligned(BUF.borrow().as_ptr(), operation.len(), &reply_gate)
                 .expect("send failed");
 
-            if VERBOSE {
-                println!("Receiving response...");
-            }
+            let mut reply = recv_msg(&reply_gate).expect("receive failed");
+            let op_time = CycleDuration::new(reply.pop::<u64>().unwrap());
+            let xfer_time = CycleDuration::new(reply.pop::<u64>().unwrap());
+            let size = reply.pop::<usize>().unwrap();
 
-            let reply = recv_msg(&reply_gate).expect("receive failed");
-
             if VERBOSE {
-                println!("Received {} byte response.", reply.size());
+                let end = CycleInstant::now();
+                println!(
+                    "client: total={:?}, op={:?}, xfer={:?}, size={}",
+                    end.duration_since(start),
+                    op_time,
+                    xfer_time,
+                    size
+                );
             }
         }
 
