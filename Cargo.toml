@@ -42,6 +42,8 @@ members = [
     "src/server/root",
     "src/server/vterm",
 ]
+exclude = [ "linux-deps/src" ]
+
 
 [profile.release]
 lto = true
