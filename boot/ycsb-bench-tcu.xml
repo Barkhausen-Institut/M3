@@ -14,14 +14,14 @@
                     <physmem addr="0" size="$fs.size" perm="r" />
                     <tiles type="boom+nic|core" count="1" />
                     <tiles type="boom|core" count="2" />
-                    <dom tile="boom|core">
-                        <app args="/bin/lvldbserver /tmp/foo 1 tcu">
+                    <dom tile="boom+nic|core">
+                        <app args="/bin/lvldbserver /tmp/foo 9 tcu">
                             <sess lname="m3fs" gname="m3fs" />
                             <rgate name="req" msgsize="2048" slots="1" />
                         </app>
                     </dom>
-                    <dom tile="boom+nic|core">
-                        <app args="/bin/ycsbclient tcu /data/long-read-workload.wl 1" daemon="1">
+                    <dom tile="boom|core">
+                        <app args="/bin/ycsbclient tcu /data/long-read-workload.wl 200 9" daemon="1">
                             <sess lname="m3fs" gname="m3fs" />
                             <sgate name="req" />
                         </app>

@@ -44,7 +44,7 @@ const VERBOSE: bool = true;
 fn usage() {
     let name = env::args().next().unwrap();
     println!("Usage: {} tcp <ip> <port> <workload> <repeats>", name);
-    println!("Usage: {} tcu <workload> <repeats>", name);
+    println!("Usage: {} tcu <workload> <records> <repeats>", name);
     println!("Usage: {} udp <port>", name);
     m3::exit(1);
 }
@@ -141,7 +141,7 @@ fn tcp_sender(nm: Rc<NetworkManager>, ip: IpAddr, port: Port, wl: &str, repeats:
     }
 }
 
-fn tcu_sender(sgate: &SendGate, wl: &str, repeats: u32) {
+fn tcu_sender(sgate: &SendGate, wl: &str, records: u32, repeats: u32) {
     // Mount fs to load binary data
     m3::vfs::VFS::mount("/", "m3fs", "m3fs").expect("Failed to mount root filesystem on server");
 
@@ -155,7 +155,7 @@ fn tcu_sender(sgate: &SendGate, wl: &str, repeats: u32) {
 
     static BUF: StaticRefCell<AlignedBuf<2048>> = StaticRefCell::new(AlignedBuf::new_zeroed());
 
-    for _ in 0..repeats {
+    for r in 0..repeats {
         // open workload file
         let workload = m3::vfs::VFS::open(wl, OpenFlags::R).expect("Could not open file");
 
@@ -163,9 +163,18 @@ fn tcu_sender(sgate: &SendGate, wl: &str, repeats: u32) {
         let mut workload_buffer = BufReader::new(workload);
         let workload_header = importer::WorkloadHeader::load_from_file(&mut workload_buffer);
 
-        for _ in 0..workload_header.number_of_operations {
+        let mut replay_time = CycleDuration::new(0);
+        let mut replay_xfer = CycleDuration::new(0);
+        let mut replay_op = CycleDuration::new(0);
+
+        for i in 0..workload_header.number_of_operations {
             let operation = importer::Package::load_as_bytes(&mut workload_buffer);
             debug_assert!(importer::Package::from_bytes(&operation).is_ok());
+
+            // skip record inserts after first run
+            if r > 0 && i < records {
+                continue;
+            }
 
             if VERBOSE {
                 println!("client: sending {} bytes", operation.len());
@@ -186,6 +195,11 @@ fn tcu_sender(sgate: &SendGate, wl: &str, repeats: u32) {
 
             if VERBOSE {
                 let end = CycleInstant::now();
+
+                replay_time += end.duration_since(start);
+                replay_xfer += xfer_time;
+                replay_op += op_time;
+
                 println!(
                     "client: total={:?}, op={:?}, xfer={:?}, size={}",
                     end.duration_since(start),
@@ -195,6 +209,11 @@ fn tcu_sender(sgate: &SendGate, wl: &str, repeats: u32) {
                 );
             }
         }
+
+        println!(
+            "client: replay={:?}, op={:?}, xfer={:?}",
+            replay_time, replay_op, replay_xfer
+        );
 
         let end_msg = b"ENDNOW";
         BUF.borrow_mut()[0..end_msg.len()].copy_from_slice(end_msg);
@@ -237,14 +256,15 @@ pub fn main() -> i32 {
         tcp_sender(nm, ip, port, args[4], repeats);
     }
     else {
-        if args.len() != 4 {
+        if args.len() != 5 {
             usage();
         }
 
         let sgate = SendGate::new_named("req").expect("Unable to create SendGate req");
 
-        let repeats = args[3].parse::<u32>().expect("Failed to parse repeats");
-        tcu_sender(&sgate, args[2], repeats);
+        let records = args[3].parse::<u32>().expect("Failed to parse records");
+        let repeats = args[4].parse::<u32>().expect("Failed to parse repeats");
+        tcu_sender(&sgate, args[2], records, repeats);
     }
 
     0
