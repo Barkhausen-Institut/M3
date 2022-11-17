@@ -19,9 +19,9 @@ use base::kif;
 use base::log;
 use base::mem::{GlobAddr, MsgBuf};
 use base::tcu;
-use base::time::TimeDuration;
+use base::time::{TimeDuration, Profiler, TimeInstant, CycleInstant};
 
-use crate::activities;
+use crate::{activities, LOG_ERR};
 use crate::helper;
 use crate::quota;
 use crate::sendqueue;
@@ -50,7 +50,9 @@ fn activity_init(msg: &'static tcu::Message) -> Result<(), Error> {
         eps_start
     );
 
-    activities::add(act_id, time_quota, pt_quota, eps_start)
+    // activities::add(act_id, time_quota, pt_quota, eps_start)
+
+    Ok(())
 }
 
 fn activity_ctrl(msg: &'static tcu::Message) -> Result<(), Error> {
@@ -330,10 +332,33 @@ fn handle_sidecall(msg: &'static tcu::Message) {
     reply_msg(msg, &reply_buf);
 }
 
+
+fn send_msg<T>(msg_obj: T) -> Result<(), Error> {
+    let mut msg_buf = MsgBuf::borrow_def();
+    msg_buf.set(msg_obj);
+    tcu::TCU::send(tcu::KPEX_SEP, &msg_buf, 0, tcu::KPEX_REP)
+}
+
+fn wait_for_rpl() -> Result<(), Error> {
+    loop {
+        if let Some(off) = tcu::TCU::fetch_msg(tcu::KPEX_REP) {
+            let msg = tcu::TCU::offset_to_msg(cfg::TILEMUX_RBUF_SPACE, off);
+            let rpl = msg.get_data::<kif::DefaultReply>();
+            tcu::TCU::ack_msg(tcu::KPEX_REP, off)?;
+            return match rpl.error {
+                0 => Ok(()),
+                e =>{
+                    Err((e as u32).into())
+                },
+            };
+        }
+    }
+}
+
 #[inline(never)]
 fn handle_sidecalls(mut our: activities::ActivityRef<'_>) {
     let _cmd_saved = helper::TCUGuard::new();
-
+    log!(LOG_ERR, "handle sidecalls");
     loop {
         // change to our activity
         let old_act = tcu::TCU::xchg_activity(our.activity_reg()).unwrap();
@@ -348,6 +373,26 @@ fn handle_sidecalls(mut our: activities::ActivityRef<'_>) {
 
         // check if the kernel answered a request from us
         sendqueue::check_replies();
+
+
+        let msg = kif::tilemux::Exit {
+            op: kif::tilemux::Calls::EXIT.val,
+            act_sel: 1,
+            code: 1,
+        };
+
+        // benchmark
+        let mut profiler = Profiler::default().repeats(1000);
+        log!(LOG_ERR, "{}", profiler.run::<CycleInstant, _>(|| {
+            send_msg(msg).unwrap();
+            wait_for_rpl().unwrap();
+        }));
+        log!(LOG_ERR, "{}", profiler.run::<TimeInstant, _>(|| {
+            send_msg(msg).unwrap();
+            wait_for_rpl().unwrap();
+        }));
+        log!(LOG_ERR, "done");
+        loop {}
 
         // change back to old activity
         let new_act = activities::try_cur().map_or(old_act, |new| new.activity_reg());

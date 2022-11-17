@@ -369,6 +369,7 @@ impl TileMux {
         let mut reply = MsgBuf::borrow_def();
         reply.set(kif::DefaultReply { error: 0 });
         ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
+        ktcu::ack_msg(ktcu::KPEX_EP, msg);
     }
 
     pub fn activity_init_async(
