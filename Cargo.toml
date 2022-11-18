@@ -4,6 +4,7 @@ members = [
     "src/apps/bench/hashmuxbenchs",
     "src/apps/bench/ipc",
     "src/apps/bench/netlat",
+    "src/apps/bench/noopbench",
     "src/apps/bench/rustbenchs",
     "src/apps/bench/rustnetbenchs",
     "src/apps/bench/voiceassist/vamic",

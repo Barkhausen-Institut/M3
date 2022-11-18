@@ -1,0 +1,10 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="noopbench" />
+            </dom>
+        </app>
+    </dom>
+</config>
