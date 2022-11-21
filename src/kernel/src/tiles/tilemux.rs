@@ -350,6 +350,15 @@ impl TileMux {
 #[cfg(not(target_vendor = "host"))]
 impl TileMux {
     pub fn handle_call_async(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
+        let req = msg.get_data::<kif::DefaultRequest>();
+        match kif::tilemux::Calls::from(req.opcode) {
+            kif::tilemux::Calls::EXIT => Self::handle_exit_sidecall(tilemux, msg),
+            kif::tilemux::Calls::NOOP => Self::handle_noop_sidecall(tilemux, msg),
+            _ => panic!("Unexpected operation: {}", { req.opcode }),
+        }
+    }
+
+    fn handle_exit_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
         use crate::tiles::ActivityMng;
 
         let req = msg.get_data::<kif::tilemux::Exit>();
@@ -366,6 +375,16 @@ impl TileMux {
             act.stop_app_async(exitcode, true);
         }
 
+        let mut reply = MsgBuf::borrow_def();
+        reply.set(kif::DefaultReply { error: 0 });
+        ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
+    }
+
+    fn handle_noop_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
+        let req = msg.get_data::<kif::tilemux::Noop>();
+        klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
+        drop(tilemux);
+        
         let mut reply = MsgBuf::borrow_def();
         reply.set(kif::DefaultReply { error: 0 });
         ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();

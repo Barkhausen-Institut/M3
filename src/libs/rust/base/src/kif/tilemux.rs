@@ -172,6 +172,7 @@ int_enum! {
     /// The calls from TileMux to the kernel
     pub struct Calls : u64 {
         const EXIT           = 0x0;
+        const NOOP           = 0x1;
     }
 }
 
@@ -182,4 +183,11 @@ pub struct Exit {
     pub op: u64,
     pub act_sel: u64,
     pub code: u64,
+}
+
+/// The noop call
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct Noop {
+    pub op: u64,
 }

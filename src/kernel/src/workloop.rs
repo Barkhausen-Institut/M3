@@ -27,8 +27,8 @@ pub fn thread_startup() {
 
 pub fn workloop() -> ! {
     if thread::cur().is_main() {
-        ActivityMng::start_root_async().expect("starting root failed");
-        // Some(ActivityMng::start_linux_async().expect("starting linux failed"))
+        // ActivityMng::start_root_async().expect("starting root failed");
+        Some(ActivityMng::start_linux_async().expect("starting linux failed"));
     }
 
     while ActivityMng::count() > 0 {
@@ -51,17 +51,6 @@ pub fn workloop() -> ! {
         if let Some(msg) = ktcu::fetch_msg(ktcu::KPEX_EP) {
             let tile = msg.header.label as tcu::TileId;
             crate::tiles::TileMux::handle_call_async(crate::tiles::tilemng::tilemux(tile), msg);
-
-            // if let Some(ref lxact) = lxact {
-            //     let addr = crate::tiles::TileMux::translate_async(
-            //         crate::tiles::tilemng::tilemux(1),
-            //         lxact.id(),
-            //         0xffff_1234_5678_ffff,
-            //         base::kif::Perm::R,
-            //     )
-            //     .unwrap();
-            //     klog!(TMC, "translated addr: {:?}", addr);
-            // }
         }
 
         thread::try_yield();
