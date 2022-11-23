@@ -3,20 +3,27 @@
     <dom>
         <app args="root sem=net-udp sem=net-tcp">
             <dom>
-                <app args="net -m 3 -d lo net 127.0.0.1" daemon="1">
-                    <serv name="net" />
+                <app args="m3fs mem $fs.size" daemon="1">
+                    <serv name="m3fs" />
+                    <physmem addr="0" size="$fs.size" />
                 </app>
             </dom>
             <dom>
-                <app args="netechoserver" daemon="1">
-                    <sess name="net" args="bufs=1M socks=2 udp=1337 tcp=1338" />
-                    <sem name="net-udp" />
-                    <sem name="net-tcp" />
-                </app>
-            </dom>
-            <dom>
-                <app args="flexrecv">
-                    <sess name="net" args="socks=2 udp=3000" />
+                <app args="pager $fs.size">
+                    <sess name="m3fs" />
+                    <physmem addr="0" size="$fs.size" perm="r" />
+                    <tiles type="core+nic" count="1" />
+                    <tiles type="core" count="1" />
+                    <dom tile="boom+nic">
+                        <app args="/sbin/net net 192.168.181.56" daemon="1">
+                            <serv name="net" />
+                        </app>
+                    </dom>
+                    <dom>
+                        <app args="/bin/flexrecv">
+                            <sess name="net" args="socks=2 udp=3000" />
+                        </app>
+                    </dom>
                 </app>
             </dom>
         </app>

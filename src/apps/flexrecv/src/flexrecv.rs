@@ -1,49 +1,45 @@
-#![feature(core_intrinsics)]
+#[allow(unused_extern_crates)]
+extern crate m3impl as m3;
 
 mod app;
 mod datamessage;
 mod fec;
 mod modulation;
 
-#[allow(unused_extern_crates)]
-extern crate m3impl as m3;
+use crate::app::m3demo::*;
+use m3impl::tiles::Activity;
+use num_complex::Complex;
+use std::{io, net::UdpSocket};
+use std::{thread, time};
 
-use std::net::UdpSocket;
-use std::println;
-use std::string::String;
-use std::thread::sleep;
-use std::time::Duration;
-use std::vec;
-use std::vec::Vec;
-
-use crate::{app::m3demo::*, datamessage::RawDataMessage, modulation::qam::QAMOrder};
+use crate::{
+    datamessage::{RawDataMessage, SampleDataMessage},
+    modulation::qam::{PowerNormalization, QAMOrder, QamDemapperHard, QamMapper},
+};
 
 #[no_mangle]
 pub fn main() -> i32 {
     //udp
-    let socket = UdpSocket::bind("127.0.0.1:3000").expect("Fehler beim Erstellen des UDP sockets");
+    let socket =
+        UdpSocket::bind("192.168.181.56:3000").expect("Fehler beim Erstellen des UDP sockets");
     socket
-        .connect("127.0.0.1:1337")
+        .connect("192.168.181.48:8847")
         .expect("Fehler beim setzen der Zieladresse des UDP sockets");
 
     //modulator
-    let mut sender = M3Sender::new(16, QAMOrder::QAM4, 64);
+    let mut sender = M3Sender::new(8, QAMOrder::QAM16, 64);
 
-    //read user input and send it
+    //send data
     loop {
-        //sleep
-        let sleepduration = Duration::from_millis(10);
-        sleep(sleepduration);
+        // thread::sleep(time::Duration::from_millis(1000));
+        let end = time::Instant::now() + time::Duration::from_millis(100);
+        while time::Instant::now() < end {}
 
-        //read input
-        let mut text = String::new();
-        //io::stdin().read_line(&mut text);
-        //text = text.trim().to_string();
-        text = String::from("abc");
-        println!("eingegebener Text: {}, Bytes: {:?}", text, text.as_bytes());
-        if text.eq("finish") {
-            break;
-        }
+        // Activity::own()
+        //     .sleep_for(time::Duration::from_millis(100))
+        //     .unwrap();
+        let text = String::from("abcdefghij");
+        println!("zu sendender Text: {}, Bytes: {:?}", text, text.as_bytes());
 
         //modulate the input data
         let mut data = RawDataMessage::new(text.len());
@@ -57,60 +53,50 @@ pub fn main() -> i32 {
             println!("{}_", samples.get_sample_data()[i]);
         }
         */
-        //samples contains the raw sample data
-        let packetsize = 128;
+
+        // send the samples
+        // the first packet has a 5 item header
+        // the following packets have a 3 item header
+        let max_num_samples_packet = 128;
+        let num_samples_to_send = samples.get_number_of_samples();
+        let num_packets = if num_samples_to_send % max_num_samples_packet == 0 {
+            num_samples_to_send / max_num_samples_packet
+        }
+        else {
+            (num_samples_to_send / max_num_samples_packet) + 1
+        };
+        let mut num_samples_sent = 0;
 
         //create a buffer
         //each sample has two float values (real and imaginary part of the number), each is written as 4 bytes
-        let mut buffer: Vec<u8> = vec![0; packetsize * 2 * 4];
+        let mut buffer: Vec<u8> = vec![0; 5 * 4 + max_num_samples_packet * 2 * 4];
 
-        //compute the number of packets
-        let numfullpackets: usize = samples.get_number_of_samples() / packetsize;
-        let numsamplesleft: usize = samples.get_number_of_samples() % packetsize;
-
-        //send the full packets
-        for numpacket in 0..numfullpackets {
-            //write the samples
-            let mut sampledataindex = numpacket * packetsize;
-            for i in (0..buffer.len()).step_by(8) {
-                buffer[i..i + 4]
-                    .copy_from_slice(&samples.get_sample_data()[sampledataindex].re.to_be_bytes());
-                buffer[i + 4..i + 8]
-                    .copy_from_slice(&samples.get_sample_data()[sampledataindex].im.to_be_bytes());
-                sampledataindex += 1;
-            }
-
-            //print the packet
-            println!("udp data packet {}:", numpacket);
-            for i in (0..buffer.len()).step_by(4) {
-                println!(
-                    "{}_{}_{}_{}",
-                    buffer[i],
-                    buffer[i + 1],
-                    buffer[i + 2],
-                    buffer[i + 3]
-                );
-            }
-
-            // send the packet
-            socket
-                .send(&buffer)
-                .expect("Fehler beim senden der UDP Daten.");
+        //send the first packet
+        let mut num_packet = 1;
+        let num_samples_packet = if num_samples_to_send > max_num_samples_packet {
+            max_num_samples_packet
         }
-
-        //send the remaining samples
-        let mut sampledataindex = numfullpackets * packetsize;
-        for i in (0..numsamplesleft * 2 * 4).step_by(8) {
+        else {
+            num_samples_to_send
+        };
+        let header: [f32; 5] = [4.0, num_packets as f32, num_packet as f32, 1.0, 0.0];
+        buffer[0..4].copy_from_slice(&header[0].to_be_bytes());
+        buffer[4..8].copy_from_slice(&header[1].to_be_bytes());
+        buffer[8..12].copy_from_slice(&header[2].to_be_bytes());
+        buffer[12..16].copy_from_slice(&header[3].to_be_bytes());
+        buffer[16..20].copy_from_slice(&header[4].to_be_bytes());
+        let last_sample_byte = 20 + num_samples_packet * 8;
+        for i in (20..last_sample_byte).step_by(8) {
             buffer[i..i + 4]
-                .copy_from_slice(&samples.get_sample_data()[sampledataindex].re.to_be_bytes());
+                .copy_from_slice(&samples.get_sample_data()[num_samples_sent].re.to_be_bytes());
             buffer[i + 4..i + 8]
-                .copy_from_slice(&samples.get_sample_data()[sampledataindex].im.to_be_bytes());
-            sampledataindex += 1;
+                .copy_from_slice(&samples.get_sample_data()[num_samples_sent].im.to_be_bytes());
+            num_samples_sent += 1;
         }
 
-        //print the packet
-        println!("udp data packet {}:", numfullpackets);
-        for i in (0..numsamplesleft * 2 * 4).step_by(4) {
+        //print and send the packet
+        println!("udp data packet {}:", num_packet);
+        for i in (0..last_sample_byte).step_by(4) {
             println!(
                 "{}_{}_{}_{}",
                 buffer[i],
@@ -119,95 +105,47 @@ pub fn main() -> i32 {
                 buffer[i + 3]
             );
         }
-
-        //send the packet
         socket
-            .send(&buffer[..numsamplesleft * 2 * 4])
+            .send(&buffer[..last_sample_byte])
             .expect("Fehler beim senden der UDP Daten.");
 
-        //sending packets with a header
-        /*
-        //samples has to split up into multiple udp packets with an appropriate header
-        //header: 4, number_packets, sequence_number_of_packet
-        //the header values are also float values
-
-        //specify the number of sample-bytes in a packet
-        //the header adds a few additional bytes to this value
-        let packetsize = 1024;
-
-        //create a buffer
-        //the header are 3 values which are also floats, so one header value is written as 4 bytes
-        //each sample has two float values (real and imaginary part of the number), each is written as 4 bytes
-        let mut buffer : Vec<u8> = vec![0; 5 * 4 + packetsize * 2 * 4];
-
-        //compute the number of packets
-        let numfullpackets : usize = samples.get_number_of_samples() / packetsize;
-        let numsamplesleft : usize = samples.get_number_of_samples() % packetsize;
-        let numpackets =
-        if numsamplesleft == 0{
-            numfullpackets
-        }
-        else{
-            numfullpackets + 1
-        };
-
-        //send the full packets
-        for numpacket in 0..numfullpackets{
-
-            //write the header
-            let header : [f32; 5] = [4.0, numpackets as f32, (numpacket + 1) as f32, 1.0, 0.0];
-            buffer[ 0.. 4].copy_from_slice(&header[0].to_be_bytes());
-            buffer[ 4.. 8].copy_from_slice(&header[1].to_be_bytes());
-            buffer[ 8..12].copy_from_slice(&header[2].to_be_bytes());
-            buffer[12..16].copy_from_slice(&header[3].to_be_bytes());
-            buffer[16..20].copy_from_slice(&header[4].to_be_bytes());
-
-            //write the samples
-            let mut sampledataindex = numpacket * packetsize;
-            for i in (20..buffer.len()).step_by(8){
-                buffer[i  ..i+4].copy_from_slice(&samples.get_sample_data()[sampledataindex].re.to_be_bytes());
-                buffer[i+4..i+8].copy_from_slice(&samples.get_sample_data()[sampledataindex].im.to_be_bytes());
-                sampledataindex += 1;
+        // send further packets with a 3 item header
+        while num_samples_sent < num_samples_to_send {
+            num_packet += 1;
+            let num_samples_remaining = num_samples_to_send - num_samples_sent;
+            let num_samples_packet = if num_samples_remaining > max_num_samples_packet {
+                max_num_samples_packet
+            }
+            else {
+                num_samples_remaining
+            };
+            let header: [f32; 3] = [4.0, num_packets as f32, num_packet as f32];
+            buffer[0..4].copy_from_slice(&header[0].to_be_bytes());
+            buffer[4..8].copy_from_slice(&header[1].to_be_bytes());
+            buffer[8..12].copy_from_slice(&header[2].to_be_bytes());
+            let last_sample_byte = 12 + num_samples_packet * 8;
+            for i in (12..last_sample_byte).step_by(8) {
+                buffer[i..i + 4]
+                    .copy_from_slice(&samples.get_sample_data()[num_samples_sent].re.to_be_bytes());
+                buffer[i + 4..i + 8]
+                    .copy_from_slice(&samples.get_sample_data()[num_samples_sent].im.to_be_bytes());
+                num_samples_sent += 1;
             }
 
-            //print the packet
-            println!("udp data packet {}:", numpacket + 1);
-            for i in (0 .. buffer.len()).step_by(4){
-                println!("{}_{}_{}_{}", buffer[i], buffer[i+1], buffer[i+2], buffer[i+3]);
+            //print and send the packet
+            println!("udp data packet {}:", num_packet);
+            for i in (0..last_sample_byte).step_by(4) {
+                println!(
+                    "{}_{}_{}_{}",
+                    buffer[i],
+                    buffer[i + 1],
+                    buffer[i + 2],
+                    buffer[i + 3]
+                );
             }
-
-            //send the packet
-            socket.send(&buffer).expect("Fehler beim senden der UDP Daten.");
-
+            socket
+                .send(&buffer[..last_sample_byte])
+                .expect("Fehler beim senden der UDP Daten.");
         }
-
-        //send the remaining samples
-        //write the header
-        let header : [f32; 5] = [4.0, numpackets as f32, numpackets as f32, 1.0, 0.0];
-        buffer[ 0.. 4].copy_from_slice(&header[0].to_be_bytes());
-        buffer[ 4.. 8].copy_from_slice(&header[1].to_be_bytes());
-        buffer[ 8..12].copy_from_slice(&header[2].to_be_bytes());
-        buffer[12..16].copy_from_slice(&header[3].to_be_bytes());
-        buffer[16..20].copy_from_slice(&header[4].to_be_bytes());
-
-        //write the samples
-        let mut sampledataindex = numfullpackets * packetsize;
-        for i in (20 .. 20 + numsamplesleft * 2 * 4).step_by(8){
-             buffer[i  ..i+4].copy_from_slice(&samples.get_sample_data()[sampledataindex].re.to_be_bytes());
-             buffer[i+4..i+8].copy_from_slice(&samples.get_sample_data()[sampledataindex].im.to_be_bytes());
-             sampledataindex += 1;
-         }
-
-         //print the packet
-         println!("udp data packet {}:", numpackets);
-         for i in (0.. 12 + numsamplesleft * 2 * 4).step_by(4){
-             println!("{}_{}_{}_{}", buffer[i], buffer[i+1], buffer[i+2], buffer[i+3]);
-         }
-
-         //send the packet
-         socket.send(&buffer[.. 12 + numsamplesleft * 2 * 4]).expect("Fehler beim senden der UDP Daten.");
-         */
     }
-    println!("Hello, world!");
-    0
 }
