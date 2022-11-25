@@ -81,6 +81,11 @@ impl<T: Duration> Results<T> {
             T::from_raw(math::sqrt((sum as f32) / (self.times.len() as f32)) as u64)
         }
     }
+
+    pub fn filter_outliers(&mut self) {
+        let avg = self.avg().as_raw();
+        self.times.retain(|t| t.as_raw() > avg / 2 && t.as_raw() < avg * 2);
+    }
 }
 
 impl<T: Duration> fmt::Display for Results<T> {
