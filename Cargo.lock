@@ -426,6 +426,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sigtest"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "smoltcp"
 version = "0.8.0"
 source = "git+https://github.com/smoltcp-rs/smoltcp.git?branch=master#d05ebdd88f7f2b87a2ffe3256a42f67809d2d7e4"

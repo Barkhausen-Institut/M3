@@ -45,6 +45,7 @@ members = [
     "src/server/pager",
     "src/server/pipes",
     "src/server/root",
+    "src/server/sig",
     "src/server/vterm",
 ]
 

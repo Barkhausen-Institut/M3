@@ -26,6 +26,7 @@ mod netmng;
 mod pager;
 mod pipe;
 pub mod resmng;
+pub mod sig;
 mod srvsession;
 
 pub use self::clisession::ClientSession;

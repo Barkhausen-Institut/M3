@@ -7,6 +7,7 @@ dirs = [
     'pager',
     'pipes',
     'root',
+    'sig',
     'timer',
     'vterm',
 ]
