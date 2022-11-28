@@ -426,6 +426,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "sig"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "sigtest"
 version = "0.1.0"
 dependencies = [

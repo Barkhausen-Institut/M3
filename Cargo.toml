@@ -25,6 +25,7 @@ members = [
     "src/apps/ruststandalone/vmtest",
     "src/apps/ruststdtest",
     "src/apps/rustunittests",
+    "src/apps/sigtest",
     "src/apps/spammer",
     "src/kernel",
     "src/libs/rust/base",
