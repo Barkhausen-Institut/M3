@@ -14,11 +14,12 @@
  */
 
 use m3::cell::{LazyStaticRefCell, Ref};
+use m3::col::String;
 use m3::com::{GateIStream, RecvGate};
 use m3::errors::{Code, Error, VerboseError};
 use m3::log;
 use m3::reply_vmsg;
-use m3::session::resmng;
+use m3::session::{resmng, sig};
 use m3::tiles::Activity;
 
 use crate::childs::{self, Id};
@@ -115,6 +116,8 @@ fn handle_request_async(mut is: GateIStream<'_>) {
         Ok(resmng::Operation::GET_SERIAL) => get_serial(&mut is, id),
 
         Ok(resmng::Operation::GET_INFO) => get_info(&mut is, id),
+
+        Ok(resmng::Operation::QUOTE) => quote(&mut is, id),
 
         _ => Err(Error::new(Code::InvArgs)),
     };
@@ -258,4 +261,20 @@ fn get_info(is: &mut GateIStream<'_>, id: Id) -> Result<(), Error> {
     };
 
     childs::get_info(id, idx).and_then(|info| reply_vmsg!(is, Code::Success, info))
+}
+
+fn quote(is: &mut GateIStream<'_>, id: Id) -> Result<(), Error> {
+    static SIG: LazyStaticRefCell<sig::Sig> = LazyStaticRefCell::default();
+    if !SIG.is_some() {
+        SIG.set(sig::Sig::new("sig")?);
+    }
+
+    let mut childs = childs::borrow_mut();
+    let child = childs.child_by_id_mut(id).unwrap();
+
+    // TODO this is not final. what app hash to use? how to obtain the cfg hash?
+    let quote = SIG
+        .borrow()
+        .quote(child.cfg().hash().unwrap_or(&String::new()), "")?;
+    reply_vmsg!(is, Code::Success, resmng::QuoteReply { quote })
 }

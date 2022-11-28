@@ -61,6 +61,8 @@ int_enum! {
         const GET_SERIAL    = 0xD;
 
         const GET_INFO      = 0xE;
+
+        const QUOTE         = 0xF;
     }
 }
 
@@ -142,6 +144,12 @@ pub struct AddChildReq {
     pub sel: Selector,
     pub sgate: Selector,
     pub name: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(crate = "base::serde")]
+pub struct QuoteReply {
+    pub quote: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -332,6 +340,13 @@ impl ResMng {
             Err(e) => Err(e),
             _ => panic!("unexpected info type"),
         }
+    }
+
+    /// Requests a quote for the current subsystem state
+    pub fn quote(&self) -> Result<String, Error> {
+        let reply: QuoteReply =
+            Self::send_receive(&self.sgate, Operation::QUOTE, 0).and_then(|mut is| is.pop())?;
+        Ok(reply.quote)
     }
 
     fn activity_info(&self, act_idx: Option<usize>) -> Result<ActInfoResult, Error> {
