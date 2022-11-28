@@ -92,6 +92,7 @@
             <xs:element name="serial" />
         </xs:choice>
         <xs:attribute name="args" type="xs:string" use="required"/>
+        <xs:attribute name="hash" type="xs:string"/>
         <xs:attribute name="daemon" type="xs:int"/>
         <xs:attribute name="usermem" type="xs:string"/>
         <xs:attribute name="kernmem" type="xs:string"/>

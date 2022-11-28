@@ -58,6 +58,9 @@ impl vfs::Seek for io::Serial {
 impl vfs::Map for io::Serial {
 }
 
+impl vfs::Hashed for io::Serial {
+}
+
 impl HashInput for io::Serial {
 }
 

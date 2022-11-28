@@ -50,21 +50,23 @@ bitflags! {
     #[serde(crate = "base::serde")]
     pub struct OpenFlags : u32 {
         /// Opens the file for reading.
-        const R         = 0b0000_0001;
+        const R         = 0b0_0000_0001;
         /// Opens the file for writing.
-        const W         = 0b0000_0010;
+        const W         = 0b0_0000_0010;
         /// Opens the file for code execution.
-        const X         = 0b0000_0100;
+        const X         = 0b0_0000_0100;
         /// Truncates the file on open.
-        const TRUNC     = 0b0000_1000;
+        const TRUNC     = 0b0_0000_1000;
         /// Appends to the file.
-        const APPEND    = 0b0001_0000;
+        const APPEND    = 0b0_0001_0000;
         /// Creates the file if it doesn't exist.
-        const CREATE    = 0b0010_0000;
+        const CREATE    = 0b0_0010_0000;
         /// For benchmarking: only pretend to access the file's data.
-        const NODATA    = 0b0100_0000;
+        const NODATA    = 0b0_0100_0000;
         /// Create a new file session
-        const NEW_SESS  = 0b1000_0000;
+        const NEW_SESS  = 0b0_1000_0000;
+        /// Requests a hash of the file, which can later be obtained with the GET_HASH request
+        const HASH      = 0b1_0000_0000;
 
         /// Opens the file for reading and writing.
         const RW        = Self::R.bits | Self::W.bits;
@@ -183,7 +185,7 @@ int_enum! {
 /// Trait for files.
 ///
 /// All files can be read, written, seeked and mapped into memory.
-pub trait File: Read + Write + Seek + Map + Debug + HashInput + HashOutput {
+pub trait File: Read + Write + Seek + Map + Debug + Hashed + HashInput + HashOutput {
     fn as_any(&self) -> &dyn Any;
     fn as_any_mut(&mut self) -> &mut dyn Any;
 
@@ -306,6 +308,14 @@ pub trait Map {
         _prot: kif::Perm,
         _flags: MapFlags,
     ) -> Result<(), Error> {
+        Err(Error::new(Code::NotSup))
+    }
+}
+
+/// Trait for resources that are hashed.
+pub trait Hashed {
+    /// Returns the hash of the resource.
+    fn hash(&self) -> Result<String, Error> {
         Err(Error::new(Code::NotSup))
     }
 }

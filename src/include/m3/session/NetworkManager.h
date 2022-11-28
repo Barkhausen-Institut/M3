@@ -55,6 +55,7 @@ class NetworkManager : public ClientSession {
         TRUNCATE = GenericFile::TRUNCATE,
         CLOSE = GenericFile::CLOSE,
         CLONE = GenericFile::CLONE,
+        GET_HASH = GenericFile::GET_HASH,
         GET_TMODE = GenericFile::GET_TMODE,
         SET_TMODE = GenericFile::SET_TMODE,
         SET_DEST = GenericFile::SET_DEST,

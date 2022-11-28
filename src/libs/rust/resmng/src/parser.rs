@@ -169,6 +169,7 @@ fn parse_app(p: &mut ConfigParser, start: usize) -> Result<config::AppConfig, Er
                         app.args.push(a.to_string());
                     }
                 },
+                "hash" => app.hash = Some(v),
                 "usermem" => app.user_mem = Some(parse::size(&v)?),
                 "kernmem" => app.kern_mem = Some(parse::size(&v)?),
                 "time" => app.time = Some(parse::time(&v)?),

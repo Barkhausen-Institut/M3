@@ -58,6 +58,7 @@ int_enum! {
         const SYNC          = GenFileOp::SYNC.val;
         const CLOSE         = GenFileOp::CLOSE.val;
         const CLONE         = GenFileOp::CLONE.val;
+        const GET_HASH      = GenFileOp::GET_HASH.val;
         const SET_TMODE     = GenFileOp::SET_TMODE.val;
         const SET_DEST      = GenFileOp::SET_DEST.val;
         const ENABLE_NOTIFY = GenFileOp::ENABLE_NOTIFY.val;
@@ -414,6 +415,7 @@ pub fn main() -> Result<(), Error> {
                 },
                 Operation::STAT => hdl.with_chan(is, |c, is| c.stat(is)),
                 Operation::SEEK => Err(Error::new(Code::SeekPipe)),
+                Operation::GET_HASH => Err(Error::new(Code::NotSup)),
                 _ => Err(Error::new(Code::InvArgs)),
             }
         })

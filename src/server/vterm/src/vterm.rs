@@ -678,6 +678,7 @@ pub fn main() -> Result<(), Error> {
                 },
                 GenFileOp::STAT => hdl.with_chan(is, |c, is| c.stat(is)),
                 GenFileOp::SEEK => Err(Error::new(Code::NotSup)),
+                GenFileOp::GET_HASH => Err(Error::new(Code::NotSup)),
                 GenFileOp::GET_TMODE => hdl.with_chan(is, |c, is| c.get_tmode(is)),
                 GenFileOp::SET_TMODE => hdl.with_chan(is, |c, is| c.set_tmode(is)),
                 GenFileOp::REQ_NOTIFY => hdl.with_chan(is, |c, is| c.request_notify(is)),

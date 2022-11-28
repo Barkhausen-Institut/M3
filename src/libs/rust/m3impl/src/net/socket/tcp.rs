@@ -328,6 +328,9 @@ impl vfs::Seek for TcpSocket {
 impl vfs::Map for TcpSocket {
 }
 
+impl vfs::Hashed for TcpSocket {
+}
+
 impl HashInput for TcpSocket {
 }
 

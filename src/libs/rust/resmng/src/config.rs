@@ -365,6 +365,7 @@ impl Domain {
 pub struct AppConfig {
     pub(crate) name: String,
     pub(crate) args: Vec<String>,
+    pub(crate) hash: Option<String>,
     pub(crate) cfg_range: (usize, usize),
     pub(crate) daemon: bool,
     pub(crate) getinfo: bool,
@@ -406,6 +407,10 @@ impl AppConfig {
 
     pub fn daemon(&self) -> bool {
         self.daemon
+    }
+
+    pub fn hash(&self) -> Option<&String> {
+        self.hash.as_ref()
     }
 
     pub fn can_get_info(&self) -> bool {
@@ -672,6 +677,9 @@ impl AppConfig {
         writeln!(f, "[")?;
         if self.daemon {
             writeln!(f, "{:0w$}Daemon,", "", w = layer + 2)?;
+        }
+        if let Some(ref hash) = self.hash {
+            writeln!(f, "{:0w$}Hash[{}],", "", hash, w = layer + 2)?;
         }
         if let Some(eps) = self.eps {
             writeln!(f, "{:0w$}Endpoints[count={}],", "", eps, w = layer + 2)?;

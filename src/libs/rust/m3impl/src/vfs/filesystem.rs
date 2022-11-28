@@ -25,22 +25,22 @@ use crate::errors::Error;
 use crate::int_enum;
 use crate::serialize::{M3Serializer, VecSink};
 use crate::tiles::ChildActivity;
-use crate::vfs::{File, FileInfo, FileMode, OpenFlags};
+use crate::vfs::{File, FileInfo, FileMode, GenFileOp, OpenFlags};
 
 int_enum! {
     /// The file system operations.
     pub struct FSOperation : u64 {
-        const STAT          = 15;
-        const MKDIR         = 16;
-        const RMDIR         = 17;
-        const LINK          = 18;
-        const UNLINK        = 19;
-        const RENAME        = 20;
-        const OPEN          = 21;
-        const GET_SGATE     = 22;
-        const GET_MEM       = 23;
-        const DEL_EP        = 24;
-        const OPEN_PRIV     = 25;
+        const STAT          = GenFileOp::REQ_NOTIFY.val + 1;
+        const MKDIR         = GenFileOp::REQ_NOTIFY.val + 2;
+        const RMDIR         = GenFileOp::REQ_NOTIFY.val + 3;
+        const LINK          = GenFileOp::REQ_NOTIFY.val + 4;
+        const UNLINK        = GenFileOp::REQ_NOTIFY.val + 5;
+        const RENAME        = GenFileOp::REQ_NOTIFY.val + 6;
+        const OPEN          = GenFileOp::REQ_NOTIFY.val + 7;
+        const GET_SGATE     = GenFileOp::REQ_NOTIFY.val + 8;
+        const GET_MEM       = GenFileOp::REQ_NOTIFY.val + 9;
+        const DEL_EP        = GenFileOp::REQ_NOTIFY.val + 10;
+        const OPEN_PRIV     = GenFileOp::REQ_NOTIFY.val + 11;
     }
 }
 

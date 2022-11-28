@@ -144,6 +144,9 @@ impl vfs::Seek for RawSocket {
 impl vfs::Map for RawSocket {
 }
 
+impl vfs::Hashed for RawSocket {
+}
+
 impl HashInput for RawSocket {
 }
 

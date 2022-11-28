@@ -46,6 +46,7 @@ public:
         SYNC,
         CLOSE,
         CLONE,
+        GET_HASH,
         GET_PATH,
         GET_TMODE,
         SET_TMODE,

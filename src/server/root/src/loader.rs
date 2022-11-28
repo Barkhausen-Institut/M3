@@ -128,6 +128,8 @@ impl vfs::Map for BootFile {
     }
 }
 
+impl vfs::Hashed for BootFile {
+}
 impl HashInput for BootFile {
 }
 impl HashOutput for BootFile {

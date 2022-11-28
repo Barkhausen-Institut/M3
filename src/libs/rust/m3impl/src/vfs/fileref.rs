@@ -31,7 +31,7 @@ use crate::net::{DGramSocket, Socket, StreamSocket};
 use crate::serialize::{M3Serializer, VecSink};
 use crate::session::{HashInput, HashOutput, HashSession, MapFlags, Pager};
 use crate::tiles::{Activity, ChildActivity};
-use crate::vfs::{Fd, File, FileEvent, FileTable, Map, Seek, SeekMode, TMode};
+use crate::vfs::{Fd, File, FileEvent, FileTable, Hashed, Map, Seek, SeekMode, TMode};
 
 /// A file reference provides access to a file of type `T`.
 ///
@@ -211,6 +211,12 @@ impl<T: ?Sized> Map for FileRef<T> {
         flags: MapFlags,
     ) -> Result<(), Error> {
         self.borrow().map(pager, virt, off, len, prot, flags)
+    }
+}
+
+impl<T: ?Sized> Hashed for FileRef<T> {
+    fn hash(&self) -> Result<String, Error> {
+        self.borrow().hash()
     }
 }
 

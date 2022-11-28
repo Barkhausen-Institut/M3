@@ -32,7 +32,7 @@ use m3::syscalls;
 use m3::tcu;
 use m3::tiles::{Activity, ActivityArgs, ChildActivity};
 use m3::util::math;
-use m3::vfs::FileRef;
+use m3::vfs::{FileRef, Hashed};
 
 use resmng::childs::{self, Child, OwnChild};
 use resmng::{memory, requests, sendqueue, subsys};
@@ -91,6 +91,17 @@ fn start_child_async(child: &mut OwnChild) -> Result<(), VerboseError> {
         child.mem().pool().clone(),
     );
     let bfile = loader::BootFile::new(bmod.0, bmod.1);
+
+    // verify hash (current not support in root, but could be added to BootFile)
+    if let Some(hash) = child.cfg().hash() {
+        let filehash = bfile.hash().map_err(|e| {
+            VerboseError::new(e.code(), "Unable to obtain application hash".to_string())
+        })?;
+        if filehash != *hash {
+            panic!("{} has unexpected hash; stopping", child.name());
+        }
+    }
+
     let fd = Activity::own().files().add(Box::new(bfile))?;
     child
         .start(act, &mut bmapper, FileRef::new_owned(fd))

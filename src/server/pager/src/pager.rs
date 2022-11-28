@@ -40,7 +40,7 @@ use m3::session::{ClientSession, Pager, PagerOp, ResMng, M3FS};
 use m3::tcu::{Label, TileId};
 use m3::tiles::{Activity, ActivityArgs, ChildActivity};
 use m3::util::math;
-use m3::vfs;
+use m3::vfs::{self, Hashed};
 
 use addrspace::AddrSpace;
 use resmng::childs::{self, Child, OwnChild};
@@ -231,9 +231,25 @@ fn start_child_async(child: &mut OwnChild) -> Result<(), VerboseError> {
     let aspace = hdl.sessions.get_mut(sid).unwrap();
     aspace.init(Some(child.id()), Some(act.sel())).unwrap();
 
-    // start activity
-    let file = vfs::VFS::open(child.name(), vfs::OpenFlags::RX | vfs::OpenFlags::NEW_SESS)
+    // open executable
+    let mut open_flags = vfs::OpenFlags::RX | vfs::OpenFlags::NEW_SESS;
+    if child.cfg().hash().is_some() {
+        open_flags |= vfs::OpenFlags::HASH;
+    }
+    let file = vfs::VFS::open(child.name(), open_flags)
         .map_err(|e| VerboseError::new(e.code(), format!("Unable to open {}", child.name())))?;
+
+    // verify hash
+    if let Some(hash) = child.cfg().hash() {
+        let filehash = file.hash().map_err(|e| {
+            VerboseError::new(e.code(), "Unable to obtain application hash".to_string())
+        })?;
+        if filehash != *hash {
+            panic!("{} has unexpected hash; stopping", child.name());
+        }
+    }
+
+    // start activity
     let mut mapper = mapper::ChildMapper::new(aspace, act.tile_desc().has_virtmem());
     child
         .start(act, &mut mapper, file.into_generic())

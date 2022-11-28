@@ -220,6 +220,9 @@ impl vfs::Seek for UdpSocket {
 impl vfs::Map for UdpSocket {
 }
 
+impl vfs::Hashed for UdpSocket {
+}
+
 impl HashInput for UdpSocket {
 }
 

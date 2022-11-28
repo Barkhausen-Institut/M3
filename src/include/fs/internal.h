@@ -87,6 +87,7 @@ enum {
     FILE_CREATE = 32,
     FILE_NODATA = 64,
     FILE_NEWSESS = 128,
+    FILE_HASH = 256,
 };
 
 static_assert(FILE_R == MemGate::R, "FILE_R is out of sync");

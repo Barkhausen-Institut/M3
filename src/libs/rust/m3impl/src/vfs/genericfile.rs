@@ -37,7 +37,9 @@ use crate::session::{ClientSession, HashInput, HashOutput, HashSession, MapFlags
 use crate::tcu::EpId;
 use crate::tiles::{Activity, ChildActivity};
 use crate::util::math;
-use crate::vfs::{filetable, Fd, File, FileEvent, FileInfo, Map, OpenFlags, Seek, SeekMode, TMode};
+use crate::vfs::{
+    filetable, Fd, File, FileEvent, FileInfo, Hashed, Map, OpenFlags, Seek, SeekMode, TMode,
+};
 
 int_enum! {
     /// The operations for [`GenericFile`].
@@ -51,12 +53,13 @@ int_enum! {
         const SYNC          = 6;
         const CLOSE         = 7;
         const CLONE         = 8;
-        const GET_PATH      = 9;
-        const GET_TMODE     = 10;
-        const SET_TMODE     = 11;
-        const SET_DEST      = 12;
-        const ENABLE_NOTIFY = 13;
-        const REQ_NOTIFY    = 14;
+        const GET_HASH      = 9;
+        const GET_PATH      = 10;
+        const GET_TMODE     = 11;
+        const SET_TMODE     = 12;
+        const SET_DEST      = 13;
+        const ENABLE_NOTIFY = 14;
+        const REQ_NOTIFY    = 15;
     }
 }
 
@@ -579,6 +582,18 @@ impl Map for GenericFile {
         pager
             .map_ds(virt, len, off, prot, flags, &self.sess)
             .map(|_| ())
+    }
+}
+
+impl Hashed for GenericFile {
+    fn hash(&self) -> Result<String, Error> {
+        send_recv_res!(
+            &self.sgate,
+            RecvGate::def(),
+            GenFileOp::GET_HASH,
+            self.file_id()
+        )
+        .and_then(|mut is| is.pop())
     }
 }
 
