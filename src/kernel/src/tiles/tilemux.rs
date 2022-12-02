@@ -25,10 +25,14 @@ use base::rc::{Rc, SRc, Weak};
 use base::tcu::{self, ActId, EpId, TileId};
 use core::cmp;
 
-use crate::cap::{EPObject, EPQuota, MGateObject, RGateObject, SGateObject, TileObject};
-use crate::ktcu;
+use crate::cap::{
+    EPObject, EPQuota, KMemObject, MGateObject, RGateObject, SGateObject, TileObject,
+};
 use crate::platform;
 use crate::tiles::INVAL_ID;
+use crate::ktcu;
+
+use super::Activity;
 
 pub struct TileMux {
     tile: SRc<TileObject>,
@@ -353,6 +357,7 @@ impl TileMux {
         let req = msg.get_data::<kif::DefaultRequest>();
         match kif::tilemux::Calls::from(req.opcode) {
             kif::tilemux::Calls::EXIT => Self::handle_exit_sidecall(tilemux, msg),
+            kif::tilemux::Calls::LX_ACT => Self::handle_lx_act_sidecall(tilemux, msg),
             kif::tilemux::Calls::NOOP => Self::handle_noop_sidecall(tilemux, msg),
             _ => panic!("Unexpected operation: {}", { req.opcode }),
         }
@@ -380,11 +385,52 @@ impl TileMux {
         ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
     }
 
+    fn create_lx_activity(tilemux: RefMut<'_, Self>) -> Result<Rc<Activity>, Error> {
+        use crate::tiles::{ActivityMng, ActivityFlags};
+        use base::cfg;
+        use crate::args;
+
+        let kmem = KMemObject::new(args::get().kmem - cfg::FIXED_KMEM);
+        let tile = tilemux.tile().clone();
+        drop(tilemux);
+        let act = ActivityMng::create_activity_async(
+            "lx_act",
+            tile,
+            tcu::FIRST_USER_EP,
+            kmem,
+            ActivityFlags::IS_LINUX,
+        )?;
+        // let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
+        act.init_eps_async(0x1040_0000)?;
+        Ok(act)
+    }
+
+    fn handle_lx_act_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
+        let req = msg.get_data::<kif::tilemux::LxAct>();
+        klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
+        let act = Self::create_lx_activity(tilemux);
+
+        let reply_obj = match act {
+            Ok(act) => kif::tilemux::LxActReply {
+                error: 0,
+                actid: act.id() as u64,
+            },
+            Err(e) => kif::tilemux::LxActReply {
+                error: e.code() as u64,
+                actid: 0,
+            },
+        };
+
+        let mut reply = MsgBuf::borrow_def();
+        reply.set(reply_obj);
+        ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
+    }
+
     fn handle_noop_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
         let req = msg.get_data::<kif::tilemux::Noop>();
         klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
         drop(tilemux);
-        
+
         let mut reply = MsgBuf::borrow_def();
         reply.set(kif::DefaultReply { error: 0 });
         ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();

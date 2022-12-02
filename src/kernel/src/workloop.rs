@@ -28,10 +28,12 @@ pub fn thread_startup() {
 pub fn workloop() -> ! {
     if thread::cur().is_main() {
         // ActivityMng::start_root_async().expect("starting root failed");
-        Some(ActivityMng::start_linux_async().expect("starting linux failed"));
     }
 
-    while ActivityMng::count() > 0 {
+    // prevent the workloop from exiting right away because there is no activity
+    let linux_is_running = thread::cur().is_main();
+
+    while ActivityMng::count() > 0 || linux_is_running {
         if envdata::get().platform != envdata::Platform::HW.val {
             tcu::TCU::sleep().unwrap();
         }
