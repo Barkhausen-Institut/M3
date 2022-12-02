@@ -145,11 +145,28 @@ impl Activity {
     }
 
     pub fn init_async(&self) -> Result<(), Error> {
+        use base::kif::Perm;
+
         #[cfg(not(target_vendor = "host"))]
         {
             loader::init_memory_async(self)?;
             if !platform::tile_desc(self.tile_id()).is_device() {
-                self.init_eps_async()
+                // get physical address of receive buffer
+                let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
+                let rbuf_phys = if platform::tile_desc(self.tile_id()).has_virtmem() {
+                    let glob = crate::tiles::TileMux::translate_async(
+                        tilemng::tilemux(self.tile_id()),
+                        self.id(),
+                        rbuf_virt as goff,
+                        Perm::RW,
+                    )?;
+                    ktcu::glob_to_phys_remote(self.tile_id(), glob, base::kif::PageFlags::RW).unwrap()
+                }
+                else {
+                    rbuf_virt as goff
+                };
+
+                self.init_eps_async(rbuf_phys)
             }
             else {
                 Ok(())
@@ -161,10 +178,9 @@ impl Activity {
     }
 
     #[cfg(not(target_vendor = "host"))]
-    fn init_eps_async(&self) -> Result<(), Error> {
+    pub fn init_eps_async(&self, rbuf_phys: u64) -> Result<(), Error> {
         use crate::cap::{RGateObject, SGateObject};
         use base::cfg;
-        use base::kif::Perm;
         use base::tcu;
 
         let act = if platform::is_shared(self.tile_id()) {
@@ -174,21 +190,7 @@ impl Activity {
             INVAL_ID
         };
 
-        // get physical address of receive buffer
-        let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
-        self.rbuf_phys
-            .set(if platform::tile_desc(self.tile_id()).has_virtmem() {
-                let glob = crate::tiles::TileMux::translate_async(
-                    tilemng::tilemux(self.tile_id()),
-                    self.id(),
-                    rbuf_virt as goff,
-                    Perm::RW,
-                )?;
-                ktcu::glob_to_phys_remote(self.tile_id(), glob, base::kif::PageFlags::RW).unwrap()
-            }
-            else {
-                rbuf_virt as goff
-            });
+        self.rbuf_phys.set(rbuf_phys);
 
         let mut tilemux = tilemng::tilemux(self.tile_id());
 
