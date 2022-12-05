@@ -167,7 +167,7 @@ impl Profiler {
 
     /// Runs `func` as benchmark and returns the result
     #[inline(always)]
-    pub fn run<T: Instant, F: FnMut()>(&mut self, mut func: F) -> Results<T::Duration> {
+    pub fn run<T: Instant, F: FnMut()>(&self, mut func: F) -> Results<T::Duration> {
         let mut res = Results::new((self.warmup + self.repeats) as usize);
         for i in 0..self.warmup + self.repeats {
             let start = T::now();
@@ -183,7 +183,7 @@ impl Profiler {
 
     /// Runs the given runner as benchmark and returns the result
     #[inline(always)]
-    pub fn runner<T: Instant, R: Runner>(&mut self, runner: &mut R) -> Results<T::Duration> {
+    pub fn runner<T: Instant, R: Runner>(&self, runner: &mut R) -> Results<T::Duration> {
         let mut res = Results::new((self.warmup + self.repeats) as usize);
         for i in 0..self.warmup + self.repeats {
             runner.pre();
