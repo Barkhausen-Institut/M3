@@ -1,0 +1,10 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="simplebench" />
+            </dom>
+        </app>
+    </dom>
+</config>
