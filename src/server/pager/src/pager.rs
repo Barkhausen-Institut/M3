@@ -380,6 +380,8 @@ pub fn main() -> Result<(), Error> {
         .start(start_child_async)
         .expect("Unable to start subsystem");
 
+    requests::set_cfg(subsys.cfg_str().clone());
+
     childs::borrow_mut().start_waiting(1);
 
     workloop(&serv);

@@ -13,7 +13,7 @@
  * General Public License version 2 for more details.
  */
 
-use m3::cell::{LazyStaticRefCell, Ref};
+use m3::cell::{LazyReadOnlyCell, LazyStaticRefCell, Ref};
 use m3::col::String;
 use m3::com::{GateIStream, RecvGate};
 use m3::errors::{Code, Error, VerboseError};
@@ -27,9 +27,14 @@ use crate::sendqueue;
 use crate::subsys;
 
 static RGATE: LazyStaticRefCell<RecvGate> = LazyStaticRefCell::default();
+static CFG: LazyReadOnlyCell<String> = LazyReadOnlyCell::default();
 
 pub fn init(rgate: RecvGate) {
     RGATE.set(rgate);
+}
+
+pub fn set_cfg(cfg: String) {
+    CFG.set(cfg);
 }
 
 pub fn rgate() -> Ref<'static, RecvGate> {
@@ -271,10 +276,9 @@ fn quote(is: &mut GateIStream<'_>, id: Id) -> Result<(), Error> {
 
     let mut childs = childs::borrow_mut();
     let child = childs.child_by_id_mut(id).unwrap();
+    let cfg = child.cfg();
+    let app_hash = cfg.hash().ok_or_else(|| Error::new(Code::InvState))?;
 
-    // TODO this is not final. what app hash to use? how to obtain the cfg hash?
-    let quote = SIG
-        .borrow()
-        .quote(child.cfg().hash().unwrap_or(&String::new()), "")?;
+    let quote = SIG.borrow().quote(app_hash, CFG.get())?;
     reply_vmsg!(is, Code::Success, resmng::QuoteReply { quote })
 }
