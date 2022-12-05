@@ -386,7 +386,7 @@ impl TileMux {
     }
 
     fn create_lx_activity(tilemux: RefMut<'_, Self>) -> Result<Rc<Activity>, Error> {
-        use crate::tiles::{ActivityMng, ActivityFlags};
+        use crate::tiles::{ActivityMng, ActivityFlags, State};
         use base::cfg;
         use crate::args;
 
@@ -402,6 +402,7 @@ impl TileMux {
         )?;
         // let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
         act.init_eps_async(0x1040_0000)?;
+        act.set_state(State::RUNNING);
         Ok(act)
     }
 
