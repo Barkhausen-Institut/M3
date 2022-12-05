@@ -20,7 +20,7 @@
                     <physmem addr="0" size="$fs.size" perm="r" />
                     <tiles type="core" count="1" />
                     <dom>
-                        <app args="/bin/sigtest" />
+                        <app args="/bin/sigtest" hash="foo" />
                     </dom>
                 </app>
             </dom>
