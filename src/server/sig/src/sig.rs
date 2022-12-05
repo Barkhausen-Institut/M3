@@ -154,7 +154,9 @@ pub fn main() -> Result<(), Error> {
     let s = Server::new("sig", &mut hdl).expect("Unable to create service 'sig'");
     hdl.sel = s.sel();
 
-    REQHDL.set(RequestHandler::new().expect("Unable to create request handler"));
+    REQHDL.set(
+        RequestHandler::new_with(DEF_MAX_CLIENTS, 2048).expect("Unable to create request handler"),
+    );
 
     server_loop(|| {
         s.handle_ctrl_chan(&mut hdl)?;
