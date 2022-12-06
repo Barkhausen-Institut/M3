@@ -193,14 +193,6 @@ pub struct LxAct {
     pub op: u64,
 }
 
-// The response to linux act call
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct LxActReply {
-    pub error: u64,
-    pub actid: u64,
-}
-
 /// The noop call
 #[repr(C)]
 #[derive(Debug, Copy, Clone)]

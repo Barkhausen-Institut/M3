@@ -423,19 +423,12 @@ impl TileMux {
         klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
         let act = Self::create_lx_activity(tilemux);
 
-        let reply_obj = match act {
-            Ok(act) => kif::tilemux::LxActReply {
-                error: 0,
-                actid: act.id() as u64,
-            },
-            Err(e) => kif::tilemux::LxActReply {
-                error: e.code() as u64,
-                actid: 0,
-            },
+        let error = match act {
+            Ok(act) => 0,
+            Err(e) => e.code() as u64,
         };
-
         let mut reply = MsgBuf::borrow_def();
-        reply.set(reply_obj);
+        reply.set(kif::DefaultReply { error });
         ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
     }
 
