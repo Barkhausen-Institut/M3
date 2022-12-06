@@ -18,7 +18,7 @@
 
 use crate::cfg;
 
-#[derive(Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone)]
 #[repr(C)]
 pub struct EnvData {
     // boot env

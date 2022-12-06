@@ -389,6 +389,7 @@ impl TileMux {
         use crate::tiles::{ActivityMng, ActivityFlags, State};
         use base::cfg;
         use crate::args;
+        use base::envdata::EnvData;
 
         let kmem = KMemObject::new(args::get().kmem - cfg::FIXED_KMEM);
         let tile = tilemux.tile().clone();
@@ -402,6 +403,17 @@ impl TileMux {
         )?;
         // let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
         act.init_eps_async(0x1040_0000)?;
+
+        // initialize env data
+        let mut env = EnvData::default();
+        env.tile_id = act.tile_id() as u64;
+        env.tile_desc = act.tile_desc().value();
+        env.first_std_ep = act.eps_start() as u64;
+        env.first_sel = act.first_sel();
+        env.act_id = act.id() as u64;
+
+        ktcu::write_mem(act.tile_id(), cfg::ENV_START as u64, &env as *const _ as *const u8, base::mem::size_of_val(&env));
+
         act.set_state(State::RUNNING);
         Ok(act)
     }
