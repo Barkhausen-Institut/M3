@@ -16,6 +16,7 @@
 use base::envdata;
 use base::tcu;
 
+use crate::args;
 use crate::com;
 use crate::ktcu;
 use crate::syscalls;
@@ -26,12 +27,15 @@ pub fn thread_startup() {
 }
 
 pub fn workloop() -> ! {
-    if thread::cur().is_main() {
-        // ActivityMng::start_root_async().expect("starting root failed");
+    // this should only be a temporary workaround because in the linux config I only use 3 tiles so
+    // there is not enough space for root
+    let runs_with_lx = args::get().runs_with_linux;
+    if thread::cur().is_main() && !runs_with_lx {
+        ActivityMng::start_root_async().expect("starting root failed");
     }
 
     // prevent the workloop from exiting right away because there is no activity
-    let linux_is_running = thread::cur().is_main();
+    let linux_is_running = thread::cur().is_main() && runs_with_lx;
 
     while ActivityMng::count() > 0 || linux_is_running {
         if envdata::get().platform != envdata::Platform::HW.val {

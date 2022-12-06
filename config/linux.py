@@ -2,25 +2,29 @@ import os, sys
 from subprocess import call
 
 sys.path.append(os.path.realpath('platform/gem5/configs/example'))
-from tcu_fs import *
+import tcu_fs as t
 
-options = getOptions()
-root = createRoot(options)
+# we need more memory for the linux tile; this changes the variable in tcu_fs.py
+t.linux_tile_size = 0x5000_0000
+t.mod_offset = t.linux_tile_offset + t.linux_tile_size
+t.tile_offset = t.mod_offset + t.mod_size
+
+options = t.getOptions()
+root = t.createRoot(options)
 
 num_eps = 192
-
 mem_tile_no = 2
 
-kernel_tile = createCoreTile(noc=root.noc,
+kernel_tile = t. createCoreTile(noc=root.noc,
                              options=options,
                              no=0,
-                             cmdline='build/gem5-riscv-release/bin/kernel', # FIXME
+                             cmdline='build/gem5-riscv-release/bin/kernel -l', # FIXME
                              memTile=mem_tile_no,
                              l1size='32kB',
                              l2size='256kB',
                              epCount=num_eps)
 
-linux_tile = createLinuxTile(options,
+linux_tile = t.createLinuxTile(options,
                              noc=root.noc,
                              no=1,
                              memTile=mem_tile_no,
@@ -28,7 +32,7 @@ linux_tile = createLinuxTile(options,
                              fsImage=options.disk_image,
                              commandLine='earlycon=sbi console=ttyS0 root=/dev/vda1')
 
-memory_tile = createMemTile(noc=root.noc,
+memory_tile = t.createMemTile(noc=root.noc,
                             options=options,
                             no=mem_tile_no,
                             size='3072MB',
@@ -36,4 +40,4 @@ memory_tile = createMemTile(noc=root.noc,
                             imageNum=0,
                             epCount=num_eps)
 
-runSimulation(root, options, [kernel_tile, linux_tile, memory_tile])
+t.runSimulation(root, options, [kernel_tile, linux_tile, memory_tile])
