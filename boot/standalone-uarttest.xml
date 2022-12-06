@@ -1,5 +1,5 @@
 <config>
-    <kernel args="uarttest" />
+    <kernel args="standalone-uarttest" />
     <kernel args="tilemux" />
     <kernel args="tilemux" />
     <kernel args="tilemux" />
