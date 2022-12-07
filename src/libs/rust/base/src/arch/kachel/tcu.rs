@@ -786,17 +786,18 @@ impl TCU {
 
     /// Invalidates the entry with given address space id and virtual address in the TCU's TLB
     pub fn invalidate_page(asid: u16, virt: usize) {
-        let val = ((asid as Reg) << 41) | ((virt as Reg) << 9) | PrivCmdOpCode::INV_PAGE.val;
+        let val = ((asid as Reg) << 9) | PrivCmdOpCode::INV_PAGE.val;
+        Self::write_priv_reg(PrivReg::PRIV_CMD_ARG, virt as Reg);
         Self::write_priv_reg(PrivReg::PRIV_CMD, val);
         Self::wait_priv_cmd();
     }
 
     /// Inserts the given entry into the TCU's TLB
     pub fn insert_tlb(asid: u16, virt: usize, phys: u64, flags: PageFlags) -> Result<(), Error> {
-        Self::write_priv_reg(PrivReg::PRIV_CMD_ARG, phys);
+        Self::write_priv_reg(PrivReg::PRIV_CMD_ARG, (virt as Reg) & !(cfg::PAGE_MASK as Reg));
         atomic::fence(atomic::Ordering::SeqCst);
         let cmd = ((asid as Reg) << 41)
-            | (((virt & !cfg::PAGE_MASK) as Reg) << 9)
+            | (((phys as Reg) & !(cfg::PAGE_MASK as Reg)) << 9)
             | ((flags.bits() as Reg) << 9)
             | PrivCmdOpCode::INS_TLB.val;
         Self::write_priv_reg(PrivReg::PRIV_CMD, cmd);
