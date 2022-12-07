@@ -37,7 +37,7 @@ pub type Reg = u64;
 /// An endpoint id
 pub type EpId = u16;
 /// A TCU label used in send EPs
-pub type Label = u32;
+pub type Label = u64;
 /// A tile id
 pub type TileId = u8;
 /// A activity id
@@ -108,7 +108,7 @@ pub const MMIO_PRIV_SIZE: usize = cfg::PAGE_SIZE * 2;
 /// The number of external registers
 pub const EXT_REGS: usize = 2;
 /// The number of unprivileged registers
-pub const UNPRIV_REGS: usize = 5;
+pub const UNPRIV_REGS: usize = 6;
 /// The number of registers per EP
 pub const EP_REGS: usize = 3;
 /// The number of PRINT registers
@@ -156,14 +156,16 @@ int_enum! {
     pub struct UnprivReg : Reg {
         /// Starts commands and signals their completion
         const COMMAND       = 0x0;
-        /// Specifies the data address and size
-        const DATA          = 0x1;
+        /// Specifies the data address
+        const DATA_ADDR     = 0x1;
+        /// Specifies the data size
+        const DATA_SIZE     = 0x2;
         /// Specifies an additional argument
-        const ARG1          = 0x2;
+        const ARG1          = 0x3;
         /// The current time in nanoseconds
-        const CUR_TIME      = 0x3;
+        const CUR_TIME      = 0x4;
         /// Prints a line into the gem5 log
-        const PRINT         = 0x4;
+        const PRINT         = 0x5;
     }
 }
 
@@ -284,8 +286,8 @@ pub struct Header {
 
     pub length: u16,
 
-    pub reply_label: u32,
-    pub label: u32,
+    pub reply_label: u64,
+    pub label: u64,
 }
 
 /// The TCU message consisting of the header and the payload
@@ -368,7 +370,8 @@ impl TCU {
             reply_ep
         );
 
-        Self::write_unpriv_reg(UnprivReg::DATA, Self::build_data(msg_addr, len));
+        Self::write_unpriv_reg(UnprivReg::DATA_ADDR, msg_addr as Reg);
+        Self::write_unpriv_reg(UnprivReg::DATA_SIZE, len as Reg);
         if reply_lbl != 0 {
             Self::write_unpriv_reg(UnprivReg::ARG1, reply_lbl as Reg);
         }
@@ -403,7 +406,8 @@ impl TCU {
             msg_off
         );
 
-        Self::write_unpriv_reg(UnprivReg::DATA, Self::build_data(reply_addr, len));
+        Self::write_unpriv_reg(UnprivReg::DATA_ADDR, reply_addr as Reg);
+        Self::write_unpriv_reg(UnprivReg::DATA_SIZE, len as Reg);
 
         Self::perform_send_reply(
             reply_addr,
@@ -475,7 +479,8 @@ impl TCU {
         while size > 0 {
             let amount = cmp::min(size, cfg::PAGE_SIZE - (data & cfg::PAGE_MASK));
 
-            Self::write_unpriv_reg(UnprivReg::DATA, Self::build_data(data, amount));
+            Self::write_unpriv_reg(UnprivReg::DATA_ADDR, data as Reg);
+            Self::write_unpriv_reg(UnprivReg::DATA_SIZE, amount as Reg);
             Self::write_unpriv_reg(UnprivReg::ARG1, off as Reg);
             Self::write_unpriv_reg(UnprivReg::COMMAND, Self::build_cmd(ep, cmd, 0));
 
@@ -876,10 +881,6 @@ impl TCU {
     fn write_reg(idx: usize, val: Reg) {
         // safety: as above
         unsafe { arch::cpu::write8b(MMIO_ADDR + idx * 8, val) };
-    }
-
-    fn build_data(addr: usize, size: usize) -> Reg {
-        addr as Reg | (size as Reg) << 32
     }
 
     fn build_cmd(ep: EpId, cmd: CmdOpCode, arg: Reg) -> Reg {

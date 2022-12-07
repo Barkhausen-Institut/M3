@@ -67,7 +67,7 @@ public:
 private:
     static const size_t EXT_REGS = 2;
     static const size_t PRIV_REGS = 5;
-    static const size_t UNPRIV_REGS = 5;
+    static const size_t UNPRIV_REGS = 6;
     static const size_t EP_REGS = 3;
     static const size_t PRINT_REGS = 32;
 
@@ -89,10 +89,11 @@ private:
 
     enum class UnprivRegs {
         COMMAND = EXT_REGS + 0,
-        DATA = EXT_REGS + 1,
-        ARG1 = EXT_REGS + 2,
-        CUR_TIME = EXT_REGS + 3,
-        PRINT = EXT_REGS + 4,
+        DATA_ADDR = EXT_REGS + 1,
+        DATA_SIZE = EXT_REGS + 2,
+        ARG1 = EXT_REGS + 3,
+        CUR_TIME = EXT_REGS + 4,
+        PRINT = EXT_REGS + 5,
     };
 
     enum StatusFlags : reg_t { PRIV = 1 << 0, };
@@ -156,8 +157,8 @@ public:
                           // for a reply this is the enpoint that receives credits
         uint16_t length;
 
-        uint32_t replylabel;
-        uint32_t label;
+        uint64_t replylabel;
+        uint64_t label;
     } PACKED;
 
     struct Message : Header {
