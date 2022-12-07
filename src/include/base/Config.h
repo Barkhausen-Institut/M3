@@ -125,7 +125,7 @@
 #define KPEX_RBUF_ORDER   6
 #define KPEX_RBUF_SIZE    (1 << KPEX_RBUF_ORDER)
 
-#define TMUP_RBUF_ORDER   6
+#define TMUP_RBUF_ORDER   7
 #define TMUP_RBUF_SIZE    (1 << TMUP_RBUF_ORDER)
 
 #define SYSC_RBUF_ORDER   9

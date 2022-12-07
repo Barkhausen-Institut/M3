@@ -45,12 +45,12 @@ pub fn flush_cache() {
 }
 
 pub struct TCUCmdState {
-    cmd_regs: [tcu::Reg; 3],
+    cmd_regs: [tcu::Reg; 4],
 }
 
 impl TCUCmdState {
     pub const fn new() -> Self {
-        TCUCmdState { cmd_regs: [0; 3] }
+        TCUCmdState { cmd_regs: [0; 4] }
     }
 
     pub fn save(&mut self) {
@@ -59,12 +59,14 @@ impl TCUCmdState {
 
         self.cmd_regs[0] = old_cmd;
         self.cmd_regs[1] = tcu::TCU::read_unpriv_reg(tcu::UnprivReg::ARG1);
-        self.cmd_regs[2] = tcu::TCU::read_unpriv_reg(tcu::UnprivReg::DATA);
+        self.cmd_regs[2] = tcu::TCU::read_unpriv_reg(tcu::UnprivReg::DATA_ADDR);
+        self.cmd_regs[3] = tcu::TCU::read_unpriv_reg(tcu::UnprivReg::DATA_SIZE);
     }
 
     pub fn restore(&mut self) {
         tcu::TCU::write_unpriv_reg(tcu::UnprivReg::ARG1, self.cmd_regs[1]);
-        tcu::TCU::write_unpriv_reg(tcu::UnprivReg::DATA, self.cmd_regs[2]);
+        tcu::TCU::write_unpriv_reg(tcu::UnprivReg::DATA_ADDR, self.cmd_regs[2]);
+        tcu::TCU::write_unpriv_reg(tcu::UnprivReg::DATA_SIZE, self.cmd_regs[3]);
         // always restore the command register, because the previous activity might have an error code
         // in the command register or similar.
         atomic::fence(atomic::Ordering::SeqCst);
