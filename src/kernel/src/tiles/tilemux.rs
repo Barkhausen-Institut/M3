@@ -28,9 +28,9 @@ use core::cmp;
 use crate::cap::{
     EPObject, EPQuota, KMemObject, MGateObject, RGateObject, SGateObject, TileObject,
 };
+use crate::ktcu;
 use crate::platform;
 use crate::tiles::INVAL_ID;
-use crate::ktcu;
 
 use super::Activity;
 
@@ -370,7 +370,8 @@ impl TileMux {
         let act_id = req.act_sel as ActId;
         let exitcode = req.code as i32;
 
-        klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
+        let tile_id = tilemux.tile_id();
+        klog!(TMC, "TileMux[{}] received {:?}", tile_id, req);
 
         let has_act = tilemux.acts.contains(&act_id);
         drop(tilemux);
@@ -382,13 +383,15 @@ impl TileMux {
 
         let mut reply = MsgBuf::borrow_def();
         reply.set(kif::DefaultReply { error: 0 });
-        ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
+        if let Err(e) = ktcu::reply(ktcu::KPEX_EP, &reply, msg) {
+            klog!(ERR, "TileMux[{}] got {} on Exit sidecall reply", tile_id, e);
+        }
     }
 
     fn create_lx_activity(tilemux: RefMut<'_, Self>) -> Result<Rc<Activity>, Error> {
-        use crate::tiles::{ActivityMng, ActivityFlags, State};
-        use base::cfg;
         use crate::args;
+        use crate::tiles::{ActivityFlags, ActivityMng, State};
+        use base::cfg;
         use base::envdata::EnvData;
 
         let kmem = KMemObject::new(args::get().kmem - cfg::FIXED_KMEM);
@@ -412,7 +415,12 @@ impl TileMux {
         env.first_sel = act.first_sel();
         env.act_id = act.id() as u64;
 
-        ktcu::write_mem(act.tile_id(), cfg::ENV_START as u64, &env as *const _ as *const u8, base::mem::size_of_val(&env));
+        ktcu::write_mem(
+            act.tile_id(),
+            cfg::ENV_START as u64,
+            &env as *const _ as *const u8,
+            base::mem::size_of_val(&env),
+        );
 
         act.set_state(State::RUNNING);
         Ok(act)
@@ -420,7 +428,8 @@ impl TileMux {
 
     fn handle_lx_act_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
         let req = msg.get_data::<kif::tilemux::LxAct>();
-        klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
+        let tile_id = tilemux.tile_id();
+        klog!(TMC, "TileMux[{}] received {:?}", tile_id, req);
         let act = Self::create_lx_activity(tilemux);
 
         let error = match act {
@@ -429,17 +438,27 @@ impl TileMux {
         };
         let mut reply = MsgBuf::borrow_def();
         reply.set(kif::DefaultReply { error });
-        ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
+        if let Err(e) = ktcu::reply(ktcu::KPEX_EP, &reply, msg) {
+            klog!(
+                ERR,
+                "TileMux[{}] got {} on LxAct sidecall reply",
+                tile_id,
+                e
+            );
+        }
     }
 
     fn handle_noop_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
         let req = msg.get_data::<kif::tilemux::Noop>();
-        klog!(TMC, "TileMux[{}] received {:?}", tilemux.tile_id(), req);
+        let tile_id = tilemux.tile_id();
+        klog!(TMC, "TileMux[{}] received {:?}", tile_id, req);
         drop(tilemux);
 
         let mut reply = MsgBuf::borrow_def();
         reply.set(kif::DefaultReply { error: 0 });
-        ktcu::reply(ktcu::KPEX_EP, &reply, msg).unwrap();
+        if let Err(e) = ktcu::reply(ktcu::KPEX_EP, &reply, msg) {
+            klog!(ERR, "TileMux[{}] got {} on Noop sidecall reply", tile_id, e);
+        }
     }
 
     pub fn activity_init_async(
