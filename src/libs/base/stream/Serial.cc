@@ -48,8 +48,8 @@ void Serial::init(const char *path, TileId tile) {
     _inst->_outbuf[i++] = 'C';
     _inst->_outbuf[i++] = '0' + static_cast<int>(tile.chip());
     _inst->_outbuf[i++] = 'T';
-    _inst->_outbuf[i++] = '0' + (tile.tile() % 10);
     _inst->_outbuf[i++] = '0' + (tile.tile() / 10);
+    _inst->_outbuf[i++] = '0' + (tile.tile() % 10);
     _inst->_outbuf[i++] = ':';
     size_t x = 0;
     for(; x < 8 && name[x]; ++x)
