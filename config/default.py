@@ -13,7 +13,6 @@ num_eps = 128 if os.environ.get('M3_TARGET') == 'hw' else 192
 num_mem = 1
 num_sto = 1 # Number of tiles for IDE storage
 num_tiles = int(os.environ.get('M3_GEM5_TILES'))
-num_spm = 4 if num_tiles >= 4 else 4 - num_tiles
 
 fsimg = os.environ.get('M3_GEM5_FS')
 fsimgnum = os.environ.get('M3_GEM5_FSNUM', '1')
@@ -30,7 +29,7 @@ mem_tile = TileId(0, num_tiles + num_sto + 2 + num_rot13 + num_kecacc)
 tiles = []
 
 # create the core tiles
-for i in range(0, num_tiles - num_spm):
+for i in range(0, num_tiles):
     tile = createCoreTile(noc=root.noc,
                           options=options,
                           id=TileId(0, i),
@@ -38,16 +37,6 @@ for i in range(0, num_tiles - num_spm):
                           memTile=mem_tile,
                           l1size='32kB',
                           l2size='256kB',
-                          epCount=num_eps)
-    tiles.append(tile)
-
-for i in range(num_tiles - num_spm, num_tiles):
-    tile = createCoreTile(noc=root.noc,
-                          options=options,
-                          id=TileId(0, i),
-                          cmdline=cmd_list[i],
-                          memTile=mem_tile,
-                          spmsize='32MB',
                           epCount=num_eps)
     tiles.append(tile)
 
