@@ -74,7 +74,7 @@ static void test_msg_errors() {
     {
         kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP,
                                  1 /* make msg 0 (EP 2) occupied */, 0);
-        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 4 /* 16 */, 1);
+        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 5 /* 32 */, 1);
         const TCU::Message *rmsg = reinterpret_cast<const TCU::Message *>(buf1);
         ASSERT_EQ(kernel::TCU::reply(REP, empty_msg, buf1, rmsg), Errors::SEND_REPLY_EP);
     }
@@ -82,21 +82,20 @@ static void test_msg_errors() {
     logln("SEND to invalid receive EP"_cf);
     {
         kernel::TCU::config_invalid(REP);
-        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP /* invalid REP */, 4 /* 16 */,
-                                 1);
+        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP /* invalid REP */, 5 /* 32 */, 1);
         ASSERT_EQ(kernel::TCU::send(SEP, empty_msg, 0x1111, TCU::NO_REPLIES), Errors::RECV_GONE);
     }
 
     logln("SEND to out-of-bounds receive EP"_cf);
     {
-        kernel::TCU::config_send(SEP, 0x5678, own_tile, TOTAL_EPS, 4 /* 16 */, 1);
+        kernel::TCU::config_send(SEP, 0x5678, own_tile, TOTAL_EPS, 5 /* 32 */, 1);
         ASSERT_EQ(kernel::TCU::send(SEP, empty_msg, 0x1111, TCU::NO_REPLIES), Errors::RECV_GONE);
     }
 
     logln("SEND of too large message"_cf);
     {
         MsgBuf large_msg;
-        large_msg.cast<uint64_t[6]>();
+        large_msg.cast<uint64_t[4]>();
         kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, TCU::NO_REPLIES);
         kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
         ASSERT_EQ(kernel::TCU::send(SEP, large_msg, 0x1111, TCU::NO_REPLIES),
@@ -106,7 +105,7 @@ static void test_msg_errors() {
     logln("SEND without 16-byte aligned message"_cf);
     {
         ALIGNED(16) uint64_t words[2] = {0, 0};
-        kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, TCU::NO_REPLIES);
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, TCU::NO_REPLIES);
         kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
         ASSERT_EQ(kernel::TCU::send_aligned(SEP, words + 1, sizeof(uint64_t), 0x1111,
                                             TCU::NO_REPLIES),
@@ -116,8 +115,8 @@ static void test_msg_errors() {
     logln("REPLY without 16-byte aligned message"_cf);
     {
         ALIGNED(16) uint64_t words[2] = {0, 0};
-        kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, RPLEP, 1, 0);
-        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 5 /* 32 */, 1, true);
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP, 1, 0);
+        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 6 /* 64 */, 1, true);
         auto rmsg = reinterpret_cast<const m3::TCU::Message *>(buffer);
         ASSERT_EQ(kernel::TCU::reply_aligned(REP, words + 1, sizeof(uint64_t), buf1, rmsg),
                   Errors::MSG_UNALIGNED);
@@ -125,8 +124,8 @@ static void test_msg_errors() {
 
     logln("SEND+ACK+REPLY with invalid reply EPs"_cf);
     {
-        kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, TOTAL_EPS);
-        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 5 /* 32 */, 1);
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, TOTAL_EPS);
+        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
         ASSERT_EQ(kernel::TCU::send(SEP, empty_msg, 0x1111, REP), Errors::RECV_INV_RPL_EPS);
         auto rmsg = reinterpret_cast<const m3::TCU::Message *>(buffer);
         ASSERT_EQ(kernel::TCU::ack_msg(REP, buf1, rmsg), Errors::RECV_INV_RPL_EPS);
@@ -135,10 +134,9 @@ static void test_msg_errors() {
 
     logln("SEND+REPLY with invalid credit EP"_cf);
     {
-        kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, RPLEP);
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP);
         // install reply EP
-        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 5 /* 32 */, 1, true,
-                                 TOTAL_EPS);
+        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 6 /* 64 */, 1, true, TOTAL_EPS);
         // now try to reply with invalid credit EP
         auto rmsg = reinterpret_cast<const m3::TCU::Message *>(buffer);
         ASSERT_EQ(kernel::TCU::reply(REP, empty_msg, buf1, rmsg), Errors::SEND_INV_CRD_EP);
@@ -155,8 +153,8 @@ static void test_msg_errors() {
 
     logln("REPLY with invalid message size in reply EP"_cf);
     {
-        kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, RPLEP);
-        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 5 /* 32 */, 1);
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP);
+        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
         // install reply EP
         kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP, 12 /* 4096 */, 1, true, 2);
         // now try to reply
@@ -167,7 +165,7 @@ static void test_msg_errors() {
     logln("Send EP should not lose credits on failed SENDs"_cf);
     {
         kernel::TCU::config_invalid(REP);
-        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 5 /* 32 */, 1);
+        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
         // try send to invalid receive EP
         ASSERT_EQ(kernel::TCU::send(SEP, empty_msg, 0x1111, TCU::NO_REPLIES), Errors::RECV_GONE);
         // now we should still have credits
@@ -176,10 +174,10 @@ static void test_msg_errors() {
 
     logln("Receive EP should not change on failed REPLYs"_cf);
     {
-        kernel::TCU::config_recv(REP, buf1, 5 /* 32 */, 5 /* 32 */, RPLEP, 0x1, 0x1);
-        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 5 /* 32 */, 1);
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP, 0x1, 0x1);
+        kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
         // install reply EP
-        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP2, 5 /* 32 */, 1, true, 2);
+        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP2, 6 /* 64 */, 1, true, 2);
         kernel::TCU::config_invalid(REP2);
         // now try reply to invalid receive EP
         auto rmsg = reinterpret_cast<const m3::TCU::Message *>(buffer);
@@ -205,7 +203,7 @@ static void test_msg_send_empty() {
     MsgBuf empty_msg;
 
     kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP);
-    kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 4 /* 16 */, 1);
+    kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 5 /* 32 */, 1);
 
     // send empty message
     ASSERT_EQ(kernel::TCU::send(SEP, empty_msg, 0x2222, TCU::NO_REPLIES), Errors::SUCCESS);
@@ -221,7 +219,7 @@ static void test_msg_send_empty() {
     ASSERT_EQ(rmsg->replylabel, 0x2222);
     ASSERT_EQ(rmsg->length, 0);
     ASSERT_EQ(rmsg->senderEp, SEP);
-    ASSERT_EQ(rmsg->replySize, 4 /* log2(TCU::Message::Header) */);
+    ASSERT_EQ(rmsg->replySize, 5 /* log2(TCU::Message::Header) */);
     ASSERT_EQ(rmsg->replyEp, TCU::INVALID_EP);
     ASSERT_EQ(rmsg->senderTile, own_tile.raw());
     ASSERT_EQ(rmsg->flags, 0);
@@ -243,7 +241,7 @@ static void test_msg_reply_empty() {
 
     kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP);
     kernel::TCU::config_recv(REP2, buf2, 6 /* 64 */, 6 /* 64 */, TCU::NO_REPLIES);
-    kernel::TCU::config_send(SEP, 0x1234, own_tile, REP, 4 /* 16 */, 1);
+    kernel::TCU::config_send(SEP, 0x1234, own_tile, REP, 5 /* 32 */, 1);
 
     // send empty message
     ASSERT_EQ(kernel::TCU::max_credits(SEP), 1);
@@ -322,7 +320,7 @@ static void test_msg_no_reply() {
     ASSERT_EQ(rmsg->replylabel, 0x1111);
     ASSERT_EQ(rmsg->length, msg.size());
     ASSERT_EQ(rmsg->senderEp, SEP);
-    ASSERT_EQ(rmsg->replySize, 4 /* log2(TCU::Message::Header) */);
+    ASSERT_EQ(rmsg->replySize, 5 /* log2(TCU::Message::Header) */);
     ASSERT_EQ(rmsg->replyEp, TCU::INVALID_EP);
     ASSERT_EQ(rmsg->senderTile, own_tile.raw());
     ASSERT_EQ(rmsg->flags, 0);
