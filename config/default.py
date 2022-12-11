@@ -25,7 +25,7 @@ if not os.path.isfile(hard_disk0):
 
 num_rot13 = 2
 num_kecacc = 1
-mem_tile = TileId(0, num_tiles + num_sto + 2 + num_rot13 + num_kecacc + 1)
+mem_tile = TileId(0, num_tiles + num_sto + 2 + num_rot13 + num_kecacc)
 
 tiles = []
 
@@ -98,23 +98,23 @@ for i in range(0, num_kecacc):
                             epCount=num_eps)
     tiles.append(tile)
 
-# create tile for serial input
-tile = createSerialTile(noc=root.noc,
-                        options=options,
-                        id=TileId(0, num_tiles + num_sto + 2 + num_rot13 + num_kecacc),
-                        memTile=mem_tile,
-                        epCount=num_eps)
-tiles.append(tile)
-
 # create the memory tiles
 for i in range(0, num_mem):
     tile = createMemTile(noc=root.noc,
                          options=options,
-                         id=TileId(0, num_tiles + num_sto + 2 + num_rot13  + num_kecacc + 1 + i),
+                         id=TileId(0, num_tiles + num_sto + 2 + num_rot13  + num_kecacc + i),
                          size='3072MB',
                          image=fsimg if i == 0 else None,
                          imageNum=int(fsimgnum),
                          epCount=num_eps)
     tiles.append(tile)
+
+# create tile for serial input
+tile = createSerialTile(noc=root.noc,
+                        options=options,
+                        id=TileId(0, num_tiles + num_sto + 2 + num_rot13 + num_kecacc + num_mem),
+                        memTile=mem_tile,
+                        epCount=num_eps)
+tiles.append(tile)
 
 runSimulation(root, options, tiles)

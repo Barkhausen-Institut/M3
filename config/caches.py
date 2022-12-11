@@ -13,7 +13,7 @@ num_mem = 1
 num_tiles = int(os.environ.get('M3_GEM5_TILES'))
 fsimg = os.environ.get('M3_GEM5_FS')
 fsimgnum = os.environ.get('M3_GEM5_FSNUM', '1')
-mem_tile = TileId(0, num_tiles + 1)
+mem_tile = TileId(0, num_tiles)
 
 # Memory watch example:
 # options.mem_watches = {
@@ -37,23 +37,23 @@ for i in range(0, num_tiles):
                           epCount=num_eps)
     tiles.append(tile)
 
-# create tile for serial input
-tile = createSerialTile(noc=root.noc,
-                        options=options,
-                        id=TileId(0, num_tiles),
-                        memTile=mem_tile,
-                        epCount=num_eps)
-tiles.append(tile)
-
 # create the memory tiles
 for i in range(0, num_mem):
     tile = createMemTile(noc=root.noc,
                          options=options,
-                         id=TileId(0, num_tiles + 1 + i),
+                         id=TileId(0, num_tiles + i),
                          size='3072MB',
                          image=fsimg if i == 0 else None,
                          imageNum=int(fsimgnum),
                          epCount=num_eps)
     tiles.append(tile)
+
+# create tile for serial input
+tile = createSerialTile(noc=root.noc,
+                        options=options,
+                        id=TileId(0, num_tiles + num_mem),
+                        memTile=mem_tile,
+                        epCount=num_eps)
+tiles.append(tile)
 
 runSimulation(root, options, tiles)
