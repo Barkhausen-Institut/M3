@@ -1,4 +1,5 @@
 <config>
+    <env>M3_FS=bench.img</env>
     <kernel args="kernel" />
     <dom>
         <app args="root">

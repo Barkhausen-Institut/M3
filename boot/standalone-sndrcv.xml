@@ -1,4 +1,5 @@
 <config>
+    <env>M3_HW_VM=0 M3_GEM5_CFG=config/spm.py M3_CORES=8</env>
     <kernel args="standalone-receiver" />
     <kernel args="standalone-sender" />
     <kernel args="standalone-sender" />

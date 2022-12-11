@@ -44,6 +44,26 @@ generate_config() {
         echo "error: '$1' is not a file" >&2 && exit 1
     fi
 
+    # validate config
+    xmllint --schema misc/boot.xsd --noout "$1" > /dev/null || exit 1
+
+    # extract env variables and set them
+    env=$(xmllint --xpath "/config/env/text()" "$1" 2>/dev/null)
+    if [ "$env" != "" ]; then
+        for e in $env; do
+            # warn if the user has set it to a different value
+            var=${e%%=*}
+            val=${e#*=}
+            old_env=$(env | grep "^$var=")
+            old_val=${old_env#*=}
+            if [ "$old_val" != "" ] && [ "$old_val" != "$val" ]; then
+                echo "Warning: $var is already set to '$old_val', but overridden to '$val' by $1."
+            fi
+            export $e
+        done
+    fi
+
+    # replace variables
     hd=$M3_HDD_PATH
     fs=build/$M3_TARGET-$M3_ISA-$M3_BUILD/$M3_FS
     fssize=$(stat --format="%s" "$fs")
@@ -53,8 +73,7 @@ generate_config() {
         s#\$hd.path#$hd#g;
     " < "$1" > "$2/boot-all.xml"
 
-    xmllint --schema misc/boot.xsd --noout "$2/boot-all.xml" > /dev/null || exit 1
-    # this can fail if there is no app element (e.g., standalone.xml)
+    # extract runtime part; this can fail if there is no app element (e.g., standalone.xml)
     xmllint --xpath /config/dom/app "$2/boot-all.xml" > "$2/boot.xml" || true
 }
 
