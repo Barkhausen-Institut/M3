@@ -396,6 +396,7 @@ impl TileMux {
 
         let kmem = KMemObject::new(args::get().kmem - cfg::FIXED_KMEM);
         let tile = tilemux.tile().clone();
+        let tile_id = tilemux.tile_id();
         drop(tilemux);
         let act = ActivityMng::create_activity_async(
             "lx_act",
@@ -404,8 +405,9 @@ impl TileMux {
             kmem,
             ActivityFlags::IS_LINUX,
         )?;
-        // let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
-        act.init_eps_async(0x1040_0000)?;
+        let rbuf_virt = platform::tile_desc(tile_id).rbuf_std_space().0;
+        // TODO: use virt rbuf address as phys rbuf address?
+        act.init_eps_async(rbuf_virt as u64)?;
 
         // initialize env data
         let mut env = EnvData::default();
