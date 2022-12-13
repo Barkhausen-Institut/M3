@@ -176,6 +176,7 @@ fn parse_app(p: &mut ConfigParser, start: usize) -> Result<config::AppConfig, Er
                 "eps" => app.eps = Some(parse::int(&v)? as u32),
                 "daemon" => app.daemon = parse::bool(&v)?,
                 "getinfo" => app.getinfo = parse::bool(&v)?,
+                "foreign" => app.foreign = parse::bool(&v)?,
                 _ => return Err(Error::new(Code::InvArgs)),
             },
         }

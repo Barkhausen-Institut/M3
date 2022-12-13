@@ -368,6 +368,7 @@ pub struct AppConfig {
     pub(crate) cfg_range: (usize, usize),
     pub(crate) daemon: bool,
     pub(crate) getinfo: bool,
+    pub(crate) foreign: bool,
     pub(crate) eps: Option<u32>,
     pub(crate) user_mem: Option<usize>,
     pub(crate) kern_mem: Option<usize>,
@@ -410,6 +411,10 @@ impl AppConfig {
 
     pub fn can_get_info(&self) -> bool {
         self.getinfo
+    }
+
+    pub fn is_foreign(&self) -> bool {
+        self.foreign
     }
 
     pub fn eps(&self) -> Option<u32> {
@@ -670,6 +675,9 @@ impl AppConfig {
             write!(f, "{} ", a)?;
         }
         writeln!(f, "[")?;
+        if self.foreign {
+            writeln!(f, "{:0w$}Foreign,", "", w = layer + 2)?;
+        }
         if self.daemon {
             writeln!(f, "{:0w$}Daemon,", "", w = layer + 2)?;
         }
