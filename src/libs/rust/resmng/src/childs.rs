@@ -822,8 +822,7 @@ impl OwnChild {
     pub fn start(
         &mut self,
         act: ChildActivity,
-        mapper: &mut dyn Mapper,
-        file: FileRef<dyn File>,
+        program: Option<(&mut dyn Mapper, FileRef<dyn File>)>,
     ) -> Result<(), Error> {
         log!(
             crate::LOG_DEF,
@@ -833,7 +832,7 @@ impl OwnChild {
             &self.args[1..]
         );
 
-        self.activity = Some(act.exec_file(mapper, file, &self.args)?);
+        self.activity = Some(act.exec_file(program, &self.args)?);
 
         Ok(())
     }

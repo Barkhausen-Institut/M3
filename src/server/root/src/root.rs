@@ -57,7 +57,12 @@ fn find_mod(name: &str) -> Option<(MemGate, usize)> {
 }
 
 fn start_child_async(child: &mut OwnChild) -> Result<(), VerboseError> {
-    let bmod = find_mod(child.cfg().name()).ok_or_else(|| Error::new(Code::NotFound))?;
+    let bmod = if !child.cfg().is_foreign() {
+        Some(find_mod(child.cfg().name()).ok_or_else(|| Error::new(Code::NotFound))?)
+    }
+    else {
+        None
+    };
 
     #[allow(clippy::useless_conversion)]
     let sgate = SendGate::new_with(
@@ -84,20 +89,27 @@ fn start_child_async(child: &mut OwnChild) -> Result<(), VerboseError> {
             .expect("Unable to finalize subsystem");
     }
 
-    let mut bmapper = loader::BootMapper::new(
-        act.sel(),
-        bmod.0.sel(),
-        act.tile_desc().has_virtmem(),
-        child.mem().pool().clone(),
-    );
-    let bfile = loader::BootFile::new(bmod.0, bmod.1);
-    let fd = Activity::own().files().add(Box::new(bfile))?;
-    child
-        .start(act, &mut bmapper, FileRef::new_owned(fd))
-        .map_err(|e| VerboseError::new(e.code(), "Unable to start Activity".to_string()))?;
+    if let Some(bmod) = bmod {
+        let mut bmapper = loader::BootMapper::new(
+            act.sel(),
+            bmod.0.sel(),
+            act.tile_desc().has_virtmem(),
+            child.mem().pool().clone(),
+        );
+        let bfile = loader::BootFile::new(bmod.0, bmod.1);
+        let fd = Activity::own().files().add(Box::new(bfile))?;
+        child
+            .start(act, Some((&mut bmapper, FileRef::new_owned(fd))))
+            .map_err(|e| VerboseError::new(e.code(), "Unable to start Activity".to_string()))?;
 
-    for a in bmapper.fetch_allocs() {
-        child.add_mem(a, None);
+        for a in bmapper.fetch_allocs() {
+            child.add_mem(a, None);
+        }
+    }
+    else {
+        child
+            .start(act, None)
+            .map_err(|e| VerboseError::new(e.code(), "Unable to start Activity".to_string()))?;
     }
 
     Ok(())

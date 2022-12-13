@@ -82,12 +82,12 @@ impl Drop for RunningDeviceActivity {
 /// The activity for [`ChildActivity::run`] and [`ChildActivity::exec`].
 pub struct RunningProgramActivity {
     act: ChildActivity,
-    _file: BufReader<FileRef<dyn File>>,
+    _file: Option<BufReader<FileRef<dyn File>>>,
 }
 
 impl RunningProgramActivity {
     /// Creates a new `ExecActivity` for the given activity and executable.
-    pub fn new(act: ChildActivity, file: BufReader<FileRef<dyn File>>) -> Self {
+    pub fn new(act: ChildActivity, file: Option<BufReader<FileRef<dyn File>>>) -> Self {
         Self { act, _file: file }
     }
 }

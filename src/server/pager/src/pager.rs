@@ -237,7 +237,7 @@ fn start_child_async(child: &mut OwnChild) -> Result<(), VerboseError> {
         .map_err(|e| VerboseError::new(e.code(), format!("Unable to open {}", child.name())))?;
     let mut mapper = mapper::ChildMapper::new(aspace, act.tile_desc().has_virtmem());
     child
-        .start(act, &mut mapper, file.into_generic())
+        .start(act, Some((&mut mapper, file.into_generic())))
         .map_err(|e| VerboseError::new(e.code(), "Unable to start Activity".to_string()))
 }
 
