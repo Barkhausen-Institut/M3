@@ -11,12 +11,21 @@ options = t.getOptions()
 root = t.createRoot(options)
 
 num_eps = 192
-mem_tile_no = 2
+mem_tile_no = 3
 
 kernel_tile = t. createCoreTile(noc=root.noc,
                              options=options,
                              no=0,
-                             cmdline='build/gem5-riscv-release/bin/kernel -l', # FIXME
+                             cmdline='build/gem5-riscv-release/bin/kernel', # FIXME
+                             memTile=mem_tile_no,
+                             l1size='32kB',
+                             l2size='256kB',
+                             epCount=num_eps)
+
+user_tile = t. createCoreTile(noc=root.noc,
+                             options=options,
+                             no=1,
+                             cmdline='build/gem5-riscv-release/bin/tilemux', # FIXME
                              memTile=mem_tile_no,
                              l1size='32kB',
                              l2size='256kB',
@@ -24,7 +33,7 @@ kernel_tile = t. createCoreTile(noc=root.noc,
 
 linux_tile = t.createLinuxTile(options,
                              noc=root.noc,
-                             no=1,
+                             no=2,
                              memTile=mem_tile_no,
                              kernel=options.kernel,
                              fsImage=options.disk_image,
@@ -38,4 +47,4 @@ memory_tile = t.createMemTile(noc=root.noc,
                             imageNum=0,
                             epCount=num_eps)
 
-t.runSimulation(root, options, [kernel_tile, linux_tile, memory_tile])
+t.runSimulation(root, options, [kernel_tile, user_tile, linux_tile, memory_tile])

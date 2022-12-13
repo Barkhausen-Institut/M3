@@ -1,0 +1,5 @@
+<app args="root">
+    <dom>
+        <app args="hello" foreign="1" />
+    </dom>
+</app>
