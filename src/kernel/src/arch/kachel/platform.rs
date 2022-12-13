@@ -35,7 +35,7 @@ pub fn init(_args: &[String]) -> platform::KEnv {
     // read kernel env
     let addr = GlobAddr::new(envdata::get().kenv);
     let mut offset = addr.offset();
-    let info: boot::Info = ktcu::read_obj(addr.tile(), offset);
+    let mut info: boot::Info = ktcu::read_obj(addr.tile(), offset);
     offset += size_of::<boot::Info>() as goff;
 
     // read boot modules
@@ -76,11 +76,21 @@ pub fn init(_args: &[String]) -> platform::KEnv {
                 }
 
                 // file system image
-                let mut used = tile.mem_size() as goff - avail;
-                mem.add(MemMod::new(MemType::OCCUPIED, i as TileId, 0, used));
+                let modoff = 0x1800_0000 + 0x5000_0000; // see tcu_fs.py
+                mem.add(MemMod::new(MemType::OCCUPIED, i as TileId, 0, modoff));
                 umems.push(boot::Mem::new(
                     GlobAddr::new_with(i as TileId, 0),
-                    used,
+                    modoff,
+                    true,
+                ));
+
+                // boot modules
+                let mut used = tile.mem_size() as goff - avail;
+                let modsize = used - modoff;
+                mem.add(MemMod::new(MemType::BOOT, i as TileId, modoff, modsize));
+                umems.push(boot::Mem::new(
+                    GlobAddr::new_with(i as TileId, modoff),
+                    modsize,
                     true,
                 ));
 
@@ -154,6 +164,7 @@ pub fn init(_args: &[String]) -> platform::KEnv {
     let mut uoffset = addr.offset();
     uinfo.tile_count = utiles.len() as u64;
     uinfo.mem_count = umems.len() as u64;
+    info.mem_count = umems.len() as u64;
     ktcu::write_slice(addr.tile(), uoffset, &[uinfo]);
     uoffset += size_of::<boot::Info>() as goff;
     uoffset += info.mod_count as goff * size_of::<boot::Mod>() as goff;

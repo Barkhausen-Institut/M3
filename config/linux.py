@@ -4,8 +4,6 @@ from subprocess import call
 sys.path.append(os.path.realpath('platform/gem5/configs/example'))
 import tcu_fs as t
 
-# we need more memory for the linux tile; this changes the variable in tcu_fs.py
-t.linux_tile_size = 0x5000_0000
 t.mod_offset = t.linux_tile_offset + t.linux_tile_size
 t.tile_offset = t.mod_offset + t.mod_size
 

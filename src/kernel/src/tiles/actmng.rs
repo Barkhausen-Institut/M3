@@ -239,9 +239,10 @@ impl ActivityMng {
                 let mgate_obj = MGateObject::new(alloc, kif::Perm::RWX, true);
 
                 #[cfg(not(target_vendor = "host"))]
-                {
+                if m.mem_type() != mem::MemType::OCCUPIED {
                     // we currently assume that we have enough protection EPs for all user memory regions
                     assert!(mem_ep < tcu::PMEM_PROT_EPS as tcu::EpId);
+                    assert!(mgate_obj.size() < (1 << 30));
 
                     // configure physical memory protection EP
                     tilemng::tilemux(tile_id)
