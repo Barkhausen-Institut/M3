@@ -942,7 +942,7 @@ impl TCU {
             tile.raw()
         }
         else {
-            TILE_IDS[tile.raw() as usize]
+            TILE_IDS[tile.tile() as usize]
         }
     }
 
