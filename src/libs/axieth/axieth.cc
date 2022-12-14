@@ -348,7 +348,7 @@ EXTERN_C ssize_t axieth_init(goff_t virt, goff_t phys, size_t size) {
     XAxiEthernet_Config *MacCfgPtr;
     XAxiDma_Config *Config;
 
-    m3::Serial::init("net", m3::env()->tile_id);
+    m3::Serial::init("net", m3::TileId::from_raw(m3::env()->tile_id));
 
     xdbg_printf(XDBG_DEBUG_GENERAL,
         "axieth_init(virt={:#x}, phys={:#x}, size={:#x})\n",

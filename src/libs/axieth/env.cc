@@ -26,7 +26,7 @@ public:
     }
 
     virtual void init() override {
-        m3::Serial::init("standalone", m3::env()->tile_id);
+        m3::Serial::init("standalone", m3::TileId::from_raw(m3::env()->tile_id));
     }
 
     virtual void exit(m3::Errors::Code) override {
