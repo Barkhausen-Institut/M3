@@ -223,7 +223,7 @@ static void test_msg_send_empty() {
     ASSERT_EQ(rmsg->senderEp, SEP);
     ASSERT_EQ(rmsg->replySize, 4 /* log2(TCU::Message::Header) */);
     ASSERT_EQ(rmsg->replyEp, TCU::INVALID_EP);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, 0);
 
     ASSERT_EQ(kernel::TCU::ack_msg(REP, buf1, rmsg), Errors::SUCCESS);
@@ -263,7 +263,7 @@ static void test_msg_reply_empty() {
     ASSERT_EQ(rmsg->senderEp, SEP);
     ASSERT_EQ(rmsg->replySize, 6);
     ASSERT_EQ(rmsg->replyEp, REP2);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, 0);
 
     // sending with the use-once send EP is not allowed
@@ -283,7 +283,7 @@ static void test_msg_reply_empty() {
     ASSERT_EQ(rmsg->senderEp, REP);
     ASSERT_EQ(rmsg->replySize, 0);
     ASSERT_EQ(rmsg->replyEp, SEP);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, TCU::Header::FL_REPLY);
     // free slot
     ASSERT_EQ(kernel::TCU::ack_msg(REP2, buf2, rmsg), Errors::SUCCESS);
@@ -324,7 +324,7 @@ static void test_msg_no_reply() {
     ASSERT_EQ(rmsg->senderEp, SEP);
     ASSERT_EQ(rmsg->replySize, 4 /* log2(TCU::Message::Header) */);
     ASSERT_EQ(rmsg->replyEp, TCU::INVALID_EP);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, 0);
     const uint64_t *msg_ctrl = reinterpret_cast<const uint64_t *>(rmsg->data);
     ASSERT_EQ(*msg_ctrl, msg_val);
@@ -374,7 +374,7 @@ static void test_msg_no_credits() {
     ASSERT_EQ(rmsg->senderEp, TCU::INVALID_EP);
     ASSERT_EQ(rmsg->replySize, 6);
     ASSERT_EQ(rmsg->replyEp, REP2);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, 0);
     const uint64_t *msg_ctrl = reinterpret_cast<const uint64_t *>(rmsg->data);
     ASSERT_EQ(*msg_ctrl, msg_val);
@@ -391,7 +391,7 @@ static void test_msg_no_credits() {
     ASSERT_EQ(rmsg->senderEp, REP);
     ASSERT_EQ(rmsg->replySize, 0);
     ASSERT_EQ(rmsg->replyEp, TCU::INVALID_EP);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, TCU::Header::FL_REPLY);
     const uint64_t *reply_ctrl = reinterpret_cast<const uint64_t *>(rmsg->data);
     ASSERT_EQ(*reply_ctrl, reply_val);
@@ -443,7 +443,7 @@ static void test_msg_2send_2reply() {
         ASSERT_EQ(rmsg->senderEp, SEP);
         ASSERT_EQ(rmsg->replySize, 6);
         ASSERT_EQ(rmsg->replyEp, REP2);
-        ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+        ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
         ASSERT_EQ(rmsg->flags, 0);
         const uint64_t *msg_ctrl = reinterpret_cast<const uint64_t *>(rmsg->data);
         ASSERT_EQ(*msg_ctrl, msg_val);
@@ -469,7 +469,7 @@ static void test_msg_2send_2reply() {
         ASSERT_EQ(rmsg->senderEp, REP);
         ASSERT_EQ(rmsg->replySize, 0);
         ASSERT_EQ(rmsg->replyEp, SEP);
-        ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+        ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
         ASSERT_EQ(rmsg->flags, TCU::Header::FL_REPLY);
         const uint64_t *msg_ctrl = reinterpret_cast<const uint64_t *>(rmsg->data);
         ASSERT_EQ(*msg_ctrl, reply_val);
@@ -525,7 +525,7 @@ static void test_msg(size_t msg_size_in, size_t reply_size_in) {
     ASSERT_EQ(rmsg->length, msg.size());
     ASSERT_EQ(rmsg->senderEp, SEP);
     ASSERT_EQ(rmsg->replyEp, REP2);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, 0);
     const DATA *msg_ctrl = reinterpret_cast<const DATA *>(rmsg->data);
     for(size_t i = 0; i < msg_size_in; ++i)
@@ -545,7 +545,7 @@ static void test_msg(size_t msg_size_in, size_t reply_size_in) {
     ASSERT_EQ(rmsg->length, reply.size());
     ASSERT_EQ(rmsg->senderEp, REP);
     ASSERT_EQ(rmsg->replyEp, SEP);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, TCU::Header::FL_REPLY);
     msg_ctrl = reinterpret_cast<const DATA *>(rmsg->data);
     for(size_t i = 0; i < reply_size_in; ++i)
@@ -557,7 +557,7 @@ static void test_msg(size_t msg_size_in, size_t reply_size_in) {
 static void test_msg_receive() {
     auto own_tile = TileId::from_raw(env()->tile_id);
 
-    logln("SEND+FETCH and verify unread/occupied/rpos/wpos"_cf);
+    logln("SEND+FETCH and verify unread/occupied/rpos/wpos own_tile={}"_cf, own_tile);
 
     char rbuffer[32 * 32];
     uintptr_t buf = reinterpret_cast<uintptr_t>(&rbuffer);
@@ -678,7 +678,7 @@ static void test_unaligned_recvbuf(size_t pad, size_t msg_size_in) {
     ASSERT_EQ(rmsg->length, msg.size());
     ASSERT_EQ(rmsg->senderEp, SEP);
     ASSERT_EQ(rmsg->replyEp, TCU::INVALID_EP);
-    ASSERT_EQ(rmsg->senderTile, own_tile.raw());
+    ASSERT_EQ(rmsg->senderTile, TileId(own_tile.chip(), TCU::tileid_to_nocid(own_tile)).raw());
     ASSERT_EQ(rmsg->flags, 0);
     const uint8_t *msg_ctrl = reinterpret_cast<const uint8_t *>(rmsg->data);
     for(size_t i = 0; i < msg_size_in; ++i)

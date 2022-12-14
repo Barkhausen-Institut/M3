@@ -329,6 +329,12 @@ public:
 
     size_t print(const char *str, size_t len);
 
+    static inline uint16_t tileid_to_nocid(TileId tile) {
+        if(env()->platform == Platform::GEM5)
+            return tile.raw();
+        return HW_MOD_IDS[tile.tile()];
+    }
+
 private:
     Errors::Code send(epid_t ep, const MsgBuf &msg, label_t replylbl, epid_t reply_ep);
     Errors::Code send_aligned(epid_t ep, const void *msg, size_t len, label_t replylbl,
@@ -500,12 +506,6 @@ private:
     static void write_reg(epid_t ep, size_t idx, reg_t value) {
         size_t off = m3::TCU::EXT_REGS + m3::TCU::UNPRIV_REGS + m3::TCU::EP_REGS * ep + idx;
         m3::TCU::write_reg(off, value);
-    }
-
-    static inline uint16_t tileid_to_nocid(TileId tile) {
-        if(env()->platform == Platform::GEM5)
-            return tile.raw();
-        return HW_MOD_IDS[tile.tile()];
     }
 
     static uint16_t HW_MOD_IDS[9];
