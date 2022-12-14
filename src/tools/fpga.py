@@ -45,8 +45,8 @@ def write_str(mod, str, addr):
 def glob_addr(tile, offset):
     return (0x80 + tile) << 56 | offset
 
-def send_input(fpga_inst, tile, ep, bytes):
-    fpga_inst.nocif.send_bytes((0, tile), ep, bytes)
+def send_input(fpga_inst, chip, tile, ep, bytes):
+    fpga_inst.nocif.send_bytes((chip, tile), ep, bytes)
 
 def write_file(mod, file, offset):
     print("%s: loading %u bytes to %#x" % (mod.name, os.path.getsize(file), offset))
@@ -128,6 +128,7 @@ def load_prog(dram, pms, i, args, vm):
     mem_begin = MAX_FS_SIZE + i * pmp_size
     # install first PMP EP
     pmp_ep = MemEP()
+    pmp_ep.set_chip(dram.mem.nocid[0])
     pmp_ep.set_tile(dram.mem.nocid[1])
     pmp_ep.set_act(0xFFFF)
     pmp_ep.set_flags(Flags.READ | Flags.WRITE)
@@ -152,12 +153,13 @@ def load_prog(dram, pms, i, args, vm):
         heap_size = 0
     desc = tile_desc(i, vm)
     kenv = glob_addr(MEM_TILE, MAX_FS_SIZE + len(pms) * pmp_size) if i == 0 else 0
+    tile_id = (pm.nocid[0] << 8) | i
 
     # init environment
     dram_env = ENV + mem_begin - DRAM_OFF
     write_u64(dram, dram_env - 8, 0x0000106f)  # j _start (+0x1000)
     write_u64(dram, dram_env + 0, 1)           # platform = HW
-    write_u64(dram, dram_env + 8, i)           # tile_id
+    write_u64(dram, dram_env + 8, tile_id)     # chip, tile
     write_u64(dram, dram_env + 16, desc)       # tile_desc
     write_u64(dram, dram_env + 24, len(args))  # argc
     write_u64(dram, dram_env + 32, argv)       # argv
@@ -213,9 +215,10 @@ class TCUTerm:
         # read desired destination
         tile = read_u64(self.fpga_inst.dram1, serial_begin + 0)
         ep = read_u64(self.fpga_inst.dram1, serial_begin + 8)
+        chip = self.fpga_inst.dram1.mem.nocid[0]
         # only send if it was initialized
         if ep != 0:
-            send_input(self.fpga_inst, tile, ep, bytes)
+            send_input(self.fpga_inst, chip, tile, ep, bytes)
 
     def cleanup(self):
         termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old)
