@@ -11,6 +11,7 @@ use m3::time::Runner;
 use m3::time::{CycleInstant, Profiler};
 
 #[inline(always)]
+#[allow(unused)]
 fn send_msg<T>(msg_obj: T, sep: EpId, rep: EpId) -> Result<(), Error> {
     // let algn = std::mem::align_of_val(&msg_obj);
     // assert!(size <= MAX_MSG_SIZE);
@@ -26,6 +27,7 @@ fn send_msg<T>(msg_obj: T, sep: EpId, rep: EpId) -> Result<(), Error> {
 }
 
 #[inline(always)]
+#[allow(unused)]
 fn wait_for_rpl<T>(rep: EpId, rcv_buf: usize) -> Result<&'static T, Error> {
     loop {
         if let Some(off) = tcu::TCU::fetch_msg(rep) {
@@ -41,8 +43,10 @@ fn wait_for_rpl<T>(rep: EpId, rcv_buf: usize) -> Result<&'static T, Error> {
 }
 
 
+#[allow(unused)]
 struct Tester(usize);
 
+#[allow(unused)]
 impl Runner for Tester {
     fn pre(&mut self) {
         let noop = kif::syscalls::Noop {
@@ -63,6 +67,7 @@ impl Runner for Tester {
 }
 
 #[inline(never)]
+#[allow(unused)]
 fn noop_syscall(rbuf: usize) {
     let noop = kif::syscalls::Noop {
         opcode: kif::syscalls::Operation::NOOP.val,
@@ -77,19 +82,14 @@ fn noop_syscall(rbuf: usize) {
 }
 
 #[no_mangle]
-pub fn main() -> i32 {
-
-    let (rbuf_addr, size) = Activity::own().tile_desc().rbuf_std_space();
-    println!("rbuf_addr: {:#x}, rbuf_size: {:#x}", rbuf_addr, size);
-
+pub fn main() {
     let mut profiler = Profiler::default().warmup(50).repeats(1000);
     // let mut res = profiler.runner::<CycleInstant, _>(&mut Tester(rbuf_addr));
     let mut res = profiler.run::<CycleInstant, _>(|| {
-        noop_syscall(rbuf_addr);
+        // noop_syscall(rbuf_addr);
+        m3::syscalls::noop().unwrap();
     });
     println!("{}", res);
     res.filter_outliers();
     println!("{}", res);
-
-    0
 }
