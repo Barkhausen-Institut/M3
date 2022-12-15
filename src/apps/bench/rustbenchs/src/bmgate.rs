@@ -39,7 +39,7 @@ fn read(_t: &mut dyn WvTester) {
     let buf = &mut BUF.borrow_mut()[..8192];
     let mgate = MemGate::new(8192, kif::Perm::R).expect("Unable to create mgate");
 
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "read 2 MiB with 8K buf",
@@ -57,7 +57,7 @@ fn read_unaligned(_t: &mut dyn WvTester) {
     let buf = &mut BUF.borrow_mut()[64..];
     let mgate = MemGate::new(8192, kif::Perm::R).expect("Unable to create mgate");
 
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "read unaligned 2 MiB with 8K buf",
@@ -75,7 +75,7 @@ fn write(_t: &mut dyn WvTester) {
     let buf = &BUF.borrow()[..8192];
     let mgate = MemGate::new(8192, kif::Perm::W).expect("Unable to create mgate");
 
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "write 2 MiB with 8K buf",
@@ -93,7 +93,7 @@ fn write_unaligned(_t: &mut dyn WvTester) {
     let buf = &BUF.borrow()[64..];
     let mgate = MemGate::new(8192, kif::Perm::W).expect("Unable to create mgate");
 
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "write unaligned 2 MiB with 8K buf",

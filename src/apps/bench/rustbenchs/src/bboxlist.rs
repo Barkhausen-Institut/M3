@@ -50,7 +50,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn push_back(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().warmup(100).repeats(30);
+    let prof = Profiler::default().warmup(100).repeats(30);
 
     #[derive(Default)]
     struct ListTester(BoxList<TestItem>);
@@ -74,7 +74,7 @@ fn push_back(_t: &mut dyn WvTester) {
 }
 
 fn push_front(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().warmup(100).repeats(30);
+    let prof = Profiler::default().warmup(100).repeats(30);
 
     #[derive(Default)]
     struct ListTester(BoxList<TestItem>);
@@ -98,7 +98,7 @@ fn push_front(_t: &mut dyn WvTester) {
 }
 
 fn push_pop(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(30);
+    let prof = Profiler::default().repeats(30);
 
     #[derive(Default)]
     struct ListTester(BoxList<TestItem>, Option<Box<TestItem>>, usize);
@@ -126,7 +126,7 @@ fn push_pop(_t: &mut dyn WvTester) {
 }
 
 fn clear(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().warmup(100).repeats(30);
+    let prof = Profiler::default().warmup(100).repeats(30);
 
     #[derive(Default)]
     struct ListTester(BoxList<TestItem>);

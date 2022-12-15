@@ -70,7 +70,7 @@ fn pingpong_with_tile(t: &mut dyn WvTester, name: &str, tile: Rc<Tile>) {
         0
     }));
 
-    let mut prof = Profiler::default().repeats(RUNS).warmup(WARMUP);
+    let prof = Profiler::default().repeats(RUNS).warmup(WARMUP);
 
     let reply_gate = RecvGate::def();
     wv_perf!(

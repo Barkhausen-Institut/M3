@@ -34,7 +34,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn tmcalls(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(30);
+    let prof = Profiler::default().repeats(100).warmup(30);
     wv_perf!(
         "noop tmcall",
         prof.run::<CycleInstant, _>(|| tmif::noop().unwrap())
@@ -106,7 +106,7 @@ fn translates(_t: &mut dyn WvTester) {
         }
     }
 
-    let mut prof = Profiler::default().repeats(10).warmup(2);
+    let prof = Profiler::default().repeats(10).warmup(2);
     let results = MyResults(prof.runner::<CycleInstant, _>(&mut Tester {
         virt: 0,
         mgate: MemGate::new(PAGES * cfg::PAGE_SIZE, Perm::RW).unwrap(),

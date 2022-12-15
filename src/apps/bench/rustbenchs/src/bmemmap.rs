@@ -28,7 +28,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn perf_alloc(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(10);
+    let prof = Profiler::default().repeats(10);
 
     struct MemMapTester {
         map: MemMap,
@@ -57,7 +57,7 @@ fn perf_alloc(_t: &mut dyn WvTester) {
 }
 
 fn perf_free(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(10);
+    let prof = Profiler::default().repeats(10);
 
     struct MemMapTester {
         map: MemMap,

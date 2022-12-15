@@ -32,8 +32,6 @@ use crate::ktcu;
 use crate::platform;
 use crate::tiles::INVAL_ID;
 
-use super::Activity;
-
 pub struct TileMux {
     tile: SRc<TileObject>,
     acts: Vec<ActId>,
@@ -388,7 +386,7 @@ impl TileMux {
         }
     }
 
-    fn create_lx_activity(tilemux: RefMut<'_, Self>) -> Result<Rc<Activity>, Error> {
+    fn create_lx_activity(tilemux: RefMut<'_, Self>) -> Result<(), Error> {
         use crate::args;
         use crate::tiles::{ActivityFlags, ActivityMng, State};
         use base::cfg;
@@ -425,17 +423,17 @@ impl TileMux {
         );
 
         act.set_state(State::RUNNING);
-        Ok(act)
+        Ok(())
     }
 
     fn handle_lx_act_sidecall(tilemux: RefMut<'_, Self>, msg: &tcu::Message) {
         let req = msg.get_data::<kif::tilemux::LxAct>();
         let tile_id = tilemux.tile_id();
         klog!(TMC, "TileMux[{}] received {:?}", tile_id, req);
-        let act = Self::create_lx_activity(tilemux);
+        let res = Self::create_lx_activity(tilemux);
 
-        let error = match act {
-            Ok(act) => 0,
+        let error = match res {
+            Ok(_) => 0,
             Err(e) => e.code() as u64,
         };
         let mut reply = MsgBuf::borrow_def();

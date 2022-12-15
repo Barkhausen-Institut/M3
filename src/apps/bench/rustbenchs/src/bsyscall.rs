@@ -49,7 +49,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn noop(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default();
+    let prof = Profiler::default();
 
     wv_perf!(
         "noop",
@@ -63,7 +63,7 @@ fn activate(_t: &mut dyn WvTester) {
     let mgate = wv_assert_ok!(MemGate::new(0x1000, Perm::RW));
     let ep = wv_assert_ok!(Activity::own().epmng_mut().acquire(0));
 
-    let mut prof = Profiler::default();
+    let prof = Profiler::default();
 
     wv_perf!(
         "activate",
@@ -81,7 +81,7 @@ fn activate(_t: &mut dyn WvTester) {
 }
 
 fn create_mgate(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(100);
+    let prof = Profiler::default().repeats(100).warmup(100);
 
     #[derive(Default)]
     struct Tester(usize);
@@ -114,7 +114,7 @@ fn create_mgate(_t: &mut dyn WvTester) {
 }
 
 fn create_rgate(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(100);
+    let prof = Profiler::default().repeats(100).warmup(100);
 
     #[derive(Default)]
     struct Tester();
@@ -140,7 +140,7 @@ fn create_rgate(_t: &mut dyn WvTester) {
 }
 
 fn create_sgate(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     #[derive(Default)]
     struct Tester(Option<RecvGate>);
@@ -183,7 +183,7 @@ fn create_map(_t: &mut dyn WvTester) {
     }
 
     const DEST: kif::CapSel = 0x3000_0000 >> cfg::PAGE_BITS;
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     struct Tester(MemGate);
 
@@ -226,7 +226,7 @@ fn create_map(_t: &mut dyn WvTester) {
 }
 
 fn create_srv(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     #[derive(Default)]
     struct Tester(Option<RecvGate>);
@@ -264,7 +264,7 @@ fn create_srv(_t: &mut dyn WvTester) {
 }
 
 fn derive_mem(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     #[derive(Default)]
     struct Tester(Option<MemGate>);
@@ -303,7 +303,7 @@ fn derive_mem(_t: &mut dyn WvTester) {
 }
 
 fn exchange(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     struct Tester {
         act: Option<ChildActivity>,
@@ -348,7 +348,7 @@ fn exchange(_t: &mut dyn WvTester) {
 }
 
 fn revoke_mem_gate(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     let mgate = wv_assert_ok!(MemGate::new(0x1000, Perm::RW));
 
@@ -378,7 +378,7 @@ fn revoke_mem_gate(_t: &mut dyn WvTester) {
 }
 
 fn revoke_recv_gate(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     #[derive(Default)]
     struct Tester();
@@ -404,7 +404,7 @@ fn revoke_recv_gate(_t: &mut dyn WvTester) {
 }
 
 fn revoke_send_gate(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(10);
+    let prof = Profiler::default().repeats(100).warmup(10);
 
     #[derive(Default)]
     struct Tester(Option<RecvGate>);

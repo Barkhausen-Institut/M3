@@ -28,7 +28,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn insert(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(50);
+    let prof = Profiler::default().repeats(100).warmup(50);
 
     #[derive(Default)]
     struct BTreeTester(BTreeMap<u32, u32>);
@@ -52,7 +52,7 @@ fn insert(_t: &mut dyn WvTester) {
 }
 
 fn find(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(10).warmup(50);
+    let prof = Profiler::default().repeats(10).warmup(50);
 
     #[derive(Default)]
     struct BTreeTester(BTreeMap<u32, u32>);
@@ -78,7 +78,7 @@ fn find(_t: &mut dyn WvTester) {
 }
 
 fn clear(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(100).warmup(100);
+    let prof = Profiler::default().repeats(100).warmup(100);
 
     #[derive(Default)]
     struct BTreeTester(BTreeMap<u32, u32>);

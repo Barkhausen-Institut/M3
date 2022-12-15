@@ -40,7 +40,7 @@ pub fn run(t: &mut dyn WvTester) {
 
 fn child_to_parent(t: &mut dyn WvTester) {
     let pipeserv = wv_assert_ok!(Pipes::new("pipes"));
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     let tile = wv_assert_ok!(Tile::get("clone|own"));
     let res = prof.run::<CycleInstant, _>(|| {
@@ -85,7 +85,7 @@ fn child_to_parent(t: &mut dyn WvTester) {
 
 fn parent_to_child(t: &mut dyn WvTester) {
     let pipeserv = wv_assert_ok!(Pipes::new("pipes"));
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     let tile = wv_assert_ok!(Tile::get("clone|own"));
     let res = prof.run::<CycleInstant, _>(|| {

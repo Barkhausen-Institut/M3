@@ -33,7 +33,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn reset(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default();
+    let prof = Profiler::default();
     let mut hash = wv_assert_ok!(HashSession::new("hash-bench", &HashAlgorithm::SHA3_256));
 
     wv_perf!(
@@ -43,7 +43,7 @@ fn reset(_t: &mut dyn WvTester) {
 }
 
 fn hash_empty(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default();
+    let prof = Profiler::default();
     for algo in HashAlgorithm::ALL.iter() {
         if algo.is_xof() {
             continue;
@@ -71,7 +71,7 @@ fn hash_mem(_t: &mut dyn WvTester) {
     const SIZE: usize = 512 * 1024; // 512 KiB
 
     let (_mgate, mgated) = _prepare_hash_mem(SIZE);
-    let mut prof = Profiler::default().warmup(2).repeats(5);
+    let prof = Profiler::default().warmup(2).repeats(5);
 
     for algo in HashAlgorithm::ALL.iter() {
         let hash = wv_assert_ok!(HashSession::new("hash-bench", algo));
@@ -138,7 +138,7 @@ fn hash_file(_t: &mut dyn WvTester) {
         wv_assert_ok!(file.hash_output(&hash, SIZE));
     }
 
-    let mut prof = Profiler::default().warmup(2).repeats(5);
+    let prof = Profiler::default().warmup(2).repeats(5);
 
     for algo in HashAlgorithm::ALL.iter() {
         let hash = wv_assert_ok!(HashSession::new("hash-bench", algo));
@@ -169,7 +169,7 @@ fn shake_mem(_t: &mut dyn WvTester) {
     const SIZE: usize = 512 * 1024; // 512 KiB
 
     let (_mgate, mgated) = _prepare_shake_mem(SIZE);
-    let mut prof = Profiler::default().warmup(2).repeats(5);
+    let prof = Profiler::default().warmup(2).repeats(5);
 
     for algo in HashAlgorithm::ALL.iter() {
         if !algo.is_xof() {
@@ -230,7 +230,7 @@ fn shake_mem_sizes(_t: &mut dyn WvTester) {
 fn shake_file(_t: &mut dyn WvTester) {
     const SIZE: usize = 512 * 1024; // 512 KiB
 
-    let mut prof = Profiler::default().warmup(2).repeats(5);
+    let prof = Profiler::default().warmup(2).repeats(5);
 
     for algo in HashAlgorithm::ALL.iter() {
         if !algo.is_xof() {

@@ -37,7 +37,7 @@ pub fn run(t: &mut dyn WvTester) {
 }
 
 fn open_close(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(50).warmup(50);
+    let prof = Profiler::default().repeats(50).warmup(50);
 
     wv_perf!(
         "open-close",
@@ -48,7 +48,7 @@ fn open_close(_t: &mut dyn WvTester) {
 }
 
 fn stat(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(50).warmup(10);
+    let prof = Profiler::default().repeats(50).warmup(10);
 
     wv_perf!(
         "stat",
@@ -59,7 +59,7 @@ fn stat(_t: &mut dyn WvTester) {
 }
 
 fn mkdir_rmdir(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(50).warmup(10);
+    let prof = Profiler::default().repeats(50).warmup(10);
 
     wv_perf!(
         "mkdir_rmdir",
@@ -71,7 +71,7 @@ fn mkdir_rmdir(_t: &mut dyn WvTester) {
 }
 
 fn link_unlink(_t: &mut dyn WvTester) {
-    let mut prof = Profiler::default().repeats(50).warmup(10);
+    let prof = Profiler::default().repeats(50).warmup(10);
 
     wv_perf!(
         "link_unlink",
@@ -85,7 +85,7 @@ fn link_unlink(_t: &mut dyn WvTester) {
 fn read(_t: &mut dyn WvTester) {
     let buf = &mut BUF.borrow_mut()[..];
 
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "read 2 MiB file with 8K buf",
@@ -105,7 +105,7 @@ fn write(_t: &mut dyn WvTester) {
     const SIZE: usize = 2 * 1024 * 1024;
     let buf = &BUF.borrow()[..];
 
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "write 2 MiB file with 8K buf",
@@ -129,7 +129,7 @@ fn write(_t: &mut dyn WvTester) {
 
 fn copy(_t: &mut dyn WvTester) {
     let buf = &mut BUF.borrow_mut()[..];
-    let mut prof = Profiler::default().repeats(2).warmup(1);
+    let prof = Profiler::default().repeats(2).warmup(1);
 
     wv_perf!(
         "copy 2 MiB file with 8K buf",

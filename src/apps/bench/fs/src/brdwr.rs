@@ -31,7 +31,7 @@ pub fn run(t: &mut dyn WvTester) {
 fn read(_t: &mut dyn WvTester) {
     let buf = &mut BUF.borrow_mut()[..];
 
-    let mut prof = Profiler::default().repeats(10).warmup(4);
+    let prof = Profiler::default().repeats(10).warmup(4);
 
     wv_perf!(
         "read 2 MiB file with 4K buf",
@@ -51,7 +51,7 @@ fn write(_t: &mut dyn WvTester) {
     const SIZE: usize = 2 * 1024 * 1024;
     let buf = &BUF.borrow()[..];
 
-    let mut prof = Profiler::default().repeats(10).warmup(4);
+    let prof = Profiler::default().repeats(10).warmup(4);
 
     wv_perf!(
         "write 2 MiB file with 4K buf",

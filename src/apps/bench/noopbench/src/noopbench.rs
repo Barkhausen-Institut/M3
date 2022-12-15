@@ -6,7 +6,6 @@ use m3::mem::MsgBuf;
 use m3::println;
 use m3::tcu;
 use m3::tcu::EpId;
-use m3::tiles::Activity;
 use m3::time::Runner;
 use m3::time::{CycleInstant, Profiler};
 
@@ -83,9 +82,9 @@ fn noop_syscall(rbuf: usize) {
 
 #[no_mangle]
 pub fn main() {
-    let mut profiler = Profiler::default().warmup(50).repeats(1000);
+    let prof = Profiler::default().warmup(50).repeats(1000);
     // let mut res = profiler.runner::<CycleInstant, _>(&mut Tester(rbuf_addr));
-    let mut res = profiler.run::<CycleInstant, _>(|| {
+    let mut res = prof.run::<CycleInstant, _>(|| {
         // noop_syscall(rbuf_addr);
         m3::syscalls::noop().unwrap();
     });
