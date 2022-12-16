@@ -27,8 +27,8 @@ static uint8_t dst_buf[16384];
 static uint8_t mem_buf[16384];
 
 static void test_mem_short() {
-    auto mem_tile = TileId(0, Tile::MEM);
     auto own_tile = TileId::from_raw(env()->tile_id);
+    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
 
     uint64_t data = 1234;
 
@@ -141,7 +141,8 @@ static void test_mem_rdwr(TileId mem_tile) {
 
 template<typename DATA>
 static void test_mem(size_t size_in) {
-    auto mem_tile = TileId(0, Tile::MEM);
+    auto own_tile = TileId::from_raw(env()->tile_id);
+    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
 
     logln("READ+WRITE with {} {}B words"_cf, size_in, sizeof(DATA));
 
@@ -164,7 +165,8 @@ static void test_mem(size_t size_in) {
 
 template<size_t PAD>
 static void test_unaligned_rdwr(size_t nbytes, size_t loc_offset, size_t rem_offset) {
-    auto mem_tile = TileId(0, Tile::MEM);
+    auto own_tile = TileId::from_raw(env()->tile_id);
+    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
 
     // prepare test data
     UnalignedData<PAD> msg;
@@ -185,10 +187,11 @@ static void test_unaligned_rdwr(size_t nbytes, size_t loc_offset, size_t rem_off
 }
 
 void test_mem() {
+    auto own_tile = TileId::from_raw(env()->tile_id);
     test_mem_short();
-    test_mem_large(TileId(0, Tile::MEM));
-    test_mem_large(TileId(0, Tile::T0));
-    test_mem_rdwr(TileId(0, Tile::MEM));
+    test_mem_large(TileId(own_tile.chip(), Tile::MEM));
+    test_mem_large(TileId(own_tile.chip(), Tile::T0));
+    test_mem_rdwr(TileId(own_tile.chip(), Tile::MEM));
 
     // test different lengths
     for(size_t i = 1; i <= 80; i++) {

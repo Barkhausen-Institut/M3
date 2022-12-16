@@ -22,8 +22,8 @@ static constexpr epid_t SEP = TCU::FIRST_USER_EP + 1;
 static constexpr epid_t REP = TCU::FIRST_USER_EP + 2;
 
 static void test_inv_ep() {
-    auto mem_tile = TileId(0, Tile::MEM);
     auto own_tile = TileId::from_raw(env()->tile_id);
+    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
 
     char rbuffer[32];
     uintptr_t buf = reinterpret_cast<uintptr_t>(&rbuffer);

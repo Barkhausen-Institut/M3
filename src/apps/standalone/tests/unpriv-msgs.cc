@@ -557,7 +557,7 @@ static void test_msg(size_t msg_size_in, size_t reply_size_in) {
 static void test_msg_receive() {
     auto own_tile = TileId::from_raw(env()->tile_id);
 
-    logln("SEND+FETCH and verify unread/occupied/rpos/wpos own_tile={}"_cf, own_tile);
+    logln("SEND+FETCH and verify unread/occupied/rpos/wpos"_cf);
 
     char rbuffer[32 * 32];
     uintptr_t buf = reinterpret_cast<uintptr_t>(&rbuffer);
