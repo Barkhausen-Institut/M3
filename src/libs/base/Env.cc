@@ -58,7 +58,7 @@ void Env::run() {
     int argc = static_cast<int>(e->argc);
     char **argv = reinterpret_cast<char **>(e->argv);
     // special case for standalone apps that run on T0: envp is not initialized
-    char **envp = e->tile_id == 0 ? nullptr : reinterpret_cast<char **>(e->envp);
+    char **envp = TileId::from_raw(e->tile_id).tile() == 0 ? nullptr : reinterpret_cast<char **>(e->envp);
     if(sizeof(char *) != sizeof(uint64_t)) {
         // ensure that the libc is initialized before the first malloc
         __m3_init_libc(0, nullptr, nullptr);
