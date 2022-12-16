@@ -50,6 +50,7 @@ struct BootEnv {
     uint64_t tile_desc;
     uint64_t argc;
     uint64_t argv;
+    uint64_t envp;
     uint64_t heap_size;
     uint64_t kenv;
     uint64_t lambda;
@@ -60,7 +61,6 @@ public:
     // set by TileMux
     uint64_t shared;
 
-    uint64_t envp;
     uint64_t sp;
     uint64_t entry;
     uint64_t first_std_ep;

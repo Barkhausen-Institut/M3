@@ -163,9 +163,10 @@ def load_prog(dram, pms, i, args, vm):
     write_u64(dram, dram_env + 16, desc)       # tile_desc
     write_u64(dram, dram_env + 24, len(args))  # argc
     write_u64(dram, dram_env + 32, argv)       # argv
-    write_u64(dram, dram_env + 40, heap_size)  # heap size
-    write_u64(dram, dram_env + 48, kenv)       # kenv
-    write_u64(dram, dram_env + 56, 0)          # lambda
+    write_u64(dram, dram_env + 40, 0)          # envp
+    write_u64(dram, dram_env + 48, heap_size)  # heap size
+    write_u64(dram, dram_env + 56, kenv)       # kenv
+    write_u64(dram, dram_env + 64, 0)          # lambda
 
     # write arguments to memory
     args_addr = argv + len(args) * 8

@@ -45,6 +45,7 @@ pub struct EnvData {
     pub tile_desc: u64,
     pub argc: u64,
     pub argv: u64,
+    pub envp: u64,
     pub heap_size: u64,
     pub kenv: u64,
     pub closure: u64,
@@ -53,7 +54,6 @@ pub struct EnvData {
     pub shared: u64,
 
     // m3 env
-    pub envp: u64,
     pub sp: u64,
     pub entry: u64,
     pub first_std_ep: u64,
