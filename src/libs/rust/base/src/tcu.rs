@@ -991,7 +991,9 @@ impl TCU {
             | ((credits as Reg) << 19)
             | ((credits as Reg) << 25)
             | ((msg_order as Reg) << 31);
-        regs[1] = ((Self::tileid_to_nocid(tile) as Reg) << 16) | (dst_ep as Reg);
+        regs[1] = (dst_ep as Reg)
+            | ((Self::tileid_to_nocid(tile) as Reg) << 16)
+            | ((tile.chip() as Reg) << 24);
         regs[2] = lbl as Reg;
     }
 
@@ -1006,7 +1008,8 @@ impl TCU {
         regs[0] = EpType::MEMORY.val
             | ((act as Reg) << 3)
             | ((perm.bits() as Reg) << 19)
-            | ((Self::tileid_to_nocid(tile) as Reg) << 23);
+            | ((Self::tileid_to_nocid(tile) as Reg) << 23)
+            | ((tile.chip() as Reg) << 31);
         regs[1] = addr as Reg;
         regs[2] = size as Reg;
     }
