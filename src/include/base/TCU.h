@@ -489,8 +489,9 @@ private:
                       (static_cast<reg_t>(credits) << 25) | (static_cast<reg_t>(msgorder) << 31) |
                       (static_cast<reg_t>(crd_ep) << 37) | (static_cast<reg_t>(reply) << 53));
         write_reg(ep, 1,
-                  (static_cast<reg_t>(tileid_to_nocid(tile)) << 16) |
-                      (static_cast<reg_t>(dstep) << 0));
+                  static_cast<reg_t>(dstep) |
+                      (static_cast<reg_t>(tileid_to_nocid(tile)) << 16) |
+                      (static_cast<reg_t>(tile.chip()) << 24));
         write_reg(ep, 2, lbl);
     }
 
@@ -498,7 +499,8 @@ private:
         write_reg(ep, 0,
                   static_cast<reg_t>(m3::TCU::EpType::MEMORY) |
                       (static_cast<reg_t>(INVALID_ACT) << 3) | (static_cast<reg_t>(perm) << 19) |
-                      (static_cast<reg_t>(tileid_to_nocid(tile)) << 23));
+                      (static_cast<reg_t>(tileid_to_nocid(tile)) << 23) |
+                      (static_cast<reg_t>(tile.chip()) << 31));
         write_reg(ep, 1, addr);
         write_reg(ep, 2, size);
     }
