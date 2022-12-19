@@ -193,8 +193,16 @@ unsafe extern "C" fn __rdl_realloc(
 ) -> *mut libc::c_void {
     let area = get_area(ptr);
     let slab = &mut *(*area).slab.as_ptr();
-    klog!(SLAB, "realloc(p={:#x}, s={:?})", ptr as usize, slab.size);
-    slab.realloc(area, old_size, new_size)
+    let res = slab.realloc(area, old_size, new_size);
+    klog!(
+        SLAB,
+        "realloc(p={:#x}, newsz={}, s={:?}) -> {:#x}",
+        ptr as usize,
+        new_size,
+        slab.size,
+        res as usize
+    );
+    res
 }
 
 #[no_mangle]
