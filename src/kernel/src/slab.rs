@@ -16,7 +16,7 @@
 use base::cell::LazyStaticRefCell;
 use base::libc;
 use base::mem;
-use core::ptr::NonNull;
+use core::ptr::{self, NonNull};
 
 extern "C" {
     fn malloc(size: usize) -> *mut libc::c_void;
@@ -49,6 +49,7 @@ impl Slab {
     }
 
     unsafe fn heap_to_area(&mut self, ptr: *mut libc::c_void) -> *mut Area {
+        assert_ne!(ptr, ptr::null_mut());
         #[allow(clippy::cast_ptr_alignment)]
         let res = ptr as *mut Area;
         (*res).slab = NonNull::new_unchecked(self as *mut _);
@@ -64,6 +65,7 @@ impl Slab {
         let area_size = objsize + HEADER_SIZE;
         #[allow(clippy::cast_ptr_alignment)]
         let mut a = malloc(area_size * NEW_AREA_COUNT) as *mut Area;
+        assert_ne!(a, ptr::null_mut());
         for _ in 0..NEW_AREA_COUNT {
             (*a).next = self.free;
             (*a).slab = NonNull::new_unchecked(self as *mut _);
