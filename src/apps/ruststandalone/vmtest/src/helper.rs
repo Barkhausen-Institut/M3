@@ -68,6 +68,12 @@ pub extern "C" fn tmcall(state: &mut isr::State) -> *mut libc::c_void {
 pub fn init(name: &str) {
     io::init(TileId::new_from_raw(env::data().tile_id as u16), name);
 
+    // initialize the TCU to translate tile ids to NoC ids from now on.
+    TCU::init_tileid_translation(
+        &env::data().raw_tile_ids[0..env::data().raw_tile_count as usize],
+        false,
+    );
+
     if !TileDesc::new_from(env::data().tile_desc).has_virtmem() {
         log!(crate::LOG_DEF, "Disabling paging...");
         ::paging::disable_paging();

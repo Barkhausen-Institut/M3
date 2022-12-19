@@ -27,8 +27,9 @@ use core::slice;
 use core::sync::atomic;
 
 use crate::arch;
+use crate::cell::LazyReadOnlyCell;
 use crate::cfg;
-use crate::env;
+use crate::col::Vec;
 use crate::errors::{Code, Error};
 use crate::goff;
 use crate::io::log::TCU;
@@ -934,30 +935,57 @@ impl TCU {
     }
 }
 
-static TILE_IDS: [u16; 9] = [0x06, 0x25, 0x26, 0x00, 0x01, 0x02, 0x20, 0x21, 0x24];
+static TILE_IDS: LazyReadOnlyCell<[u16; cfg::MAX_TILES * cfg::MAX_CHIPS]> =
+    LazyReadOnlyCell::default();
 
 impl TCU {
+    pub fn init_tileid_translation(tile_ids: &[u64], collect: bool) -> Vec<TileId> {
+        let mut ids = [0u16; cfg::MAX_TILES * cfg::MAX_CHIPS];
+
+        let mut log_ids = Vec::new();
+        let mut log_chip = 0;
+        let mut log_tile = 0;
+        let mut phys_chip = None;
+        for id in tile_ids {
+            let tid = TileId::new_from_raw(*id as u16);
+
+            if phys_chip.is_some() {
+                if phys_chip.unwrap() != tid.chip() {
+                    phys_chip = Some(tid.chip());
+                    log_chip += 1;
+                    log_tile = 0;
+                }
+                else {
+                    log_tile += 1;
+                }
+            }
+            else {
+                phys_chip = Some(tid.chip());
+            }
+
+            ids[log_chip * cfg::MAX_TILES + log_tile] = tid.raw();
+            if collect {
+                log_ids.push(TileId::new(log_chip as u8, log_tile as u8));
+            }
+        }
+
+        TILE_IDS.set(ids);
+        log_ids
+    }
+
     pub fn tileid_to_nocid(tile: TileId) -> u16 {
-        if env::data().platform == env::Platform::GEM5.val {
-            tile.raw()
-        }
-        else {
-            TILE_IDS[tile.tile() as usize]
-        }
+        TILE_IDS.get()[tile.chip() as usize * cfg::MAX_TILES + tile.tile() as usize]
     }
 
     pub fn nocid_to_tileid(tile: u16) -> TileId {
-        if env::data().platform == env::Platform::GEM5.val {
-            TileId::new_from_raw(tile)
-        }
-        else {
-            for (i, id) in TILE_IDS.iter().enumerate() {
-                if *id == tile {
-                    return TileId::new_from_raw(i as u16);
-                }
+        for (i, id) in TILE_IDS.get().iter().enumerate() {
+            if *id == tile {
+                let chip = i / cfg::MAX_TILES;
+                let tile = i % cfg::MAX_TILES;
+                return TileId::new(chip as u8, tile as u8);
             }
-            unreachable!();
         }
+        unreachable!();
     }
 
     pub fn config_recv(
@@ -991,9 +1019,7 @@ impl TCU {
             | ((credits as Reg) << 19)
             | ((credits as Reg) << 25)
             | ((msg_order as Reg) << 31);
-        regs[1] = (dst_ep as Reg)
-            | ((Self::tileid_to_nocid(tile) as Reg) << 16)
-            | ((tile.chip() as Reg) << 24);
+        regs[1] = (dst_ep as Reg) | ((Self::tileid_to_nocid(tile) as Reg) << 16);
         regs[2] = lbl as Reg;
     }
 
@@ -1008,8 +1034,7 @@ impl TCU {
         regs[0] = EpType::MEMORY.val
             | ((act as Reg) << 3)
             | ((perm.bits() as Reg) << 19)
-            | ((Self::tileid_to_nocid(tile) as Reg) << 23)
-            | ((tile.chip() as Reg) << 31);
+            | ((Self::tileid_to_nocid(tile) as Reg) << 23);
         regs[1] = addr as Reg;
         regs[2] = size as Reg;
     }

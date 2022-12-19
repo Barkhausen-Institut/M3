@@ -27,7 +27,31 @@ namespace m3 {
 
 INIT_PRIO_TCU TCU TCU::inst;
 
-uint16_t TCU::HW_MOD_IDS[] = {0x06, 0x25, 0x26, 0x00, 0x01, 0x02, 0x20, 0x21, 0x24};
+uint16_t TCU::HW_MOD_IDS[] = {0};
+
+void TCU::init_tileid_translation(uint64_t *tile_ids, size_t count) {
+    auto log_chip = 0;
+    auto log_tile = 0;
+    auto phys_chip = -1;
+    for(size_t i = 0; i < count; ++i) {
+        auto tid = TileId::from_raw(tile_ids[i]);
+
+        if(phys_chip != -1) {
+            if(phys_chip != tid.chip()) {
+                phys_chip = tid.chip();
+                log_chip += 1;
+                log_tile = 0;
+            }
+            else
+                log_tile += 1;
+        }
+        else {
+            phys_chip = tid.chip();
+        }
+
+        HW_MOD_IDS[log_chip * MAX_TILES + log_tile] = tid.raw();
+    }
+}
 
 size_t TCU::print(const char *str, size_t len) {
     len = Math::min(len, PRINT_REGS * sizeof(reg_t) - 1);

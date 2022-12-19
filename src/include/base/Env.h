@@ -54,6 +54,8 @@ struct BootEnv {
     uint64_t heap_size;
     uint64_t kenv;
     uint64_t lambda;
+    uint64_t raw_tile_count;
+    uint64_t raw_tile_ids[MAX_TILES * MAX_CHIPS];
 } PACKED;
 
 class Env : public BootEnv {

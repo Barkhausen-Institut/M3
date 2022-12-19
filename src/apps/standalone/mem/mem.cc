@@ -31,8 +31,11 @@ static ALIGNED(8) uint8_t buf2[1024];
 static ALIGNED(8) uint8_t buf3[1024];
 
 int main() {
+    kernel::TCU::init();
+
     TileId own_tile = TileId::from_raw(env()->tile_id);
-    TileId partner_tile = TileId(own_tile.chip(), (own_tile.tile() + 1) % 8);
+    size_t own_idx = tile_idx(own_tile).unwrap();
+    TileId partner_tile = TILE_IDS[(own_idx + 1) % 8];
 
     logln("Hello from {} (partner {})!"_cf, own_tile, partner_tile);
 

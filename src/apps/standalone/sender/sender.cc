@@ -31,7 +31,9 @@ static constexpr epid_t REP = TCU::FIRST_USER_EP + 1;
 static uint8_t rbuf[64];
 
 int main() {
-    auto dst_tile = TileId(0, Tile::T0);
+    kernel::TCU::init();
+
+    auto dst_tile = TILE_IDS[Tile::T0];
 
     kernel::TCU::config_send(SEP, 0x1234, dst_tile, DSTEP, nextlog2<MSG_SIZE>::val, 1);
     size_t size = nextlog2<sizeof(rbuf)>::val;

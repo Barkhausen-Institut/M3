@@ -16,6 +16,7 @@
 //! The target-dependent configuration
 
 pub const MAX_TILES: usize = 64;
+pub const MAX_CHIPS: usize = 2;
 
 #[cfg(target_vendor = "gem5")]
 pub const MAX_ACTS: usize = 32;

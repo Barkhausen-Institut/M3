@@ -64,8 +64,7 @@ public:
      *
      * @param raw the raw representation
      */
-    explicit TileId(raw_t raw = 0) noexcept
-        : id(raw) {
+    explicit TileId(raw_t raw = 0) noexcept : id(raw) {
     }
 
     /**
@@ -329,10 +328,21 @@ public:
 
     size_t print(const char *str, size_t len);
 
+    static void init_tileid_translation(uint64_t *tile_ids, size_t count);
+
     static inline uint16_t tileid_to_nocid(TileId tile) {
-        if(env()->platform == Platform::GEM5)
-            return tile.raw();
-        return HW_MOD_IDS[tile.tile()];
+        return HW_MOD_IDS[tile.chip() * MAX_TILES + tile.tile()];
+    }
+
+    static TileId nocid_to_tileid(uint16_t raw) {
+        for(size_t i = 0; i < MAX_TILES * MAX_CHIPS; ++i) {
+            if(HW_MOD_IDS[i] == raw) {
+                auto chip = i / MAX_TILES;
+                auto tile = i % MAX_TILES;
+                return TileId(chip, tile);
+            }
+        }
+        UNREACHED;
     }
 
 private:
@@ -489,9 +499,7 @@ private:
                       (static_cast<reg_t>(credits) << 25) | (static_cast<reg_t>(msgorder) << 31) |
                       (static_cast<reg_t>(crd_ep) << 37) | (static_cast<reg_t>(reply) << 53));
         write_reg(ep, 1,
-                  static_cast<reg_t>(dstep) |
-                      (static_cast<reg_t>(tileid_to_nocid(tile)) << 16) |
-                      (static_cast<reg_t>(tile.chip()) << 24));
+                  static_cast<reg_t>(dstep) | (static_cast<reg_t>(tileid_to_nocid(tile)) << 16));
         write_reg(ep, 2, lbl);
     }
 
@@ -499,8 +507,7 @@ private:
         write_reg(ep, 0,
                   static_cast<reg_t>(m3::TCU::EpType::MEMORY) |
                       (static_cast<reg_t>(INVALID_ACT) << 3) | (static_cast<reg_t>(perm) << 19) |
-                      (static_cast<reg_t>(tileid_to_nocid(tile)) << 23) |
-                      (static_cast<reg_t>(tile.chip()) << 31));
+                      (static_cast<reg_t>(tileid_to_nocid(tile)) << 23));
         write_reg(ep, 1, addr);
         write_reg(ep, 2, size);
     }
@@ -510,7 +517,7 @@ private:
         m3::TCU::write_reg(off, value);
     }
 
-    static uint16_t HW_MOD_IDS[9];
+    static uint16_t HW_MOD_IDS[MAX_CHIPS * MAX_TILES];
 
     static TCU inst;
 };

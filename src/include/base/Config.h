@@ -31,6 +31,9 @@
 #define APP_HEAP_SIZE (64 * 1024 * 1024)
 #define EPMEM_SIZE    0
 
+#define MAX_TILES     64
+#define MAX_CHIPS     2
+
 #if defined(__hw__)
 #    define TOTAL_EPS 128
 #    define AVAIL_EPS TOTAL_EPS

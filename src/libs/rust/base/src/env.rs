@@ -21,6 +21,8 @@
 use core::iter;
 use core::ops::FnOnce;
 
+use derivative::Derivative;
+
 use crate::boxed::Box;
 use crate::cell::LazyStaticRefCell;
 use crate::cfg;
@@ -36,7 +38,8 @@ int_enum! {
     }
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Copy, Clone, Derivative, Debug)]
+#[derivative(Default)]
 #[repr(C)]
 pub struct EnvData {
     // boot env
@@ -49,6 +52,9 @@ pub struct EnvData {
     pub heap_size: u64,
     pub kenv: u64,
     pub closure: u64,
+    pub raw_tile_count: u64,
+    #[derivative(Default(value = "[0u64; cfg::MAX_TILES * cfg::MAX_CHIPS]"))]
+    pub raw_tile_ids: [u64; cfg::MAX_TILES * cfg::MAX_CHIPS],
 
     // set by TileMux
     pub shared: u64,

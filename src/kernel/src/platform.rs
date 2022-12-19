@@ -94,9 +94,7 @@ pub fn is_shared(id: TileId) -> bool {
     tile_desc(id).is_programmable()
 }
 
-pub fn init() {
-    assert_eq!(env::data().tile_id, 0);
-
+pub fn init(tile_ids: Vec<TileId>) {
     // read kernel env
     let addr = GlobAddr::new(env::data().kenv);
     let mut offset = addr.offset();
@@ -104,22 +102,17 @@ pub fn init() {
     offset += size_of::<boot::Info>() as goff;
 
     // read boot modules
-    let mut mods: Vec<boot::Mod> = vec![boot::Mod::default(); info.mod_count as usize];
+    let mut mods = vec![boot::Mod::default(); info.mod_count as usize];
     ktcu::read_slice(addr.tile(), offset, &mut mods);
     offset += info.mod_count as goff * size_of::<boot::Mod>() as goff;
 
-    // read tile ids
-    let mut tile_ids: Vec<TileId> = vec![TileId::default(); info.tile_count as usize];
-    ktcu::read_slice(addr.tile(), offset, &mut tile_ids);
-    offset += info.tile_count as goff * size_of::<TileId>() as goff;
-
     // read tile descriptors
-    let mut tile_descs: Vec<TileDesc> = vec![TileDesc::default(); info.tile_count as usize];
+    let mut tile_descs = vec![TileDesc::default(); info.tile_count as usize];
     ktcu::read_slice(addr.tile(), offset, &mut tile_descs);
     offset += info.tile_count as goff * size_of::<TileDesc>() as goff;
 
     // read memory regions
-    let mut mems: Vec<boot::Mem> = vec![boot::Mem::default(); info.mem_count as usize];
+    let mut mems = vec![boot::Mem::default(); info.mem_count as usize];
     ktcu::read_slice(addr.tile(), offset, &mut mems);
 
     // build new info for user tiles

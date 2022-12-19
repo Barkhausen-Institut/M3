@@ -10,6 +10,7 @@ crate-type = ["rlib"]
 [dependencies]
 bitflags = "*"
 cfg-if = "*"
+derivative = { version = "2.2.0", features = ["use_core"] }
 static_assertions = "0.3.1"
 serde = { git = "https://github.com/Barkhausen-Institut/m3-serde", branch = "m3", default-features = false, features = ["derive", "alloc"] }
 minicov = "0.2"

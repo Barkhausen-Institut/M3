@@ -92,20 +92,20 @@ def load_boot_info(dram, mods, tiles, vm):
         mods_addr = (mods_addr + mod_size + 4096 - 1) & ~(4096 - 1)
         kenv_off += 80
 
-    # tiles
+    # tile descriptors
     for x in range(0, len(tiles)):
-        write_u64(dram, kenv_off, tile_desc(x, vm))       # PM
+        write_u64(dram, kenv_off, tile_desc(x, vm))     # PM
         kenv_off += 8
     write_u64(dram, kenv_off, DRAM_SIZE | (0 << 3) | 2) # dram
     kenv_off += 8
 
     # mems
     mem_start = info_start + KENV_SIZE + SERIAL_SIZE
-    write_u64(dram, kenv_off + 0, mem_start)             # addr (ignored)
-    write_u64(dram, kenv_off + 8, DRAM_SIZE - mem_start) # size
+    write_u64(dram, kenv_off + 0, glob_addr(MEM_TILE, mem_start)) # addr
+    write_u64(dram, kenv_off + 8, DRAM_SIZE - mem_start)          # size
 
-def load_prog(dram, pms, i, args, vm):
-    pm = pms[i]
+def load_prog(dram, tiles, i, args, vm):
+    pm = tiles[i]
     print("%s: loading %s..." % (pm.name, args[0]))
     sys.stdout.flush()
 
@@ -148,18 +148,17 @@ def load_prog(dram, pms, i, args, vm):
 
     argv = ENV + 0x400
     if vm:
-        heap_size = 0x10000
+        heap_size = 64 * 0x1000
     else:
         heap_size = 0
     desc = tile_desc(i, vm)
-    kenv = glob_addr(MEM_TILE, MAX_FS_SIZE + len(pms) * pmp_size) if i == 0 else 0
-    tile_id = (pm.nocid[0] << 8) | i
+    kenv = glob_addr(MEM_TILE, MAX_FS_SIZE + len(tiles) * pmp_size) if i == 0 else 0
 
     # init environment
     dram_env = ENV + mem_begin - DRAM_OFF
     write_u64(dram, dram_env - 8, 0x0000106f)  # j _start (+0x1000)
     write_u64(dram, dram_env + 0, 1)           # platform = HW
-    write_u64(dram, dram_env + 8, tile_id)     # chip, tile
+    write_u64(dram, dram_env + 8, i)           # chip, tile
     write_u64(dram, dram_env + 16, desc)       # tile_desc
     write_u64(dram, dram_env + 24, len(args))  # argc
     write_u64(dram, dram_env + 32, argv)       # argv
@@ -167,6 +166,13 @@ def load_prog(dram, pms, i, args, vm):
     write_u64(dram, dram_env + 48, heap_size)  # heap size
     write_u64(dram, dram_env + 56, kenv)       # kenv
     write_u64(dram, dram_env + 64, 0)          # lambda
+    write_u64(dram, dram_env + 72, len(tiles) + 1) # raw tile count
+    # tile ids
+    env_off = 80
+    for tile in tiles:
+        write_u64(dram, dram_env + env_off, tile.nocid[0] << 8 | tile.nocid[1])
+        env_off += 8
+    write_u64(dram, dram_env + env_off, dram.mem.nocid[0] << 8 | dram.mem.nocid[1])
 
     # write arguments to memory
     args_addr = argv + len(args) * 8

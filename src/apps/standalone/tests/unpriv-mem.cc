@@ -28,7 +28,7 @@ static uint8_t mem_buf[16384];
 
 static void test_mem_short() {
     auto own_tile = TileId::from_raw(env()->tile_id);
-    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
+    auto mem_tile = TILE_IDS[Tile::MEM];
 
     uint64_t data = 1234;
 
@@ -76,8 +76,7 @@ static void test_mem_short() {
 
     logln("READ+WRITE with offset != 0"_cf);
     {
-        kernel::TCU::config_mem(MEP2, mem_tile, 0x2000, sizeof(uint64_t) * 2,
-                                TCU::R | TCU::W);
+        kernel::TCU::config_mem(MEP2, mem_tile, 0x2000, sizeof(uint64_t) * 2, TCU::R | TCU::W);
 
         uint64_t data_ctrl = 0;
         ASSERT_EQ(kernel::TCU::write(MEP2, &data, sizeof(data), 4), Errors::SUCCESS);
@@ -87,8 +86,7 @@ static void test_mem_short() {
 
     logln("0-byte READ+WRITE transfers"_cf);
     {
-        kernel::TCU::config_mem(MEP2, mem_tile, 0x2000, sizeof(uint64_t) * 2,
-                                TCU::R | TCU::W);
+        kernel::TCU::config_mem(MEP2, mem_tile, 0x2000, sizeof(uint64_t) * 2, TCU::R | TCU::W);
 
         ASSERT_EQ(kernel::TCU::write(MEP2, nullptr, 0, 0), Errors::SUCCESS);
         ASSERT_EQ(kernel::TCU::read(MEP2, nullptr, 0, 0), Errors::SUCCESS);
@@ -141,8 +139,7 @@ static void test_mem_rdwr(TileId mem_tile) {
 
 template<typename DATA>
 static void test_mem(size_t size_in) {
-    auto own_tile = TileId::from_raw(env()->tile_id);
-    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
+    auto mem_tile = TILE_IDS[Tile::MEM];
 
     logln("READ+WRITE with {} {}B words"_cf, size_in, sizeof(DATA));
 
@@ -153,8 +150,7 @@ static void test_mem(size_t size_in) {
     for(size_t i = 0; i < size_in; ++i)
         msg[i] = i + 1;
 
-    kernel::TCU::config_mem(MEP, mem_tile, 0x1000, size_in * sizeof(DATA),
-                            TCU::R | TCU::W);
+    kernel::TCU::config_mem(MEP, mem_tile, 0x1000, size_in * sizeof(DATA), TCU::R | TCU::W);
 
     // test write + read
     ASSERT_EQ(kernel::TCU::write(MEP, msg, size_in * sizeof(DATA), 0), Errors::SUCCESS);
@@ -165,8 +161,7 @@ static void test_mem(size_t size_in) {
 
 template<size_t PAD>
 static void test_unaligned_rdwr(size_t nbytes, size_t loc_offset, size_t rem_offset) {
-    auto own_tile = TileId::from_raw(env()->tile_id);
-    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
+    auto mem_tile = TILE_IDS[Tile::MEM];
 
     // prepare test data
     UnalignedData<PAD> msg;
@@ -187,11 +182,10 @@ static void test_unaligned_rdwr(size_t nbytes, size_t loc_offset, size_t rem_off
 }
 
 void test_mem() {
-    auto own_tile = TileId::from_raw(env()->tile_id);
     test_mem_short();
-    test_mem_large(TileId(own_tile.chip(), Tile::MEM));
-    test_mem_large(TileId(own_tile.chip(), Tile::T0));
-    test_mem_rdwr(TileId(own_tile.chip(), Tile::MEM));
+    test_mem_large(TILE_IDS[Tile::MEM]);
+    test_mem_large(TILE_IDS[Tile::T0]);
+    test_mem_rdwr(TILE_IDS[Tile::MEM]);
 
     // test different lengths
     for(size_t i = 1; i <= 80; i++) {

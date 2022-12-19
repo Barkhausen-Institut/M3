@@ -137,6 +137,14 @@ pub extern "C" fn env_run() {
         "kernel",
     );
     crate::slab::init();
+
+    // initialize the TCU to translate tile ids to NoC ids from now on. do this early, because it's
+    // needed to access the TCU (e.g., to extract PMP EPs in paging::init()).
+    let tile_ids = tcu::TCU::init_tileid_translation(
+        &env::data().raw_tile_ids[0..env::data().raw_tile_count as usize],
+        true,
+    );
+
     runtime::paging::init();
     runtime::exceptions::init();
     crate::com::init_queues();
@@ -145,7 +153,7 @@ pub extern "C" fn env_run() {
 
     args::parse();
 
-    platform::init();
+    platform::init(tile_ids);
     create_rbufs();
     extend_heap();
     thread::init();

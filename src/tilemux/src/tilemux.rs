@@ -207,7 +207,7 @@ pub extern "C" fn init() -> usize {
     assert!((old_id >> 16) == 0);
 
     // init our own environment; at this point we can still access app_env, because it is mapped by
-    // the gem5 loader for us. afterwards, our address space does not contain that anymore.s
+    // the gem5 loader for us. afterwards, our address space does not contain that anymore.
     {
         let mut env = TM_ENV.borrow_mut();
         env.tile_id = app_env().tile_id;
@@ -222,6 +222,13 @@ pub extern "C" fn init() -> usize {
             &HEAP.0 as *const u64 as usize + HEAP.0.len() * 8,
         );
     }
+
+    // initialize the TCU to translate tile ids to NoC ids from now on. we do not need that to
+    // configure EPs here, but to extract PMP EPs and translate the NoC id to a tile id.
+    tcu::TCU::init_tileid_translation(
+        &app_env().raw_tile_ids[0..app_env().raw_tile_count as usize],
+        false,
+    );
 
     io::init(
         tcu::TileId::new_from_raw(pex_env().tile_id as u16),

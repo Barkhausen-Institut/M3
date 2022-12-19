@@ -23,7 +23,7 @@ static constexpr epid_t REP = TCU::FIRST_USER_EP + 2;
 
 static void test_inv_ep() {
     auto own_tile = TileId::from_raw(env()->tile_id);
-    auto mem_tile = TileId(own_tile.chip(), Tile::MEM);
+    auto mem_tile = TILE_IDS[Tile::MEM];
 
     char rbuffer[32];
     uintptr_t buf = reinterpret_cast<uintptr_t>(&rbuffer);
