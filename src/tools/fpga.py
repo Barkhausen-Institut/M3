@@ -43,7 +43,7 @@ def write_str(mod, str, addr):
     mod.mem.write_bytes(addr, bytes(buf), burst=False) # TODO enable burst
 
 def glob_addr(tile, offset):
-    return (0x80 + tile) << 56 | offset
+    return (0x4000 + tile) << 49 | offset
 
 def send_input(fpga_inst, chip, tile, ep, bytes):
     fpga_inst.nocif.send_bytes((chip, tile), ep, bytes)
