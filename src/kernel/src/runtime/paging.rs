@@ -37,6 +37,7 @@ extern "C" {
     static _bss_end: u8;
 
     fn __m3_heap_set_area(begin: usize, end: usize);
+    fn __m3_heap_get_end() -> usize;
 }
 
 struct PTAllocator {}
@@ -93,9 +94,13 @@ pub fn init() {
 
         // map initial heap
         let heap_start = math::round_up(&_bss_end as *const _ as usize, cfg::PAGE_SIZE);
-        let heap_size = 64 * cfg::PAGE_SIZE;
-        map_to_phys(&mut aspace, base, heap_start, heap_size, rw);
-        __m3_heap_set_area(heap_start, heap_start + heap_size);
+        let mut heap_end = __m3_heap_get_end();
+        if heap_end == 0 {
+            // if the heap has not been used yet, set the heap area
+            heap_end = heap_start + 64 * cfg::PAGE_SIZE;
+            __m3_heap_set_area(heap_start, heap_end);
+        }
+        map_to_phys(&mut aspace, base, heap_start, heap_end - heap_start, rw);
     }
 
     // map env
