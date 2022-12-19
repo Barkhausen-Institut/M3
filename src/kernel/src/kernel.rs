@@ -132,7 +132,10 @@ fn extend_heap() {
 #[no_mangle]
 pub extern "C" fn env_run() {
     unsafe { __m3_init_libc(0, ptr::null(), ptr::null()) };
-    io::init(tcu::TileId::new(0, 0), "kernel");
+    io::init(
+        tcu::TileId::new_from_raw(env::data().tile_id as u16),
+        "kernel",
+    );
     crate::slab::init();
     runtime::paging::init();
     runtime::exceptions::init();
