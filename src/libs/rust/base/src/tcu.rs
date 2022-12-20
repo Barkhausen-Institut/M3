@@ -29,7 +29,7 @@ use core::sync::atomic;
 use crate::arch;
 use crate::cell::LazyReadOnlyCell;
 use crate::cfg;
-use crate::col::Vec;
+use crate::env;
 use crate::errors::{Code, Error};
 use crate::goff;
 use crate::io::log::TCU;
@@ -939,14 +939,15 @@ static TILE_IDS: LazyReadOnlyCell<[u16; cfg::MAX_TILES * cfg::MAX_CHIPS]> =
     LazyReadOnlyCell::default();
 
 impl TCU {
-    pub fn init_tileid_translation(tile_ids: &[u64], collect: bool) -> Vec<TileId> {
+    #[cold]
+    fn init_tileid_translation() {
         let mut ids = [0u16; cfg::MAX_TILES * cfg::MAX_CHIPS];
 
-        let mut log_ids = Vec::new();
         let mut log_chip = 0;
         let mut log_tile = 0;
         let mut phys_chip = None;
-        for id in tile_ids {
+        assert!(env::data().raw_tile_count > 0);
+        for id in &env::data().raw_tile_ids[0..env::data().raw_tile_count as usize] {
             let tid = TileId::new_from_raw(*id as u16);
 
             if phys_chip.is_some() {
@@ -964,20 +965,26 @@ impl TCU {
             }
 
             ids[log_chip * cfg::MAX_TILES + log_tile] = tid.raw();
-            if collect {
-                log_ids.push(TileId::new(log_chip as u8, log_tile as u8));
-            }
         }
 
         TILE_IDS.set(ids);
-        log_ids
     }
 
+    #[inline]
     pub fn tileid_to_nocid(tile: TileId) -> u16 {
+        if !TILE_IDS.is_some() {
+            Self::init_tileid_translation();
+        }
+
         TILE_IDS.get()[tile.chip() as usize * cfg::MAX_TILES + tile.tile() as usize]
     }
 
+    #[inline]
     pub fn nocid_to_tileid(tile: u16) -> TileId {
+        if !TILE_IDS.is_some() {
+            Self::init_tileid_translation();
+        }
+
         for (i, id) in TILE_IDS.get().iter().enumerate() {
             if *id == tile {
                 let chip = i / cfg::MAX_TILES;

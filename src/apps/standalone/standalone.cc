@@ -18,8 +18,6 @@
 using namespace m3;
 
 int main() {
-    kernel::TCU::init();
-
     logln("Starting TCU tests\n"_cf);
 
     RUN_SUITE(test_msgs);

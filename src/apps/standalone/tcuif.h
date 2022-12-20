@@ -24,11 +24,6 @@ public:
 
     static const epid_t TMP_EP = AVAIL_EPS - 1;
 
-    static void init() {
-        // initialize translation of logical chip/tile ids to physical ids
-        m3::TCU::init_tileid_translation(m3::env()->raw_tile_ids, m3::env()->raw_tile_count);
-    }
-
     static int credits(epid_t ep) {
         reg_t r0 = m3::TCU::read_reg(ep, 0);
         return (r0 >> 19) & 0x3F;

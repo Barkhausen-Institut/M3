@@ -223,13 +223,6 @@ pub extern "C" fn init() -> usize {
         );
     }
 
-    // initialize the TCU to translate tile ids to NoC ids from now on. we do not need that to
-    // configure EPs here, but to extract PMP EPs and translate the NoC id to a tile id.
-    tcu::TCU::init_tileid_translation(
-        &app_env().raw_tile_ids[0..app_env().raw_tile_count as usize],
-        false,
-    );
-
     io::init(
         tcu::TileId::new_from_raw(pex_env().tile_id as u16),
         "tilemux",

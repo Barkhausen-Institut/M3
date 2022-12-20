@@ -178,6 +178,11 @@ void ChildActivity::do_exec(int argc, const char *const *argv, const char *const
     senv.first_sel = _next_sel;
     senv.act_id = _id;
 
+    // copy tile ids unchanged to child
+    senv.raw_tile_count = env()->raw_tile_count;
+    for(size_t i = 0; i < senv.raw_tile_count; ++i)
+        senv.raw_tile_ids[i] = env()->raw_tile_ids[i];
+
     senv.rmng_sel = _resmng->sel();
     senv.pager_sess = _pager ? _pager->sel() : 0;
     senv.pager_sgate = _pager ? _pager->child_sgate() : 0;

@@ -358,6 +358,9 @@ impl ChildActivity {
                 crate::env::vars_raw(),
             )?);
 
+            // copy tile ids unchanged to child
+            senv.copy_tile_ids(crate::env::get().tile_ids());
+
             // write file table
             {
                 let mut fds_vec = Vec::new();

@@ -94,7 +94,37 @@ pub fn is_shared(id: TileId) -> bool {
     tile_desc(id).is_programmable()
 }
 
-pub fn init(tile_ids: Vec<TileId>) {
+fn get_tile_ids() -> Vec<TileId> {
+    let mut log_ids = Vec::new();
+    let mut log_chip = 0;
+    let mut log_tile = 0;
+    let mut phys_chip = None;
+    for id in &env::data().raw_tile_ids[0..env::data().raw_tile_count as usize] {
+        let tid = TileId::new_from_raw(*id as u16);
+
+        if phys_chip.is_some() {
+            if phys_chip.unwrap() != tid.chip() {
+                phys_chip = Some(tid.chip());
+                log_chip += 1;
+                log_tile = 0;
+            }
+            else {
+                log_tile += 1;
+            }
+        }
+        else {
+            phys_chip = Some(tid.chip());
+        }
+
+        log_ids.push(TileId::new(log_chip as u8, log_tile as u8));
+    }
+
+    log_ids
+}
+
+pub fn init() {
+    let tile_ids = get_tile_ids();
+
     // read kernel env
     let addr = GlobAddr::new(env::data().kenv);
     let mut offset = addr.offset();

@@ -168,6 +168,15 @@ impl EnvData {
         }
     }
 
+    pub fn tile_ids(&self) -> &[u64] {
+        &self.base.raw_tile_ids[0..self.base.raw_tile_count as usize]
+    }
+
+    pub fn copy_tile_ids(&mut self, tile_ids: &[u64]) {
+        self.base.raw_tile_count = tile_ids.len() as u64;
+        self.base.raw_tile_ids[0..tile_ids.len()].copy_from_slice(tile_ids);
+    }
+
     // --- gem5 specific API ---
 
     pub fn load_closure(&self) -> Option<fn() -> Result<(), Error>> {

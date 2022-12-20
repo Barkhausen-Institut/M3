@@ -116,6 +116,12 @@ impl<T: Sized> LazyReadOnlyCell<T> {
         }
     }
 
+    /// Returns true if the value has been set
+    pub fn is_some(&self) -> bool {
+        // safety: since we don't support multi-threading, checking whether it exists is okay
+        unsafe { (*self.inner.get()).is_some() }
+    }
+
     /// Returns a reference to the inner value
     pub fn get(&self) -> &T {
         // safety: since the value can only be set once and cannot be mutated afterwards, we can

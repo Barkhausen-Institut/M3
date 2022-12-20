@@ -328,15 +328,17 @@ public:
 
     size_t print(const char *str, size_t len);
 
-    static void init_tileid_translation(uint64_t *tile_ids, size_t count);
-
     static inline uint16_t tileid_to_nocid(TileId tile) {
-        return HW_MOD_IDS[tile.chip() * MAX_TILES + tile.tile()];
+        if(!tile_ids_initialized)
+            init_tileid_translation();
+        return tile_ids[tile.chip() * MAX_TILES + tile.tile()];
     }
 
     static TileId nocid_to_tileid(uint16_t raw) {
+        if(!tile_ids_initialized)
+            init_tileid_translation();
         for(size_t i = 0; i < MAX_TILES * MAX_CHIPS; ++i) {
-            if(HW_MOD_IDS[i] == raw) {
+            if(tile_ids[i] == raw) {
                 auto chip = i / MAX_TILES;
                 auto tile = i % MAX_TILES;
                 return TileId(chip, tile);
@@ -517,7 +519,10 @@ private:
         m3::TCU::write_reg(off, value);
     }
 
-    static uint16_t HW_MOD_IDS[MAX_CHIPS * MAX_TILES];
+    static void init_tileid_translation();
+
+    static bool tile_ids_initialized;
+    static uint16_t tile_ids[MAX_CHIPS * MAX_TILES];
 
     static TCU inst;
 };

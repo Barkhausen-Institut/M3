@@ -28,8 +28,6 @@ static constexpr epid_t REP = TCU::FIRST_USER_EP;
 static uint8_t rbuf[8 * 64];
 
 int main() {
-    kernel::TCU::init();
-
     size_t size = nextlog2<sizeof(rbuf)>::val;
     uintptr_t rbuf_addr = reinterpret_cast<uintptr_t>(rbuf);
     kernel::TCU::config_recv(REP, rbuf_addr, size, size - nextlog2<8>::val, REP + 1);
