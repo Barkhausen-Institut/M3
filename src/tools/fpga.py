@@ -222,10 +222,9 @@ class TCUTerm:
         # read desired destination
         tile = read_u64(self.fpga_inst.dram1, serial_begin + 0)
         ep = read_u64(self.fpga_inst.dram1, serial_begin + 8)
-        chip = self.fpga_inst.dram1.mem.nocid[0]
         # only send if it was initialized
         if ep != 0:
-            send_input(self.fpga_inst, chip, tile, ep, bytes)
+            send_input(self.fpga_inst, tile >> 8, tile & 0xFF, ep, bytes)
 
     def cleanup(self):
         termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old)
