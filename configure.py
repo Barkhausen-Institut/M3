@@ -59,7 +59,6 @@ bins = {
     'bin': [],
     'sbin': [],
 }
-rustcrates = []
 ldscripts = {}
 if isa == 'riscv':
     link_addr = 0x10400000
@@ -67,6 +66,10 @@ else:
     link_addr = 0x400000
 
 class M3Env(ninjagen.Env):
+    def __init__(self):
+        super().__init__()
+        self.rustcrates = []
+
     def clone(self):
         env = M3Env()
         env.cwd = self.cwd
@@ -132,13 +135,11 @@ class M3Env(ninjagen.Env):
         return bin
 
     def m3_rust_lib(self, gen):
-        global rustcrates
-        rustcrates += [env.cwd.path]
+        self.rustcrates += [env.cwd.path]
 
     def m3_rust_exe(self, gen, out, libs = [], dir = 'bin', startup = None,
                     ldscript = 'default', varAddr = True):
-        global rustcrates
-        rustcrates += [self.cwd.path]
+        self.rustcrates += [self.cwd.path]
 
         env = self.clone()
         env['LINKFLAGS'] += ['-Wl,-z,muldefs']
@@ -160,12 +161,11 @@ class M3Env(ninjagen.Env):
         return env.m3_exe(gen, out, ins, libs, dir, True, ldscript, varAddr)
 
     def cargo_ws(self, gen):
-        global rustcrates
         outs = []
         deps = []
 
         env = self.clone()
-        for cr in rustcrates:
+        for cr in self.rustcrates:
             crate_name = os.path.basename(cr)
             out = ninjagen.BuildPath(env['RUSTBINS'] + '/lib' + crate_name + '.a')
             outs.append(out)
@@ -175,18 +175,12 @@ class M3Env(ninjagen.Env):
             # specify crates explicitly, because some crates are only supported by some targets
             env['CRGFLAGS'] += ['-p', crate_name]
 
-        # we need the touch here, because cargo does sometimes not rebuild a crate even if a rust
-        # file is more recent than the output
-        gen.add_rule('cargo_ws', ninjagen.Rule(
-            cmd = 'cargo $cargoflags --color=always && touch $out',
-            desc = 'CARGO Cargo.toml',
-        ))
         gen.add_build(ninjagen.BuildEdge(
             'cargo_ws',
             outs = outs,
             ins = [],
             deps = deps,
-            vars = { 'cargoflags' : 'build -Z build-std=core,alloc --target ' + env['TRIPLE'] + ' ' + ' '.join(env['CRGFLAGS']) }
+            vars = { 'cargoflags' : 'build -Z build-std=core,alloc --target ' + env['TRIPLE'] + ' ' + ' '.join(env['CRGFLAGS']), 'dir': '.' }
         ))
 
     def build_fs(self, gen, out, dir, blocks, inodes):
@@ -351,6 +345,11 @@ gen.add_rule('elf2hex', ninjagen.Rule(
     desc = 'ELF2HEX $out',
 ))
 
+gen.add_rule('cargo_ws', ninjagen.Rule(
+    cmd = 'cd $dir && cargo $cargoflags --color=always',
+    desc = 'CARGO Cargo.toml',
+))
+
 # by default, use the cross toolchain
 gen.add_var('cc', env['CC'])
 gen.add_var('cxx', env['CXX'])
@@ -389,12 +388,41 @@ class LinuxEnv(ninjagen.Env):
         assert isa == 'riscv'
         assert target == 'gem5' or target == 'hw'
         super().__init__()
+        self.rustcrates = []
 
-        triple = 'riscv64gc-unknown-linux-gnu'
-        self.vars['CRGFLAGS'] = ['--target', triple]
+        self.triple = 'riscv64gc-unknown-linux-gnu'
+        self.vars['CRGFLAGS'] = ['--target', self.triple]
         if btype != 'debug' and btype != 'coverage':
             self.vars['CRGFLAGS'] += ['--release']
-        self.vars['RustBins'] = 'build/rust/' + triple + '/' + rustbuild
+        self.vars['RUSTBINS'] = 'build/rust/' + self.triple + '/' + rustbuild
+    
+    def clone(self):
+        env = M3Env()
+        env.cwd = self.cwd
+        env.vars = copy.deepcopy(self.vars)
+        return env
+
+    def cargo_ws(self, gen):
+        outs = []
+        deps = []
+
+        env = self.clone()
+        for cr in self.rustcrates:
+            crate_name = os.path.basename(cr)
+            out = ninjagen.BuildPath(env['RUSTBINS'] + '/lib' + crate_name + '.a')
+            outs.append(out)
+            deps += [cr + '/Cargo.toml', '.cargo/config']
+            deps += env.glob(crate_name + '/**/*.rs', recursive = True)
+            # specify crates explicitly, because some crates are only supported by some targets
+            env['CRGFLAGS'] += ['-p', crate_name]
+
+        gen.add_build(ninjagen.BuildEdge(
+            'cargo_ws',
+            outs = outs,
+            ins = [],
+            deps = deps,
+            vars = { 'cargoflags' : 'build ' + ' '.join(env['CRGFLAGS']), 'dir': 'linux-deps/src' }
+        ))
 
 linux_env = LinuxEnv()
 if os.path.exists('linux-deps'):
