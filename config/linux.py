@@ -2,44 +2,44 @@ import os, sys
 from subprocess import call
 
 sys.path.append(os.path.realpath('platform/gem5/configs/example'))
-import tcu_fs as t
+from tcu_fs import *
 
-t.mod_offset = t.linux_tile_offset + t.linux_tile_size
-t.tile_offset = t.mod_offset + t.mod_size
-
-options = t.getOptions()
-root = t.createRoot(options)
+options = getOptions()
+root = createRoot(options)
 
 num_eps = 192
 mem_tile_no = 3
 
-kernel_tile = t. createCoreTile(noc=root.noc,
+kernel_tile = createCoreTile(noc=root.noc,
                              options=options,
                              no=0,
-                             cmdline='build/gem5-riscv-release/bin/kernel', # FIXME
+                             cmdline='build/gem5-riscv-release/bin/kernel -k', # FIXME
                              memTile=mem_tile_no,
                              l1size='32kB',
                              l2size='256kB',
                              epCount=num_eps)
 
-user_tile = t. createCoreTile(noc=root.noc,
+user_tile = createCoreTile(noc=root.noc,
+                           options=options,
+                           no=1,
+                           cmdline='build/gem5-riscv-release/bin/tilemux', # FIXME
+                           memTile=mem_tile_no,
+                           l1size='32kB',
+                           l2size='256kB',
+                           epCount=num_eps)
+
+linux_tile = createLinuxTile(noc=root.noc,
                              options=options,
-                             no=1,
-                             cmdline='build/gem5-riscv-release/bin/tilemux', # FIXME
+                             no=2,
+                             kernel=options.kernel,
                              memTile=mem_tile_no,
                              l1size='32kB',
                              l2size='256kB',
-                             epCount=num_eps)
-
-linux_tile = t.createLinuxTile(options,
-                             noc=root.noc,
-                             no=2,
-                             memTile=mem_tile_no,
-                             kernel=options.kernel,
-                             fsImage=options.disk_image,
+                             epCount=num_eps,
+                             fsImage=options.disk_image[0],
                              commandLine='earlycon=sbi console=ttyS0 root=/dev/vda1')
 
-memory_tile = t.createMemTile(noc=root.noc,
+memory_tile = createMemTile(noc=root.noc,
                             options=options,
                             no=mem_tile_no,
                             size='3072MB',
@@ -47,4 +47,4 @@ memory_tile = t.createMemTile(noc=root.noc,
                             imageNum=0,
                             epCount=num_eps)
 
-t.runSimulation(root, options, [kernel_tile, user_tile, linux_tile, memory_tile])
+runSimulation(root, options, [kernel_tile, user_tile, linux_tile, memory_tile])
