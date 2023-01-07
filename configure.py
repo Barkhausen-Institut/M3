@@ -59,6 +59,7 @@ bins = {
     'bin': [],
     'sbin': [],
 }
+rustcrates = []
 ldscripts = {}
 if isa == 'riscv':
     link_addr = 0x10400000
@@ -66,10 +67,6 @@ else:
     link_addr = 0x400000
 
 class M3Env(ninjagen.Env):
-    def __init__(self):
-        super().__init__()
-        self.rustcrates = []
-
     def clone(self):
         env = M3Env()
         env.cwd = self.cwd
@@ -135,11 +132,13 @@ class M3Env(ninjagen.Env):
         return bin
 
     def m3_rust_lib(self, gen):
-        self.rustcrates += [env.cwd.path]
+        global rustcrates
+        rustcrates += [env.cwd.path]
 
     def m3_rust_exe(self, gen, out, libs = [], dir = 'bin', startup = None,
                     ldscript = 'default', varAddr = True):
-        self.rustcrates += [self.cwd.path]
+        global rustcrates
+        rustcrates += [self.cwd.path]
 
         env = self.clone()
         env['LINKFLAGS'] += ['-Wl,-z,muldefs']
@@ -161,11 +160,12 @@ class M3Env(ninjagen.Env):
         return env.m3_exe(gen, out, ins, libs, dir, True, ldscript, varAddr)
 
     def cargo_ws(self, gen):
+        global rustcrates
         outs = []
         deps = []
 
         env = self.clone()
-        for cr in self.rustcrates:
+        for cr in rustcrates:
             crate_name = os.path.basename(cr)
             out = ninjagen.BuildPath(env['RUSTBINS'] + '/lib' + crate_name + '.a')
             outs.append(out)
