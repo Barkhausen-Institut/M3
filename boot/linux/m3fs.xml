@@ -1,0 +1,14 @@
+<app args="root">
+    <dom>
+        <app args="m3fs mem 134217728" daemon="1">
+            <serv name="m3fs" />
+            <physmem addr="0" size="134217728" />
+        </app>
+    </dom>
+    <dom>
+        <app args="hello" foreign="1">
+            <sess name="m3fs" />
+            <mount fs="m3fs" path="/" />
+        </app>
+    </dom>
+</app>
