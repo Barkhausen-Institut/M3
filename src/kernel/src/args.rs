@@ -25,7 +25,7 @@ pub struct Args {
     pub net_bridge: Option<String>,
     pub disk: bool,
     pub free: Vec<String>,
-    pub runs_with_linux: bool,
+    pub keep_alive: bool,
 }
 
 static ARGS: LazyStaticRefCell<Args> = LazyStaticRefCell::default();
@@ -68,8 +68,8 @@ pub fn parse() {
         else if argv[i] == "-d" {
             args.disk = true;
         }
-        else if argv[i] == "-l" {
-            args.runs_with_linux = true;
+        else if argv[i] == "-k" {
+            args.keep_alive = true;
         }
         else {
             args.free.push(argv[i].to_string());
@@ -82,12 +82,12 @@ pub fn parse() {
 
 fn usage() -> ! {
     panic!(
-        "\nUsage: {} [-m <kmem>] [-f <fsimg>] [-b <bridge>] [-d] [-l]
+        "\nUsage: {} [-m <kmem>] [-f <fsimg>] [-b <bridge>] [-d] [-k]
           -m: the kernel memory size (> FIXED_KMEM)
           -f: the file system image to load (host only)
           -b: the network bridge to create (host only)
           -d: enable disk device (host only)
-          -l: don't run root; keep workloop alive for linux activities",
+          -k: keep workloop alive after last activity exited (for linux config)",
         env::args().next().unwrap()
     );
 }

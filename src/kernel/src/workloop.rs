@@ -27,17 +27,14 @@ pub fn thread_startup() {
 }
 
 pub fn workloop() -> ! {
-    // this should only be a temporary workaround because in the linux config I only use 3 tiles so
-    // there is not enough space for root
-    let runs_with_lx = args::get().runs_with_linux;
-    if thread::cur().is_main() && !runs_with_lx {
+    if thread::cur().is_main() {
         ActivityMng::start_root_async().expect("starting root failed");
     }
 
     // prevent the workloop from exiting right away because there is no activity
-    let linux_is_running = thread::cur().is_main() && runs_with_lx;
+    let keep_alive = thread::cur().is_main() && args::get().keep_alive;
 
-    while ActivityMng::count() > 0 || linux_is_running {
+    while ActivityMng::count() > 0 || keep_alive {
         if envdata::get().platform != envdata::Platform::HW.val {
             tcu::TCU::sleep().unwrap();
         }
