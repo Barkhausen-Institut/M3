@@ -14,7 +14,7 @@ mem_tile_no = 4
 kernel_tile = createCoreTile(noc=root.noc,
                              options=options,
                              no=0,
-                             cmdline='build/gem5-riscv-release/bin/kernel -f build/gem5-riscv-release/default.img', # FIXME
+                             cmdline='build/gem5-riscv-release/bin/kernel -k -f build/gem5-riscv-release/default.img', # FIXME
                              memTile=mem_tile_no,
                              l1size='32kB',
                              l2size='256kB',
