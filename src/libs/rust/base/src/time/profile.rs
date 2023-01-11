@@ -122,7 +122,7 @@ impl<T: Duration> fmt::Display for Results<T> {
 impl<T: Duration> fmt::Debug for Results<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         for t in &self.times {
-            writeln!(f, "{:?}", t)?;
+            write!(f, "{};", t.as_raw())?;
         }
         Ok(())
     }

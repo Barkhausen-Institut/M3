@@ -40,35 +40,37 @@ fn noop_syscall(rbuf: usize) {
     wait_for_rpl::<()>(tcu::FIRST_USER_EP + tcu::SYSC_REP_OFF, rbuf).unwrap();
 }
 
+fn bench<F: FnMut()>(profiler: &Profiler, name: &str, f: F) {
+    let mut res = profiler.run::<CycleInstant, _>(f);
+    println!("\n\n{}: {:?}", name, res);
+    println!("{}: {}", name, res);
+    res.filter_outliers();
+    println!("{} filtered: {}", name, res);
+}
+
 fn bench_custom_noop_syscall(profiler: &Profiler) {
     let (rbuf, _) = m3::tiles::Activity::own().tile_desc().rbuf_std_space();
-    let mut res = profiler.run::<CycleInstant, _>(|| {
+    bench(profiler, "custom noop", || {
         noop_syscall(rbuf);
-    });
-    res.filter_outliers();
-    println!("custom noop filtered: {}", res);
+    })
 }
 
 fn bench_m3_noop_syscall(profiler: &Profiler) {
-    let mut res = profiler.run::<CycleInstant, _>(|| {
+    bench(profiler, "m3 noop", || {
         m3::syscalls::noop().unwrap();
-    });
-    res.filter_outliers();
-    println!("m3 noop filtered: {}", res);
+    })
 }
 
 fn bench_tlb_insert(profiler: &Profiler) {
     let sample_addr = profiler as *const Profiler as usize;
-    let mut res = profiler.run::<CycleInstant, _>(|| {
+    bench(profiler, "tlb insert", || {
         tcu::TCU::handle_xlate_fault(sample_addr, Perm::R);
-    });
-    res.filter_outliers();
-    println!("tlb insert filtered: {}", res);
+    })
 }
 
 fn bench_m3fs(profiler: &Profiler) {
     let new_file_contents = "test\ntest";
-    let mut res = profiler.run::<CycleInstant, _>(|| {
+    bench(profiler, "m3fs meta", || {
         {
             let mut file = VFS::open("/new-file.txt", OpenFlags::W | OpenFlags::CREATE).unwrap();
             write!(file, "{}", new_file_contents).unwrap();
@@ -81,9 +83,7 @@ fn bench_m3fs(profiler: &Profiler) {
         {
             VFS::unlink("/new-file.txt").unwrap();
         }
-    });
-    res.filter_outliers();
-    println!("m3fs filtered: {}", res);
+    })
 }
 
 #[no_mangle]
