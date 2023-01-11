@@ -1,5 +1,6 @@
 #![no_std]
 
+use m3::io::{Read, Write};
 use m3::errors::Error;
 use m3::kif;
 use m3::kif::Perm;
@@ -8,6 +9,7 @@ use m3::println;
 use m3::tcu;
 use m3::tcu::EpId;
 use m3::time::{CycleInstant, Profiler};
+use m3::vfs::{OpenFlags, VFS};
 
 fn wait_for_rpl<T>(rep: EpId, rcv_buf: usize) -> Result<&'static T, Error> {
     loop {
@@ -64,10 +66,32 @@ fn bench_tlb_insert(profiler: &Profiler) {
     println!("tlb insert filtered: {}", res);
 }
 
+fn bench_m3fs(profiler: &Profiler) {
+    let new_file_contents = "test\ntest";
+    let mut res = profiler.run::<CycleInstant, _>(|| {
+        {
+            let mut file = VFS::open("/new-file.txt", OpenFlags::W | OpenFlags::CREATE).unwrap();
+            write!(file, "{}", new_file_contents).unwrap();
+        }
+        {
+            let mut file = VFS::open("/new-file.txt", OpenFlags::R).unwrap();
+            let contents = file.read_to_string().unwrap();
+            assert!(contents == new_file_contents);
+        }
+        {
+            VFS::unlink("/new-file.txt").unwrap();
+        }
+    });
+    res.filter_outliers();
+    println!("m3fs filtered: {}", res);
+}
+
 #[no_mangle]
 pub fn main() {
+    VFS::mount("/", "m3fs", "m3fs").unwrap();
     let profiler = Profiler::default().warmup(50).repeats(1000);
     bench_custom_noop_syscall(&profiler);
     bench_m3_noop_syscall(&profiler);
     bench_tlb_insert(&profiler);
+    bench_m3fs(&profiler);
 }

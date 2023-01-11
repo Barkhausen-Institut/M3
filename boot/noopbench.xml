@@ -3,7 +3,16 @@
     <dom>
         <app args="root">
             <dom>
-                <app args="noopbench" />
+                <app args="m3fs mem $fs.size" daemon="1">
+                    <serv name="m3fs" />
+                    <physmem addr="0" size="$fs.size" />
+                </app>
+            </dom>
+            <dom>
+                <app args="noopbench">
+                    <sess name="m3fs" />
+                    <mount fs="m3fs" path="/" />
+                </app>
             </dom>
         </app>
     </dom>
