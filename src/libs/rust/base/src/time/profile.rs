@@ -86,17 +86,45 @@ impl<T: Duration> Results<T> {
         let avg = self.avg().as_raw();
         self.times.retain(|t| t.as_raw() > avg / 2 && t.as_raw() < avg * 2);
     }
+
+    pub fn min_max(&self) -> (T, T) {
+        let mut min = !0u64;
+        let mut max = 0;
+        for t in &self.times {
+            let r = t.as_raw();
+            if r < min {
+                min = r;
+            }
+            if r > max {
+                max = r;
+            }
+        }
+        return (T::from_raw(min), T::from_raw(max));
+    }
 }
 
 impl<T: Duration> fmt::Display for Results<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let (min, max) = self.min_max();
         write!(
             f,
-            "{:?} (+/- {:?} with {} runs)",
+            "{:?} (+/- {:?} with {} runs, min: {:?}, max: {:?})",
             self.avg(),
             self.stddev(),
-            self.runs()
+            self.runs(),
+            min,
+            max,
         )
+    }
+}
+
+// for printing every single value
+impl<T: Duration> fmt::Debug for Results<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for t in &self.times {
+            writeln!(f, "{:?}", t)?;
+        }
+        Ok(())
     }
 }
 
