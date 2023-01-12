@@ -26,7 +26,7 @@ use crate::time::{Duration, Instant};
 
 /// A container for the measured execution times
 pub struct Results<T: Duration> {
-    times: Vec<T>,
+    pub times: Vec<T>,
 }
 
 impl<T: Duration> Results<T> {
@@ -115,16 +115,6 @@ impl<T: Duration> fmt::Display for Results<T> {
             min,
             max,
         )
-    }
-}
-
-// for printing every single value
-impl<T: Duration> fmt::Debug for Results<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        for t in &self.times {
-            write!(f, "{};", t.as_raw())?;
-        }
-        Ok(())
     }
 }
 
