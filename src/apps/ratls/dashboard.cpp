@@ -151,12 +151,12 @@ public:
     }
 
     virtual void sendCommandToClient(std::string command) {
-        String cmd = command.c_str();
+        std::string cmd = command.c_str();
         send_receive_vmsg(sgate, cmd);
     }
 
     virtual std::string receiveReportFromClient() {
-        String report;
+        std::string report;
         auto is = receive_msg(rgate);
         is >> report;
         reply_vmsg(is, 0);

@@ -230,7 +230,7 @@ std::string DemoClient::waitForCommand() {
 
 #if defined(__m3__)
 	printf("Waiting for command...\n");
-    m3::String cmd;
+    std::string cmd;
 	auto is = m3::receive_msg(command);
     is >> cmd;
 	m3::reply_vmsg(is, 0);
@@ -324,7 +324,7 @@ void DemoClient::sendReport() {
 	}
 
 #if defined(__m3__)
-	m3::send_receive_vmsg(report, m3::String(reportStr));
+	m3::send_receive_vmsg(report, reportStr);
 #else
 	size_t reportSize = strlen(reportStr) + 1; // length + null byte
 	chksys(write(reportPipeFd, &reportSize, sizeof(reportSize)), "write report size");
