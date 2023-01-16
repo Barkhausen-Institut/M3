@@ -25,6 +25,7 @@ use crate::math;
 use crate::time::{Duration, Instant};
 
 /// A container for the measured execution times
+#[derive(Clone)]
 pub struct Results<T: Duration> {
     pub times: Vec<T>,
 }
