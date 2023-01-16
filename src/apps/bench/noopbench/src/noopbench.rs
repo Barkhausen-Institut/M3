@@ -13,6 +13,7 @@ use m3::{
     time::{
         CycleDuration, CycleInstant, Duration, Profiler, Results, Runner, TimeDuration, TimeInstant,
     },
+    tmabi,
     vec,
     vfs::{FileMode, FileRef, GenericFile, OpenFlags, VFS},
 };
@@ -46,6 +47,7 @@ fn noop_syscall(rbuf: usize) {
     wait_for_rpl::<()>(tcu::FIRST_USER_EP + tcu::SYSC_REP_OFF, rbuf).unwrap();
 }
 
+#[inline(never)]
 fn bench_custom_noop_syscall(profiler: &Profiler) -> Results<CycleDuration> {
     let (rbuf, _) = Activity::own().tile_desc().rbuf_std_space();
     profiler.run::<CycleInstant, _>(|| {
@@ -53,12 +55,14 @@ fn bench_custom_noop_syscall(profiler: &Profiler) -> Results<CycleDuration> {
     })
 }
 
+#[inline(never)]
 fn bench_m3_noop_syscall(profiler: &Profiler) -> Results<CycleDuration> {
     profiler.run::<CycleInstant, _>(|| {
         m3::syscalls::noop().unwrap();
     })
 }
 
+#[inline(never)]
 fn bench_tlb_insert(profiler: &Profiler) -> Results<CycleDuration> {
     let sample_addr = profiler as *const Profiler as usize;
     profiler.run::<CycleInstant, _>(|| {
@@ -66,8 +70,16 @@ fn bench_tlb_insert(profiler: &Profiler) -> Results<CycleDuration> {
     })
 }
 
+#[inline(never)]
+fn bench_os_call(profiler: &Profiler) -> Results<CycleDuration> {
+    profiler.run::<CycleInstant, _>(|| {
+        tmabi::call2(m3::tmif::Operation::NOOP, 0, 0).unwrap();
+    })
+}
+
 const STR_LEN: usize = 512 * 1024;
 
+#[inline(never)]
 fn bench_m3fs_read(profiler: &Profiler) -> Results<TimeDuration> {
     let mut file = VFS::open("/new-file.txt", OpenFlags::CREATE | OpenFlags::RW).unwrap();
     let content: String = (0..STR_LEN).map(|_| "a").collect();
@@ -109,10 +121,12 @@ impl Runner for WriteBenchmark {
     }
 }
 
+#[inline(never)]
 fn bench_m3fs_write(profiler: &Profiler) -> Results<TimeDuration> {
     profiler.runner::<TimeInstant, _>(&mut WriteBenchmark::new())
 }
 
+#[inline(never)]
 fn bench_m3fs_meta(profiler: &Profiler) -> Results<TimeDuration> {
     profiler.run::<TimeInstant, _>(|| {
         VFS::mkdir("/new-dir", FileMode::from_bits(0o755).unwrap()).unwrap();
@@ -147,7 +161,7 @@ fn print_csv(data: Vec<(String, Vec<u64>)>) {
     }
 }
 
-fn print_summary<T: Duration>(name: &str, mut res: Results<T>) {
+fn print_summary<T: Duration>(name: &str, res: &mut Results<T>) {
     println!("\n\n{}:", name);
     println!("{}", res);
     res.filter_outliers();
@@ -161,28 +175,31 @@ fn _column<T: Duration>(name: &str, res: &Results<T>) -> (String, Vec<u64>) {
 #[no_mangle]
 pub fn main() {
     VFS::mount("/", "m3fs", "m3fs").unwrap();
-    let profiler = Profiler::default().warmup(50).repeats(500);
+    let profiler = Profiler::default().warmup(10).repeats(100);
 
-    let cnoop = bench_custom_noop_syscall(&profiler);
-    let m3noop = bench_m3_noop_syscall(&profiler);
-    let tlb = bench_tlb_insert(&profiler);
-    let read = bench_m3fs_read(&profiler);
-    let write = bench_m3fs_write(&profiler);
-    let meta = bench_m3fs_meta(&profiler);
+    let mut cnoop = bench_custom_noop_syscall(&profiler);
+    let mut m3noop = bench_m3_noop_syscall(&profiler);
+    let mut oscall = bench_os_call(&profiler);
+    let mut tlb = bench_tlb_insert(&profiler);
+    let mut read = bench_m3fs_read(&profiler);
+    let mut write = bench_m3fs_write(&profiler);
+    let mut meta = bench_m3fs_meta(&profiler);
 
     print_csv(vec![
         _column("custom noop", &cnoop),
         _column("m3 noop", &m3noop),
+        _column("oscall arg", &oscall),
         _column("tlb insert", &tlb),
         _column("m3fs read", &read),
         _column("m3fs write", &write),
         _column("m3fs meta", &meta),
     ]);
 
-    print_summary("custom noop", cnoop);
-    print_summary("m3 noop", m3noop);
-    print_summary("tlb insert", tlb);
-    print_summary("m3fs read", read);
-    print_summary("m3fs write", write);
-    print_summary("m3fs meta", meta);
+    print_summary("custom noop", &mut cnoop);
+    print_summary("m3 noop", &mut m3noop);
+    print_summary("oscall", &mut oscall);
+    print_summary("tlb insert", &mut tlb);
+    print_summary("m3fs read", &mut read);
+    print_summary("m3fs write", &mut write);
+    print_summary("m3fs meta", &mut meta);
 }

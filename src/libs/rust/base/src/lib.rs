@@ -109,6 +109,11 @@ pub mod tcu {
     pub use crate::arch::tcu::*;
 }
 
+/// The tmabi
+pub mod tmabi {
+    pub use crate::arch::tmabi::*;
+}
+
 /// The environment data
 pub mod envdata {
     int_enum! {
