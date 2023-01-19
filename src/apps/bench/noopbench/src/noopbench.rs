@@ -98,23 +98,25 @@ struct WriteBenchmark {
 impl WriteBenchmark {
     fn new() -> WriteBenchmark {
         WriteBenchmark {
-            file: VFS::open("/bla", OpenFlags::CREATE).unwrap(),
+            file: VFS::open("/new-file.txt", OpenFlags::CREATE | OpenFlags::W).unwrap(),
             content: (0..STR_LEN).map(|_| "a").collect(),
         }
     }
 }
 
-impl Runner for WriteBenchmark {
-    fn pre(&mut self) {
-        self.file = VFS::open("/new-file.txt", OpenFlags::CREATE | OpenFlags::W).unwrap();
+impl Drop for WriteBenchmark {
+    fn drop(&mut self) {
+        VFS::unlink("/new-file.txt").unwrap();
     }
+}
 
+impl Runner for WriteBenchmark {
     fn run(&mut self) {
         self.file.write_all(self.content.as_bytes()).unwrap();
     }
 
     fn post(&mut self) {
-        VFS::unlink("/new-file.txt").unwrap();
+        self.file.borrow().truncate(0).unwrap();
     }
 }
 
