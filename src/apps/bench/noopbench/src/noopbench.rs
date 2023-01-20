@@ -74,12 +74,13 @@ fn bench_os_call(profiler: &Profiler) -> Results<CycleDuration> {
     })
 }
 
-const STR_LEN: usize = 256 * 1024;
+const READ_STR_LEN: usize = 1024 * 1024;
+const WRITE_STR_LEN: usize = 8 * 1024;
 
 #[inline(never)]
 fn bench_m3fs_read(profiler: &Profiler) -> Results<CycleDuration> {
     let mut file = VFS::open("/new-file.txt", OpenFlags::CREATE | OpenFlags::RW).unwrap();
-    let content: String = (0..STR_LEN).map(|_| "a").collect();
+    let content: String = (0..READ_STR_LEN).map(|_| "a").collect();
     write!(file, "{}", content).unwrap();
 
     let res = profiler.run::<CycleInstant, _>(|| {
@@ -99,7 +100,7 @@ impl WriteBenchmark {
     fn new() -> WriteBenchmark {
         WriteBenchmark {
             file: VFS::open("/new-file.txt", OpenFlags::CREATE | OpenFlags::W).unwrap(),
-            content: (0..STR_LEN).map(|_| "a").collect(),
+            content: (0..WRITE_STR_LEN).map(|_| "a").collect(),
         }
     }
 }
@@ -128,14 +129,13 @@ fn bench_m3fs_write(profiler: &Profiler) -> Results<CycleDuration> {
 #[inline(never)]
 fn bench_m3fs_meta(profiler: &Profiler) -> Results<CycleDuration> {
     profiler.run::<CycleInstant, _>(|| {
-        VFS::mkdir("/new-dir", FileMode::from_bits(0o755).unwrap()).unwrap();
-        let _ = VFS::open("/new-dir/new-file", OpenFlags::CREATE).unwrap();
-        VFS::link("/new-dir/new-file", "/new-link").unwrap();
-        VFS::rename("/new-link", "/new-blink").unwrap();
-        let _ = VFS::stat("/new-blink").unwrap();
-        VFS::unlink("/new-blink").unwrap();
-        VFS::unlink("/new-dir/new-file").unwrap();
-        VFS::rmdir("/new-dir").unwrap();
+        VFS::mkdir("/d", FileMode::from_bits(0o755).unwrap()).unwrap();
+        let _ = VFS::open("/d/f", OpenFlags::CREATE).unwrap();
+        // VFS::link("/d/f", "/l").unwrap();
+        // VFS::rename("/l", "/r").unwrap();
+        // VFS::unlink("/r").unwrap();
+        VFS::unlink("/d/f").unwrap();
+        VFS::rmdir("/d").unwrap();
     })
 }
 
@@ -161,11 +161,7 @@ fn print_csv(data: Vec<(String, Vec<u64>)>) {
 }
 
 fn print_summary<T: Duration + Clone>(name: &str, res: &Results<T>) {
-    println!("\n\n{}:", name);
-    println!("{}", res);
-    let mut filtered: Results<T> = (*res).clone();
-    filtered.filter_outliers();
-    println!("filtered: {}", filtered);
+    println!("{}: {}", name, res);
 }
 
 fn _column<T: Duration>(name: &str, res: &Results<T>) -> (String, Vec<u64>) {
@@ -195,7 +191,7 @@ pub fn main() {
     print_csv(vec![
         _column("custom noop", &cnoop),
         _column("m3 noop", &m3noop),
-        _column("oscall arg", &oscall),
+        _column("oscall", &oscall),
         _column("tlb insert", &tlb),
         _column("m3fs read", &read),
         _column("m3fs write", &write),
