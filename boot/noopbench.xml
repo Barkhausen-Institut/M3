@@ -11,7 +11,6 @@
             <dom>
                 <app args="noopbench">
                     <sess name="m3fs" />
-                    <mount fs="m3fs" path="/" />
                 </app>
             </dom>
         </app>

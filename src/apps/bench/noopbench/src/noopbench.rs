@@ -129,13 +129,27 @@ fn bench_m3fs_write(profiler: &Profiler) -> Results<CycleDuration> {
 #[inline(never)]
 fn bench_m3fs_meta(profiler: &Profiler) -> Results<CycleDuration> {
     profiler.run::<CycleInstant, _>(|| {
-        VFS::mkdir("/d", FileMode::from_bits(0o755).unwrap()).unwrap();
-        let _ = VFS::open("/d/f", OpenFlags::CREATE).unwrap();
-        // VFS::link("/d/f", "/l").unwrap();
-        // VFS::rename("/l", "/r").unwrap();
-        // VFS::unlink("/r").unwrap();
-        VFS::unlink("/d/f").unwrap();
-        VFS::rmdir("/d").unwrap();
+        VFS::mkdir("/new-dir", FileMode::from_bits(0o755).unwrap()).unwrap();
+        let _ = VFS::stat("/new-dir").unwrap();
+        {
+            let _ = VFS::open("/new-dir/new-file", OpenFlags::CREATE).unwrap();
+        }
+        {
+            let mut file = VFS::open("/new-dir/new-file", OpenFlags::W).unwrap();
+            write!(file, "test").unwrap();
+        }
+        {
+            let mut file = VFS::open("/new-dir/new-file", OpenFlags::R).unwrap();
+            let _ = file.read_to_string().unwrap();
+            let _ = VFS::stat("/new-dir/new-file").unwrap();
+        }
+
+        VFS::link("/new-dir/new-file", "/new-link").unwrap();
+        VFS::rename("/new-link", "/new-blink").unwrap();
+        let _ = VFS::stat("/new-blink");
+        VFS::unlink("/new-blink").unwrap();
+        VFS::unlink("/new-dir/new-file").unwrap();
+        VFS::rmdir("/new-dir").unwrap();
     })
 }
 
@@ -173,6 +187,8 @@ pub fn main() {
     VFS::mount("/", "m3fs", "m3fs").unwrap();
     let profiler = Profiler::default().warmup(10).repeats(100);
 
+    let meta = bench_m3fs_meta(&profiler);
+    print_summary("m3fs meta", &meta);
     let cnoop = bench_custom_noop_syscall(&profiler);
     print_summary("custom noop", &cnoop);
     let m3noop = bench_m3_noop_syscall(&profiler);
@@ -185,8 +201,6 @@ pub fn main() {
     print_summary("m3fs read", &read);
     let write = bench_m3fs_write(&profiler);
     print_summary("m3fs write", &write);
-    let meta = bench_m3fs_meta(&profiler);
-    print_summary("m3fs meta", &meta);
 
     print_csv(vec![
         _column("custom noop", &cnoop),
