@@ -15,6 +15,7 @@
 
 #![no_std]
 
+use core::fmt;
 use core::ptr;
 
 use m3::col::Vec;
@@ -64,22 +65,39 @@ fn memory(prof: &mut Profiler) -> Results<CycleDuration> {
     })
 }
 
+struct MyResults(Results<CycleDuration>);
+
+impl fmt::Display for MyResults {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{:?} (+/- {:?} with {} runs)",
+            self.0.times().iter().max().unwrap(),
+            self.0.stddev(),
+            self.0.runs()
+        )
+    }
+}
+
 #[no_mangle]
 pub fn main() -> i32 {
     let args = env::args().collect::<Vec<_>>();
     let mode = args[1];
-    let iters = args[2]
+    let mut iters = args[2]
         .parse::<u64>()
         .expect("Unable to parse iters argument");
+    if mode != "transfers" {
+        iters /= 10;
+    }
 
-    let mut prof = Profiler::default().repeats(iters).warmup(10);
+    let mut prof = Profiler::default().repeats(iters).warmup(1);
     let res = match mode {
         "compute" => compute(&mut prof),
         "transfers" => transfers(&mut prof),
         "memory" => memory(&mut prof),
         _ => panic!("Unsupported mode {}", mode),
     };
-    wv_perf!(mode, &res);
+    wv_perf!(mode, MyResults(res));
 
     0
 }
