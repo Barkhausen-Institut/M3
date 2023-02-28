@@ -42,6 +42,9 @@ pub fn main() -> i32 {
     let print = args[4]
         .parse::<u32>()
         .expect("Unable to parse print argument");
+    let semdowns = args[5]
+        .parse::<u64>()
+        .expect("Unable to parse semdowns argument");
 
     let sgate = wv_assert_ok!(SendGate::new_named("chan"));
     wv_assert_ok!(sgate.activate());
@@ -55,7 +58,22 @@ pub fn main() -> i32 {
 
     wv_assert_ok!(Semaphore::attach("ready").unwrap().down());
 
+    let mut sem = Semaphore::attach("init").unwrap();
+    let mut sem = if semdowns > 0 {
+        for _ in 0..semdowns {
+            sem.down().unwrap();
+        }
+        None
+    }
+    else {
+        Some(&mut sem)
+    };
+
     let res = prof.run::<CycleInstant, _>(|| {
+        if let Some(sem) = sem.take() {
+            sem.up().unwrap();
+        }
+
         wv_assert_ok!(sgate.send_aligned(BUF.borrow().as_ptr(), msgsize, &reply_gate));
 
         wv_assert_ok!(recv_msg(&reply_gate));
