@@ -150,6 +150,7 @@ if $BUILD_GCC; then
     cd "$ROOT"
 
     # copy crt* to basic gcc-stuff
+    mkdir -p "$DIST/lib/gcc/$TARGET/$GCCVER"
     cp -f "$BUILD"/gcc/"$TARGET"/libgcc/crt*.o "$DIST/lib/gcc/$TARGET/$GCCVER"
 fi
 
