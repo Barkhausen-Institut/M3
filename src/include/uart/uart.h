@@ -26,7 +26,7 @@
 #define IE_RXWM        (1 << 1)    // RX Interrupt Enable/Pending
 
 /* Configuration parameters for UART setup                                  */
-#define CORE_CLK_FREQ_MHZ 100
+#define CORE_CLK_FREQ_MHZ 100      // 100 for Rocket, set to 80 for BOOM
 #define UART_BAUD_RATE    115200
 #define UART_RX_WAIT_MS   1
 
