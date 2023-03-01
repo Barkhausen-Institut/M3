@@ -107,12 +107,13 @@ int uart_fifo_read(uint8_t *rx_data, const int size) {
     uint8_t rxchar;
 
 	for (i = 0; i < size; i++) {
-        if (uart_fifo_poll(&rxchar) == -1)
-            break;
-        else
-            rx_data[i] = rxchar;
+        // loop until a character was received
+        while (uart_fifo_poll(&rxchar) == -1)
+            ;
 
-        //wait a bit when more chars are coming
+        rx_data[i] = rxchar;
+
+        // wait a bit when more chars are coming
         auto end = TimeInstant::now() + TimeDuration::from_millis(UART_RX_WAIT_MS);
         while(TimeInstant::now() < end)
             ;
