@@ -24,5 +24,11 @@ def build(gen, env):
         '-Wno-unused-parameter',
     ]
 
-    files = ['benchmark.cpp', 'client.cpp', 'demo.cpp', 'ratls-tpm2.cpp', 'ratls.cpp']
-    env.m3_exe(gen, out = 'ratls', ins = files, libs = ['crypto', 'ssl', 'tss'])
+    objfiles = ['benchmark.cpp', 'demo.cpp', 'ratls-tpm2.cpp', 'ratls.cpp']
+    objs     = env.objs(gen, ins = objfiles)
+
+    env.m3_exe(gen, out = 'ratls', ins = ['client.cpp'] + objs, 
+               libs = ['crypto', 'ssl', 'tss'])
+    
+    env.m3_exe(gen, out = 'ratls-demo', ins = ['demo-client.cpp'] + objs, 
+               libs = ['crypto', 'ssl', 'tss', 'uart'])

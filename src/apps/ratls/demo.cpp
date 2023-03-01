@@ -183,7 +183,7 @@ void DemoClient::init() {
 		return;
 
 #if ! defined(__m3__)
-	commandPipeFd = chksys(open(RATLS_DASHBOARD_CONNECTOR_COMMAND_FIFO, O_RDONLY),
+	commandPipeFd = chksys(open(RATLS_DASHBOARD_CONNECTOR_COMMAND_FIFO, O_RDONLY | O_NONBLOCK),
 	                       "open dashboard command fifo");
 	reportPipeFd = chksys(open(RATLS_DASHBOARD_CONNECTOR_REPORT_FIFO, O_WRONLY),
 	                      "open dashboard report fifo");
@@ -229,17 +229,38 @@ std::string DemoClient::waitForCommand() {
 		return "";
 
 #if defined(__m3__)
-	printf("Waiting for command...\n");
-    m3::String cmd;
-	auto is = m3::receive_msg(command);
-    is >> cmd;
-	m3::reply_vmsg(is, 0);
-	printf("Ack'ed command\n");
-	return cmd.c_str();
+	printf("Waiting for command from dashboard...\n");
+
+    // Non-blocking read from receive gate
+	const TCU::Message *msg = command.fetch();
+    
+    if (msg == nullptr) {
+        return("");
+    }
+    else {
+        m3::String cmd;
+        GateIStream is(command, msg);
+        is >> cmd;
+	    m3::reply_vmsg(is, 0);
+	    printf("Ack'ed command\n");
+	    return cmd.c_str();
+    }
 #else
-	char cmdBuf[RATLS_DASHBOARD_MESSAGE_SIZE];
-	size_t cmdSize;
-	chksys(read(commandPipeFd, &cmdSize, sizeof(cmdSize)), "read command size");
+	char    cmdBuf[RATLS_DASHBOARD_MESSAGE_SIZE];
+	size_t  cmdSize;
+    ssize_t bytes_read;                     // Number of bytes received
+
+    errno = 0;
+    bytes_read = read(commandPipeFd, &cmdSize, sizeof(cmdSize));
+ 
+    // If the read op would block, just return an empty string
+    if (bytes_read < 0 && errno == EAGAIN) 
+        return(std::string(""));
+    // Bail out on all other errors
+    if (bytes_read < 0 && errno != EAGAIN) {
+        throw std::runtime_error("read command size");
+    }
+
 	chksys(read(commandPipeFd, cmdBuf, std::min(cmdSize, sizeof(cmdBuf))), "read command");
 	cmdBuf[sizeof(cmdBuf)-1] = 0;
 	return std::string(cmdBuf);
