@@ -160,17 +160,26 @@ void DemoBase::parseCommandLine(int &argc, char const *argv[]) {
 		if (argument == "--demo-client") {
 			demoClient = true;
 
-		} else if(argument == "--demo-server") {
+		} else if (argument == "--demo-server") {
 			demoServer = true;
 
-		} else {
+		} else if (argument == "--udp-ip") {
+            // Shift arguments by one
+            for (int j = i; j + 1 < argc; j++)
+                argv[j] = argv[j + 1];
+            argc--;
+
+            argument = argv[i];
+
+            udp_report_ip = std::string(argument);
+        } else {
 			continue;
 		}
 
         // remove recognized commandline arguments to simplify argument handling
         // in calling program's main() function
-        for (int j = i; j+1 < argc; j++)
-            argv[j] = argv[j+1];
+        for (int j = i; j + 1 < argc; j++)
+            argv[j] = argv[j + 1];
         argc--;
 	}
 }

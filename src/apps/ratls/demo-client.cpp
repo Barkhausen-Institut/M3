@@ -135,7 +135,7 @@ const char * const header = "FEDCBA00";
 
 /* Fields for reporting unencrypted data records to remote UDP server       */
 int         udpsock = -1;                   /* UDP socket                   */
-const char *udpip   = "127.0.0.1";          /* IP address of server         */
+const char *udpip   = "192.168.42.48";      /* IP address of server         */
 uint16_t    udpport = 6000;                 /* Port Number of server        */
 
 struct sockaddr_in udpsrv;                  /* Address struct for UDP server*/
@@ -632,6 +632,13 @@ int main(int argc, char const* argv[]) {
     BI::demoClient.parseCommandLine(argc, argv);
     BI::demoClient.init();
     BI::demoClient.setVerbose(false);
+
+    // Check if the user has entered a custom IP for reporting via UDP
+    if (BI::demoClient.hasUDPIP()) {
+        udpip = BI::demoClient.getUDPIP().c_str();
+    }
+
+    // fprintf(stderr, "UDP IP is: %s\n", udpip);
 
     RATLS::TpmDevInfo tpmDevInfo = RATLS::TpmRoT::parseCommandLine(argc, argv);
     chk(tpmDevInfo.initMode != RATLS::TpmInitMode::Invalid, "no or invalid tpm init mode on command line");

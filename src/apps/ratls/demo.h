@@ -51,8 +51,16 @@ class DemoBase {
 public:
 	void parseCommandLine(int &argc, char const *argv[]);
 
-	bool clientIsDemo() { return demoClient; }
-	bool serverIsDemo() { return demoServer; }
+	bool clientIsDemo()    { return demoClient; }
+	bool serverIsDemo()    { return demoServer; }
+
+    bool hasUDPIP()        { return ! udp_report_ip.empty(); }
+    
+    std::string getUDPIP() { return udp_report_ip; }
+
+    // For demo clients that dump output of the serial device to a third-party
+    // dashboard reachable via UDP
+    std::string udp_report_ip = std::string("");
 
 protected:
 	bool demoClient;
