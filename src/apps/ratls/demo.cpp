@@ -157,8 +157,8 @@ void DemoBase::parseCommandLine(int &argc, char const *argv[]) {
 
 	for(int i = 1; i < argc; i++) {
 		std::string argument = argv[i];
-		if (argument == "--demo-client") {
-			demoClient = true;
+        if (argument == "--demo-client") {
+            demoClient = true;
 
 		} else if (argument == "--demo-server") {
 			demoServer = true;
@@ -172,6 +172,7 @@ void DemoBase::parseCommandLine(int &argc, char const *argv[]) {
             argument = argv[i];
 
             udp_report_ip = std::string(argument);
+            i--;
         } else {
 			continue;
 		}
