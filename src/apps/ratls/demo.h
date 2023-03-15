@@ -56,7 +56,7 @@ public:
 
     bool hasUDPIP()        { return ! udp_report_ip.empty(); }
     
-    std::string getUDPIP() { return udp_report_ip; }
+    std::string& getUDPIP() { return udp_report_ip; }
 
     // For demo clients that dump output of the serial device to a third-party
     // dashboard reachable via UDP
