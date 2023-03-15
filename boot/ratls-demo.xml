@@ -27,7 +27,7 @@
                         </app>
                     </dom>
                     <dom tile="rocket+nic">
-                        <app args="/bin/ratls-demo --tpm-null 0 --demo-client 192.168.42.48">
+                        <app args="/bin/ratls-demo --tpm-null 0 --udp-ip 192.168.42.52 --demo-client 192.168.42.62">
                             <sgate name="report" />
                             <rgate name="command" msgsize="256" slots="1" />
                             <mount fs="m3fs" path="/" />
