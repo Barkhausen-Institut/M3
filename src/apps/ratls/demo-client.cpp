@@ -76,7 +76,7 @@ using namespace TpmCpp;
 #define HEADER_SIZE 8
 
 /* Size of one streaming record in Bytes                                    */
-#define RECORD_SIZE 282
+#define RECORD_SIZE 294
 
 /* Size of a record's payload in Bytes                                      */
 #define PAYLOAD_SIZE (RECORD_SIZE - HEADER_SIZE)
@@ -790,7 +790,7 @@ int main(int argc, char const* argv[]) {
                 // Read one more byte to the end of the buffer. However, since
                 // there might be garbage characters at any time, we have to
                 // do so in a loop...
-                while (next_char == '\n') {
+                while (next_char == '\n' || next_char == '\r') {
                     b_read = serial_read(uart_fd, &next_char, 1);
                     if (b_read == -1) {
                         fprintf(stderr, "Failed to read data from sensor "
