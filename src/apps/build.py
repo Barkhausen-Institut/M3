@@ -21,6 +21,7 @@ dirs = [
     'ping',
     'pipeline',
     'queue',
+    'rdfile',
     'resmngtest',
     'rusthello',
     'rustnettests',

@@ -20,6 +20,7 @@ members = [
     "src/apps/ping",
     "src/apps/pipeline/plstep1",
     "src/apps/pipeline/plstep2",
+    "src/apps/rdfile",
     "src/apps/resmngtest",
     "src/apps/rusthello",
     "src/apps/rustnettests",

@@ -366,6 +366,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rdfile"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "resmng"
 version = "0.1.0"
 dependencies = [
