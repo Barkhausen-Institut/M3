@@ -4,6 +4,7 @@ dirs = [
     'bsdutils',
     'coreutils',
     'cppnettests',
+    'cpprdfile',
     'cpppipe',
     'disktest',
     'dosattack',
