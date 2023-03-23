@@ -23,15 +23,15 @@
                         <app args="/bin/ratls-dashboard" daemon="1">
                             <rgate name="report" msgsize="2048" slots="1" />
                             <sgate name="command" />
-                            <sess name="net" args="bufs=1M socks=4 tcp=5588" />
+                            <sess name="net" args="bufs=1M socks=8 tcp=5588" />
                         </app>
                     </dom>
                     <dom tile="rocket+nic">
-                        <app args="/bin/ratls-demo --tpm-null 0 --udp-ip 192.168.42.52 --demo-client 192.168.42.62">
+                        <app args="/bin/ratls-demo --tpm-null 0 --udp-ip 192.168.42.20 --demo-client 192.168.42.15">
                             <sgate name="report" />
                             <rgate name="command" msgsize="256" slots="1" />
                             <mount fs="m3fs" path="/" />
-                            <sess name="net" args="bufs=1M socks=2" />
+                            <sess name="net" args="bufs=1M socks=4" />
                         </app>
                     </dom>
                 </app>
