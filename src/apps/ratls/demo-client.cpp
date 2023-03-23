@@ -351,8 +351,7 @@ static SSL *doConnection(char const *serverAddress, SSL_CTX *ctx,
     if (status != 1) {
         printf("%s\n", ERR_error_string(SSL_get_error(ssl, status), NULL));
         ERR_print_errors_fp(stderr);
-        
-        throw std::runtime_error("SSL_connect failed.");
+        return 0;
     }
 
     if (!attested)
@@ -691,11 +690,10 @@ int main(int argc, char const* argv[]) {
             fprintf(stderr, "Done.\n");
 
             size_t valuePos = cmd.find("sensor-data:") + strlen("sensor-data:");
-            int32_t value = -1;
+            std::string classification;
             try {
-                size_t numCharsProcessed = 0;
-                value = std::stoi(cmd.substr(valuePos), &numCharsProcessed, 10);
-                printf("Received value %d with command\n", value);
+                classification = cmd.substr(valuePos);
+                printf("Received classification %s with command\n", classification);
             }
             catch (...) { }
 
@@ -705,26 +703,33 @@ int main(int argc, char const* argv[]) {
                 
                 ssl = doConnection(serverAddress, ctx_ratls, true);
 
-                SSL_write(ssl, &value, sizeof(value));
+                // ssl can be NULL, if attestation fails; in this case, we
+                // wait for the next request
+                if (ssl) {
+                    SSL_write(ssl, classification.c_str(), classification.length());
 
-                char reply[1024];
-                int res = SSL_read(ssl, reply, sizeof(reply));
-                printf("SSL_read: %d; reply='%s'\n", res, reply);
-            
-                shutdownSSLCtx(ssl);    
+                    char reply[1024];
+                    int res = SSL_read(ssl, reply, sizeof(reply));
+                    printf("SSL_read: %d; reply='%s'\n", res, reply);
+
+                    shutdownSSLCtx(ssl);    
+                }
             } else if (cmd.find("command:connect\nmode:tls\n") != std::string::npos) {
                 printf("Command requested TLS-only connection\n");
                 BI::demoClient.setMode(BI::DemoMode::Tls);
-                doConnection(serverAddress, ctx_tls, false);
+                ssl = doConnection(serverAddress, ctx_tls, false);
                 
-                SSL_write(ssl, &value, sizeof(value));
+                // ssl can be NULL, if attestation fails; in this case, we
+                // wait for the next request
+                if (ssl) {
+                    SSL_write(ssl, classification.c_str(), classification.length());
 
-                char reply[1024];
-                int res = SSL_read(ssl, reply, sizeof(reply));
-                printf("SSL_read: %d; reply='%s'\n", res, reply);
-            
-                shutdownSSLCtx(ssl);    
+                    char reply[1024];
+                    int res = SSL_read(ssl, reply, sizeof(reply));
+                    printf("SSL_read: %d; reply='%s'\n", res, reply);
 
+                    shutdownSSLCtx(ssl);    
+                }
             } 
             else if (cmd.empty()) {
                 // Do nothing, just proceed
@@ -870,6 +875,9 @@ int main(int argc, char const* argv[]) {
         RATLS::enableClientRemoteAttestation(&raContext, ctx_ratls);
 
         SSL *ssl = doConnection(serverAddress, ctx_ratls, true);
+
+        if (ssl == 0)
+            throw std::runtime_error("doConnection failed; no proper error handling here");
 
         fprintf(stderr, "==========\n");
 
