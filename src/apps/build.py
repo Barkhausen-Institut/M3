@@ -12,6 +12,7 @@ dirs = [
     'hashmuxtests',
     'hello',
     'info',
+    'isodemo',
     'libctest',
     'msgchan',
     'netechoserver',

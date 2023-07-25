@@ -165,6 +165,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "isodemoattacker"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
+name = "isodemoctrl"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
+name = "isodemovictim"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "isr"
 version = "0.1.0"
 dependencies = [
