@@ -241,49 +241,62 @@ class TCUTerm(Term):
         # make stdin nonblocking
         fl = fcntl.fcntl(self.fd, fcntl.F_GETFL)
         fcntl.fcntl(self.fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
-        # get original terminal attributes to restore them later
-        self.old = termios.tcgetattr(self.fd)
         self.fpga_inst = fpga_inst
         # reset tile and EP in case they are set from a previous run
         write_u64(fpga_inst.dram1, SERIAL_ADDR + 0, 0)
         write_u64(fpga_inst.dram1, SERIAL_ADDR + 8, 0)
+        self.buf = ""
         self.setup()
+        sys.stdout.flush()
 
     def setup(self):
-        new = termios.tcgetattr(self.fd)
-        new[3] = new[3] & ~(termios.ICANON | termios.ISIG | termios.ECHO)
-        new[6][termios.VMIN] = 1
-        new[6][termios.VTIME] = 0
-        termios.tcsetattr(self.fd, termios.TCSANOW, new)
-        print("-- TCU Terminal ( Quit: Ctrl+] ) --")
+        try:
+            # get original terminal attributes to restore them later
+            self.old = termios.tcgetattr(self.fd)
+            new = termios.tcgetattr(self.fd)
+            new[3] = new[3] & ~(termios.ICANON | termios.ISIG | termios.ECHO)
+            new[6][termios.VMIN] = 1
+            new[6][termios.VTIME] = 0
+            termios.tcsetattr(self.fd, termios.TCSANOW, new)
+            print("-- TCU Terminal ( Quit: Ctrl+] ) --")
+        except Exception as e:
+            print("-- stdin is no terminal --")
+            self.old = None
 
     def getkey(self):
         try:
             # read multiple bytes to get sequences like ^[D
-            bytes = sys.stdin.read(8)
+            bytes = sys.stdin.read(256)
         except KeyboardInterrupt:
             bytes = ['\x03']
         return bytes
 
     def write(self, c):
         bytes = c.encode('utf-8')
+        if len(bytes) == 0:
+            return
+
         # read desired destination
         tile = read_u64(self.fpga_inst.dram1, SERIAL_ADDR + 0)
         ep = read_u64(self.fpga_inst.dram1, SERIAL_ADDR + 8)
         # only send if it was initialized
         if ep != 0:
             send_input(self.fpga_inst, tile >> 8, tile & 0xFF, ep, bytes)
+            self.buf = ""
+        else:
+            self.buf = c
 
     def should_stop(self):
         if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
             bytes = self.getkey()
-            if len(bytes) == 1 and bytes[0] == chr(0x1d):
+            if len(bytes) == 0 or (len(bytes) == 1 and bytes[0] == chr(0x1d)):
                 return True
-            self.write(bytes)
+            self.write(self.buf + bytes)
         return False
 
     def cleanup(self):
-        termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old)
+        if self.old is not None:
+            termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old)
 
 
 class LxTerm(Term):
