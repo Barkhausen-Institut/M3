@@ -26,6 +26,8 @@ use base::tmif;
 
 use isr::{ISRArch, ISR};
 
+use paging::{ArchPaging, Paging};
+
 use crate::activities;
 use crate::irqs;
 use crate::timer;
@@ -166,6 +168,42 @@ fn tmcall_noop(_state: &mut arch::State) -> Result<(), Error> {
     Ok(())
 }
 
+fn tmcall_act_info(state: &mut arch::State) -> Result<(), Error> {
+    let res = VirtAddr::from(state.r[isr::TMC_ARG1]);
+    let addr = VirtAddr::from(state.r[isr::TMC_ARG2]);
+
+    log!(
+        LogFlags::MuxCalls,
+        "tmcall::act_info(res={}, addr={})",
+        res,
+        addr
+    );
+
+    let cur_id = activities::cur().id();
+    let mut count = 0;
+    for i in 0..64 {
+        if let Some(act) = activities::get_mut(i) {
+            if act.id() == cur_id {
+                continue;
+            }
+
+            let (phys, flags) = act.translate(addr, kif::PageFlags::R);
+            let pte = Paging::build_pte(phys, Paging::to_mmu_perms(flags), 0, true);
+            unsafe {
+                *res.as_mut_ptr::<u64>().offset(2 + count as isize) = pte;
+            }
+            count += 1;
+        }
+    }
+
+    unsafe {
+        *res.as_mut_ptr::<u64>().offset(0) = count;
+        *res.as_mut_ptr::<u64>().offset(1) = activities::cur().pte_address(addr).as_local() as u64;
+    }
+
+    Ok(())
+}
+
 pub fn handle_call(state: &mut arch::State) {
     let opcode = state.r[isr::TMC_ARG0];
 
@@ -179,6 +217,7 @@ pub fn handle_call(state: &mut arch::State) {
         o if o == tmif::Operation::InitTLS.into() => tmcall_init_tls(state),
         o if o == tmif::Operation::FlushInv.into() => tmcall_flush_inv(state),
         o if o == tmif::Operation::Noop.into() => tmcall_noop(state),
+        o if o == tmif::Operation::ActInfo.into() => tmcall_act_info(state),
         _ => Err(Error::new(Code::InvArgs)),
     };
 

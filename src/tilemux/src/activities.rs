@@ -693,6 +693,10 @@ impl Activity {
         self.aspace.as_ref().unwrap().translate(virt, perm.bits())
     }
 
+    pub fn pte_address(&self, virt: VirtAddr) -> VirtAddr {
+        self.aspace.as_ref().unwrap().pte_address(virt)
+    }
+
     pub fn id(&self) -> Id {
         self.act_reg & 0xFFFF
     }

@@ -175,6 +175,24 @@ impl<A: Allocator> AddrSpace<A> {
         unreachable!();
     }
 
+    pub fn pte_address(&self, virt: VirtAddr) -> VirtAddr {
+        let mut pte = self.root;
+        for lvl in (0..LEVEL_CNT).rev() {
+            let pt_virt = self.alloc.translate_pt(Paging::pte_to_phys(pte));
+            let idx = (virt.as_local() >> (cfg::PAGE_BITS + lvl * LEVEL_BITS)) & LEVEL_MASK;
+            let pte_addr = pt_virt + idx * size_of::<MMUPTE>();
+
+            // safety: as above
+            pte = unsafe { *pte_addr.as_ptr::<MMUPTE>() };
+
+            let pte_flags = MMUFlags::from_bits_truncate(pte);
+            if pte_flags.is_leaf(lvl) {
+                return pte_addr;
+            }
+        }
+        unreachable!();
+    }
+
     pub fn map_pages(
         &mut self,
         mut virt: VirtAddr,

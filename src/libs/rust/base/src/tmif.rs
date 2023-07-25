@@ -51,6 +51,7 @@ pub enum Operation {
     InitTLS,
     /// Noop operation for testing purposes
     Noop,
+    ActInfo,
 }
 
 pub(crate) fn get_result(res: usize) -> Result<(), Error> {
@@ -120,6 +121,11 @@ cfg_if! {
         pub fn noop() -> Result<(), Error> {
             Err(Error::new(Code::NotSup))
         }
+
+        #[inline(always)]
+        pub fn act_info() -> Result<(), Error> {
+            Err(Error::new(Code::NotSup))
+        }
     }
     else {
         use crate::arch::{TMABIOps, TMABI};
@@ -178,6 +184,11 @@ cfg_if! {
         #[inline(always)]
         pub fn noop() -> Result<(), Error> {
             TMABI::call1(Operation::Noop, 0)
+        }
+
+        #[inline(always)]
+        pub fn act_info(res: VirtAddr, addr: VirtAddr) -> Result<(), Error> {
+            TMABI::call2(Operation::ActInfo, res.as_local(), addr.as_local())
         }
     }
 }
