@@ -74,14 +74,20 @@ fn parse_cmd(line: &str) -> Result<Command, Error> {
 }
 
 fn cmd_start(name: &str, arg: &str, tile: Rc<Tile>) -> Result<RunningProgramActivity, Error> {
-    let act = ChildActivity::new_with(tile, ActivityArgs::new(name))?;
+    let act = ChildActivity::new_with(tile.clone(), ActivityArgs::new(name))?;
 
     let args = match name {
         "attacker" => ["/bin/isodemoattacker", arg],
         "victim" => ["/bin/isodemovictim", arg],
         &_ => return Err(Error::new(Code::NotFound)),
     };
-    println!("Starting {}:{} with {:?}", act.sel(), name, args);
+    println!(
+        "Starting {}:{} with {:?} on {}",
+        act.sel(),
+        name,
+        args,
+        tile.id()
+    );
     act.exec(&args)
 }
 
