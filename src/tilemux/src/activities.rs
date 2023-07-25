@@ -1008,7 +1008,7 @@ impl Activity {
             cfg::TILE_MEM_BASE,
             base,
             mem_size as usize / cfg::PAGE_SIZE,
-            rw,
+            rw | kif::PageFlags::U,
         )
         .unwrap();
 
