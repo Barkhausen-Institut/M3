@@ -22,13 +22,13 @@ use m3::col::{String, ToString, Vec};
 use m3::com::RecvGate;
 use m3::errors::{Code, Error};
 use m3::mem::MsgBuf;
-use m3::println;
 use m3::rc::Rc;
 use m3::serialize::M3Deserializer;
 use m3::tcu::Message;
 use m3::tiles::{ActivityArgs, ChildActivity, RunningActivity, RunningProgramActivity, Tile};
 use m3::vfs::{BufReader, File, FileEvent, FileWaiter};
 use m3::{kif, syscalls};
+use m3::{print, println};
 
 struct Child {
     name: String,
@@ -66,6 +66,8 @@ impl FromStr for TileType {
 enum Command {
     Start(String, String, TileType),
     Stop(String),
+    Exit,
+    Help,
 }
 
 fn parse_cmd(line: &str) -> Result<Command, Error> {
@@ -89,6 +91,8 @@ fn parse_cmd(line: &str) -> Result<Command, Error> {
                 .ok_or_else(|| Error::new(Code::InvArgs))?
                 .to_string(),
         ),
+        "exit" => Command::Exit,
+        "help" => Command::Help,
         _ => return Err(Error::new(Code::InvArgs)),
     };
     Ok(cmd)
@@ -114,6 +118,16 @@ fn cmd_start(name: &str, arg: &str, tile: Rc<Tile>) -> Result<RunningProgramActi
 
 fn cmd_stop(name: &str, running: &mut Vec<Child>) {
     running.retain(|c| name != c.name);
+}
+
+fn cmd_help() {
+    println!("The available commands are:");
+    println!("  start (victim|attacker) <arg> [good|bad]");
+    println!("    Starts either the victim or the attacker with <arg> as argument.");
+    println!("    Optionally, the tile can be specified as either 'good' (bug free) or 'bad' (containing the bug).");
+    println!("  stop (victim|attacker)");
+    println!("  exit");
+    println!("  help");
 }
 
 fn start_upcall(running: &mut Vec<Child>) {
@@ -169,11 +183,14 @@ pub fn main() -> Result<(), Error> {
     let mut waiter = FileWaiter::default();
     waiter.add(reader.get_ref().fd(), FileEvent::INPUT);
 
+    print!("$ ");
+
     let mut line = String::new();
     loop {
         if reader.read_line(&mut line).is_ok() {
             if line.is_empty() {
-                break;
+                print!("$ ");
+                continue;
             }
 
             let cmd = parse_cmd(&line);
@@ -189,11 +206,14 @@ pub fn main() -> Result<(), Error> {
                     }
                 },
                 Ok(Command::Stop(name)) => cmd_stop(&name, &mut running),
+                Ok(Command::Help) => cmd_help(),
+                Ok(Command::Exit) => break,
                 Err(e) => println!("Unable to parse command '{}': {}", line, e),
             }
 
             start_upcall(&mut running);
 
+            print!("$ ");
             line.clear();
         }
 
