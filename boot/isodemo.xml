@@ -27,8 +27,8 @@
                         <app args="/bin/isodemoctrl">
                             <mount fs="m3fs" path="/" />
                             <sess name="vterm" />
+                            <tiles type="rocket|core" count="1" />
                             <tiles type="boom+nic|core" count="1" />
-                            <tiles type="core" count="1" />
                         </app>
                     </dom>
                 </app>

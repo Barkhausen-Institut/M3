@@ -15,6 +15,8 @@
 
 #![no_std]
 
+use core::str::FromStr;
+
 use m3::client::VTerm;
 use m3::col::{String, ToString, Vec};
 use m3::com::RecvGate;
@@ -43,8 +45,26 @@ impl Drop for Child {
     }
 }
 
+#[derive(PartialEq)]
+enum TileType {
+    Good,
+    Bad,
+}
+
+impl FromStr for TileType {
+    type Err = Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "good" => Ok(Self::Good),
+            "bad" => Ok(Self::Bad),
+            _ => Err(Error::new(Code::InvArgs)),
+        }
+    }
+}
+
 enum Command {
-    Start(String, String),
+    Start(String, String, TileType),
     Stop(String),
 }
 
@@ -61,6 +81,7 @@ fn parse_cmd(line: &str) -> Result<Command, Error> {
                 .next()
                 .ok_or_else(|| Error::new(Code::InvArgs))?
                 .to_string(),
+            TileType::from_str(words.next().unwrap_or("bad"))?,
         ),
         "stop" => Command::Stop(
             words
@@ -140,7 +161,10 @@ pub fn main() -> Result<(), Error> {
         .expect("Unable to set channel to non-blocking");
 
     let mut running = Vec::new();
-    let shared_tile = Tile::get("boom+nic|core").expect("Unable to get shared tile");
+    let good_tile = Tile::get("rocket|core").expect("Unable to get good tile");
+    let bad_tile = Tile::get("boom+nic|core").expect("Unable to get bad tile");
+    println!("Found good tile: {}", good_tile.id());
+    println!("Found bad tile: {}", bad_tile.id());
 
     let mut waiter = FileWaiter::default();
     waiter.add(reader.get_ref().fd(), FileEvent::INPUT);
@@ -154,8 +178,12 @@ pub fn main() -> Result<(), Error> {
 
             let cmd = parse_cmd(&line);
             match cmd {
-                Ok(Command::Start(name, arg)) => {
-                    match cmd_start(&name, &arg, shared_tile.clone()) {
+                Ok(Command::Start(name, arg, tile_type)) => {
+                    let selected_tile = match tile_type {
+                        TileType::Good => good_tile.clone(),
+                        TileType::Bad => bad_tile.clone(),
+                    };
+                    match cmd_start(&name, &arg, selected_tile) {
                         Ok(act) => running.push(Child { name, act }),
                         Err(e) => println!("Unable to start start {}: {}", name, e),
                     }
