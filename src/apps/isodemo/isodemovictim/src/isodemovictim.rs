@@ -15,24 +15,32 @@
 
 #![no_std]
 
+use m3::cap::Selector;
 use m3::cfg;
 use m3::client::MapFlags;
+use m3::com::SendGate;
 use m3::env;
 use m3::errors::Error;
 use m3::kif::Perm;
 use m3::mem::VirtAddr;
-use m3::println;
 use m3::tiles::{Activity, OwnActivity};
 use m3::time::TimeDuration;
+use m3::vec::Vec;
+
+macro_rules! ipc_print {
+    ($sgate:expr, $fmt:expr, $($arg:tt)*) => {
+        let msg = m3::format!(concat!("!! victim: ", $fmt), $($arg)*);
+        m3::send_recv!($sgate, m3::com::RecvGate::def(), msg).unwrap();
+    };
+}
 
 #[no_mangle]
 pub fn main() -> Result<(), Error> {
-    let word = if let Some(arg) = env::args().nth(1) {
-        arg
-    }
-    else {
-        "hello"
-    };
+    let args = env::args().collect::<Vec<_>>();
+    let word = args[1];
+
+    let sgate_sel: Selector = args[2].parse().expect("Unable to parse selector");
+    let sgate = SendGate::new_bind(sgate_sel);
 
     let virt = VirtAddr::from(0x3000_0000);
     Activity::own()
@@ -47,7 +55,8 @@ pub fn main() -> Result<(), Error> {
     let word_copy: &[u8] = unsafe { core::slice::from_raw_parts(virt.as_ptr(), word.len()) };
 
     loop {
-        println!("!! victim: {:?}", core::str::from_utf8(word_copy).unwrap());
+        ipc_print!(sgate, "{:?}", core::str::from_utf8(word_copy).unwrap());
+
         OwnActivity::sleep_for(TimeDuration::from_secs(1)).unwrap();
     }
 }

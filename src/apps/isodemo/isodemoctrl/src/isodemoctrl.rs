@@ -19,7 +19,7 @@ use core::str::FromStr;
 
 use m3::client::VTerm;
 use m3::col::{String, ToString, Vec};
-use m3::com::RecvGate;
+use m3::com::{GateIStream, RGateArgs, RecvGate, SGateArgs, SendGate};
 use m3::errors::{Code, Error};
 use m3::mem::MsgBuf;
 use m3::rc::Rc;
@@ -27,18 +27,25 @@ use m3::serialize::M3Deserializer;
 use m3::tcu::Message;
 use m3::tiles::{ActivityArgs, ChildActivity, RunningActivity, RunningProgramActivity, Tile};
 use m3::vfs::{BufReader, File, FileEvent, FileWaiter};
+use m3::{format, reply_vmsg};
 use m3::{kif, syscalls};
-use m3::{print, println};
+
+macro_rules! ctrl_print {
+    ($fmt:expr, $($arg:tt)*) => {
+        m3::println!(concat!("!! ctrl: ", $fmt), $($arg)*)
+    };
+}
 
 struct Child {
     name: String,
     act: RunningProgramActivity,
+    _sgate: SendGate,
 }
 
 impl Drop for Child {
     fn drop(&mut self) {
-        println!(
-            "Terminated activity {}:{}",
+        ctrl_print!(
+            "terminated activity {}:{}",
             self.act.activity().sel(),
             self.name
         );
@@ -66,8 +73,8 @@ impl FromStr for TileType {
 enum Command {
     Start(String, String, TileType),
     Stop(String),
+    List,
     Exit,
-    Help,
 }
 
 fn parse_cmd(line: &str) -> Result<Command, Error> {
@@ -91,43 +98,52 @@ fn parse_cmd(line: &str) -> Result<Command, Error> {
                 .ok_or_else(|| Error::new(Code::InvArgs))?
                 .to_string(),
         ),
+        "list" => Command::List,
         "exit" => Command::Exit,
-        "help" => Command::Help,
         _ => return Err(Error::new(Code::InvArgs)),
     };
     Ok(cmd)
 }
 
-fn cmd_start(name: &str, arg: &str, tile: Rc<Tile>) -> Result<RunningProgramActivity, Error> {
+fn cmd_start(name: &str, arg: &str, rgate: &RecvGate, tile: Rc<Tile>) -> Result<Child, Error> {
     let act = ChildActivity::new_with(tile.clone(), ActivityArgs::new(name))?;
 
+    let sgate = SendGate::new_with(SGateArgs::new(rgate).credits(1))?;
+    act.delegate_obj(sgate.sel())?;
+
+    let sel_str = format!("{}", sgate.sel());
     let args = match name {
-        "attacker" => ["/bin/isodemoattacker", arg],
-        "victim" => ["/bin/isodemovictim", arg],
+        "attacker" => ["/bin/isodemoattacker", arg, &sel_str],
+        "victim" => ["/bin/isodemovictim", arg, &sel_str],
         &_ => return Err(Error::new(Code::NotFound)),
     };
-    println!(
-        "Starting {}:{} with {:?} on {}",
+    ctrl_print!(
+        "starting {}:{} with {:?} on {}",
         act.sel(),
         name,
         args,
         tile.id()
     );
-    act.exec(&args)
+    act.exec(&args).map(|run| Child {
+        name: name.to_string(),
+        act: run,
+        _sgate: sgate,
+    })
 }
 
 fn cmd_stop(name: &str, running: &mut Vec<Child>) {
     running.retain(|c| name != c.name);
 }
 
-fn cmd_help() {
-    println!("The available commands are:");
-    println!("  start (victim|attacker) <arg> [good|bad]");
-    println!("    Starts either the victim or the attacker with <arg> as argument.");
-    println!("    Optionally, the tile can be specified as either 'good' (bug free) or 'bad' (containing the bug).");
-    println!("  stop (victim|attacker)");
-    println!("  exit");
-    println!("  help");
+fn cmd_list(running: &Vec<Child>) {
+    for c in running {
+        ctrl_print!(
+            "{}:{} on tile {}",
+            c.act.activity().sel(),
+            c.name,
+            c.act.activity().tile().id()
+        );
+    }
 }
 
 fn start_upcall(running: &mut Vec<Child>) {
@@ -144,9 +160,10 @@ fn handle_upcall(msg: &'static Message, running: &mut Vec<Child>) {
     assert_eq!(opcode, kif::upcalls::Operation::ActWait);
     let upcall: kif::upcalls::ActivityWait = de.pop().unwrap();
 
-    println!(
-        "Activity {} exited with exit code {:?}",
-        upcall.act_sel, upcall.exitcode
+    ctrl_print!(
+        "activity {} exited with exit code {:?}",
+        upcall.act_sel,
+        upcall.exitcode
     );
     running.retain(|c| c.act.activity().sel() != upcall.act_sel);
 
@@ -177,19 +194,19 @@ pub fn main() -> Result<(), Error> {
     let mut running = Vec::new();
     let good_tile = Tile::get("rocket|core").expect("Unable to get good tile");
     let bad_tile = Tile::get("boom+nic|core").expect("Unable to get bad tile");
-    println!("Found good tile: {}", good_tile.id());
-    println!("Found bad tile: {}", bad_tile.id());
+    ctrl_print!("found good tile: {}", good_tile.id());
+    ctrl_print!("found bad tile: {}", bad_tile.id());
 
     let mut waiter = FileWaiter::default();
     waiter.add(reader.get_ref().fd(), FileEvent::INPUT);
 
-    print!("$ ");
+    let rgate = RecvGate::new_with(RGateArgs::default().order(14).msg_order(9))
+        .expect("Unable to create receive gate");
 
     let mut line = String::new();
     loop {
         if reader.read_line(&mut line).is_ok() {
             if line.is_empty() {
-                print!("$ ");
                 continue;
             }
 
@@ -200,21 +217,27 @@ pub fn main() -> Result<(), Error> {
                         TileType::Good => good_tile.clone(),
                         TileType::Bad => bad_tile.clone(),
                     };
-                    match cmd_start(&name, &arg, selected_tile) {
-                        Ok(act) => running.push(Child { name, act }),
-                        Err(e) => println!("Unable to start start {}: {}", name, e),
+                    match cmd_start(&name, &arg, &rgate, selected_tile) {
+                        Ok(child) => running.push(child),
+                        Err(e) => ctrl_print!("unable to start start {}: {}", name, e),
                     }
                 },
                 Ok(Command::Stop(name)) => cmd_stop(&name, &mut running),
-                Ok(Command::Help) => cmd_help(),
+                Ok(Command::List) => cmd_list(&running),
                 Ok(Command::Exit) => break,
-                Err(e) => println!("Unable to parse command '{}': {}", line, e),
+                Err(e) => ctrl_print!("unable to parse command '{}': {}", line, e),
             }
 
             start_upcall(&mut running);
 
-            print!("$ ");
             line.clear();
+        }
+
+        if let Ok(msg) = rgate.fetch() {
+            let mut is = GateIStream::new(msg, &rgate);
+            let msg: &str = is.pop().unwrap();
+            m3::println!("{}", msg);
+            reply_vmsg!(is, 0).unwrap();
         }
 
         if let Ok(msg) = RecvGate::upcall().fetch() {
@@ -222,7 +245,7 @@ pub fn main() -> Result<(), Error> {
             start_upcall(&mut running);
         }
 
-        waiter.wait_cond(|| RecvGate::upcall().has_msgs().unwrap());
+        waiter.wait_cond(|| rgate.has_msgs().unwrap() || RecvGate::upcall().has_msgs().unwrap());
     }
 
     Ok(())
