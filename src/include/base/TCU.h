@@ -187,9 +187,11 @@ public:
     static const reg_t NO_REPLIES = INVALID_EP;
     static const reg_t UNLIM_CREDITS = 0x3F;
 
+    static const reg_t MAX_BW_REGS = 4;
+
 private:
 #if defined(__gem5__)
-    static const size_t EXT_REGS = 3;
+    static const size_t EXT_REGS = 2 + MAX_BW_REGS;
 #else
     static const size_t EXT_REGS = 2;
 #endif
