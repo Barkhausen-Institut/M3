@@ -9,7 +9,7 @@
                 </app>
             </dom>
             <dom tile="boom|core">
-                <app args="ppsender 1000 0 1 2">
+                <app args="ppsender 1000 0 1 2 0">
                     <sgate name="chan" label="1" />
                     <sem name="ready" />
                 </app>
