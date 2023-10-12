@@ -15,11 +15,14 @@
 
 #![no_std]
 
+use core::mem::size_of;
+
 use m3::cell::StaticRefCell;
 use m3::col::Vec;
 use m3::com::{recv_msg, RGateArgs, RecvGate, Semaphore, SendGate};
 use m3::env;
 use m3::mem::AlignedBuf;
+use m3::tcu::Header;
 use m3::tiles::OwnActivity;
 use m3::time::{CycleInstant, Duration, Profiler, TimeDuration};
 use m3::util::math::next_log2;
@@ -49,7 +52,7 @@ pub fn main() -> i32 {
     let sgate = wv_assert_ok!(SendGate::new_named("chan"));
     wv_assert_ok!(sgate.activate());
 
-    let msg_order = next_log2(msgsize.max(16 + msgsize));
+    let msg_order = next_log2(msgsize.max(size_of::<Header>() + msgsize));
     let reply_gate =
         RecvGate::new_with(RGateArgs::default().order(msg_order).msg_order(msg_order)).unwrap();
     wv_assert_ok!(reply_gate.activate());
