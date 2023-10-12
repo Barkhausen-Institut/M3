@@ -9,7 +9,7 @@
                 </app>
             </dom>
             <dom tile="rocket|core">
-                <app args="ppsender 100000 0 2032 0">
+                <app args="ppsender 100000 0 2032 0 0">
                     <sgate lname="chan" gname="chan2" label="1" />
                     <sem lname="ready" gname="ready2" />
                 </app>
@@ -21,13 +21,13 @@
                 </app>
             </dom>
             <dom tile="boom+nic|core">
-                <app args="ppsender 100000 0 2032 0">
+                <app args="ppsender 100000 0 2032 0 0">
                     <sgate lname="chan" gname="chan3" label="1" />
                     <sem lname="ready" gname="ready3" />
                 </app>
             </dom>
             <dom tile="boom|core">
-                <app args="ppsender 10000 0 2032 1">
+                <app args="ppsender 10000 0 2032 1 0">
                     <sgate lname="chan" gname="chan1" label="1" />
                     <sem lname="ready" gname="ready1" />
                 </app>
