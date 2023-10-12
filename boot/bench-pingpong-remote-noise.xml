@@ -1,7 +1,7 @@
 <config>
     <kernel args="kernel" />
     <dom>
-        <app args="root sem=ready1 sem=ready2 sem=ready3">
+        <app args="root sem=ready1 sem=ready2 sem=ready3 sem=init">
             <dom tile="rocket|core">
                 <app args="ppreceiver 100000 2032">
                     <rgate lname="chan" gname="chan2" msgsize="2048" slots="1" />
@@ -12,6 +12,7 @@
                 <app args="ppsender 100000 0 2032 0 0">
                     <sgate lname="chan" gname="chan2" label="1" />
                     <sem lname="ready" gname="ready2" />
+                    <sem name="init" />
                 </app>
             </dom>
             <dom tile="rocket|core">
@@ -24,12 +25,14 @@
                 <app args="ppsender 100000 0 2032 0 0">
                     <sgate lname="chan" gname="chan3" label="1" />
                     <sem lname="ready" gname="ready3" />
+                    <sem name="init" />
                 </app>
             </dom>
             <dom tile="boom|core">
                 <app args="ppsender 10000 0 2032 1 0">
                     <sgate lname="chan" gname="chan1" label="1" />
                     <sem lname="ready" gname="ready1" />
+                    <sem name="init" />
                 </app>
             </dom>
             <dom tile="boom|core">
