@@ -1,0 +1,22 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="prioreceiver">
+                    <rgate name="chan" msgsize="64" slots="32" />
+                </app>
+            </dom>
+            <dom>
+                <app args="priobomber">
+                    <sgate name="chan" label="1" credits="63" />
+                </app>
+            </dom>
+            <dom>
+                <app args="priobomber">
+                    <sgate name="chan" label="1" credits="63" />
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

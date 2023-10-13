@@ -9,6 +9,8 @@ members = [
     "apps/bench/noopbench",
     "apps/bench/rustbenchs",
     "apps/bench/rustnetbenchs",
+    "apps/bench/sendprios/priobomber",
+    "apps/bench/sendprios/prioreceiver",
     "apps/bench/voiceassist/vamic",
     "apps/bench/voiceassist/varcv",
     "apps/bench/ycsb/ycsbclient",

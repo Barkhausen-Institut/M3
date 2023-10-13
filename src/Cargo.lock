@@ -386,6 +386,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "priobomber"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
+name = "prioreceiver"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "proc-macro2"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"

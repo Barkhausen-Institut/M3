@@ -17,6 +17,7 @@ dirs = [
     'rustnetbenchs',
     'scale',
     'scale-pipe',
+    'sendprios',
     'tlbmiss',
     'voiceassist',
     'ycsb',
