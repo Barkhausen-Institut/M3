@@ -1,0 +1,19 @@
+<config>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root sem=ready">
+            <dom tile="boom|core">
+                <app args="prioreceiver 1 1 1000" daemon="1">
+                    <rgate name="chan1" msgsize="64" slots="32" />
+                    <sem name="ready" />
+                </app>
+            </dom>
+            <dom tile="boom|core">
+                <app args="priosender 1 100 10 1">
+                    <sgate name="chan1" label="1" />
+                    <sem name="ready" />
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>
