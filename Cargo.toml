@@ -10,6 +10,7 @@ members = [
     "src/apps/bench/pingpong/ppreceiver",
     "src/apps/bench/rustbenchs",
     "src/apps/bench/rustnetbenchs",
+    "src/apps/bench/sendprios/priobomber",
     "src/apps/bench/sendprios/priosender",
     "src/apps/bench/sendprios/prioreceiver",
     "src/apps/bench/tcusleep",

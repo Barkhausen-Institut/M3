@@ -1,4 +1,4 @@
-dirs = ['prioreceiver', 'priosender']
+dirs = ['priobomber', 'prioreceiver', 'priosender']
 
 
 def build(gen, env):
