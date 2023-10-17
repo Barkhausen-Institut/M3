@@ -18,10 +18,10 @@
 use m3::cell::StaticRefCell;
 use m3::col::Vec;
 use m3::com::{GateIStream, RecvGate, Semaphore};
-use m3::env;
 use m3::format;
 use m3::mem::AlignedBuf;
 use m3::time::{TimeDuration, TimeInstant};
+use m3::{env, syscalls};
 
 static BUF: StaticRefCell<AlignedBuf<2048>> = StaticRefCell::new(AlignedBuf::new_zeroed());
 
@@ -66,9 +66,14 @@ pub fn main() -> i32 {
     loop {
         let mut msg = fetch_msg(&rgates);
 
-        let end = TimeInstant::now() + TimeDuration::from_micros(time);
-        while TimeInstant::now() < end {}
+        if time == 0 {
+            syscalls::noop().unwrap();
+        }
+        else {
+            let end = TimeInstant::now() + TimeDuration::from_micros(time);
+            while TimeInstant::now() < end {}
+        }
 
-        msg.reply_aligned(BUF.borrow().as_ptr(), 8).unwrap();
+        msg.reply_aligned(BUF.borrow().as_ptr(), 1).unwrap();
     }
 }
