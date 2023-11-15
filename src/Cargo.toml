@@ -24,6 +24,8 @@ members = [
     "apps/resmngtest",
     "apps/rusthello",
     "apps/rustnettests",
+    "apps/ruststandalone/stdapriorecv",
+    "apps/ruststandalone/stdapriosnd",
     "apps/ruststandalone/stdareceiver",
     "apps/ruststandalone/stdasender",
     "apps/ruststandalone/vmtest",

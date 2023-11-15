@@ -1,0 +1,6 @@
+<config>
+    <env>M3_GEM5_CFG=config/caches.py M3_CORES=8</env>
+    <kernel args="stdapriorecv" />
+    <kernel args="stdapriosnd" />
+    <kernel args="stdapriosnd" />
+</config>

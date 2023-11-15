@@ -1,0 +1,14 @@
+[package]
+name = "stdapriorecv"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/stdapriorecv.rs"
+crate-type = ["staticlib"]
+
+[dependencies]
+base = { path = "../../../libs/rust/base" }
+heap = { path = "../../../libs/rust/heap" }
+isr = { path = "../../../libs/rust/isr" }
+paging = { path = "../../../libs/rust/paging" }
