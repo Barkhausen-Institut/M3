@@ -15,11 +15,12 @@
 
 #![no_std]
 
-use core::str::FromStr;
+#[path = "../../common.rs"]
+mod common;
 
 use m3::client::VTerm;
 use m3::col::{String, ToString, Vec};
-use m3::com::{GateIStream, RGateArgs, RecvGate, SGateArgs, SendGate};
+use m3::com::{RGateArgs, RecvGate, SGateArgs, SendGate};
 use m3::errors::{Code, Error};
 use m3::mem::MsgBuf;
 use m3::rc::Rc;
@@ -27,24 +28,37 @@ use m3::serialize::M3Deserializer;
 use m3::tcu::Message;
 use m3::tiles::{ActivityArgs, ChildActivity, RunningActivity, RunningProgramActivity, Tile};
 use m3::vfs::{BufReader, File, FileEvent, FileWaiter};
-use m3::{format, reply_vmsg};
+use m3::{format, send_recv};
 use m3::{kif, syscalls};
 
-macro_rules! ctrl_print {
+use common::{ChildReply, ChildReq};
+
+const SENSOR: &str = "sensor";
+const DISPLAY_LEFT: &str = "display-left";
+const DISPLAY_RIGHT: &str = "display-right";
+
+macro_rules! log {
     ($fmt:expr, $($arg:tt)*) => {
         m3::println!(concat!("!! ctrl: ", $fmt), $($arg)*)
+    };
+}
+
+macro_rules! response {
+    ($fmt:expr, $($arg:tt)*) => {
+        m3::println!($fmt, $($arg)*)
     };
 }
 
 struct Child {
     name: String,
     act: RunningProgramActivity,
-    _sgate: SendGate,
+    _req_rgate: RecvGate,
+    req_sgate: SendGate,
 }
 
 impl Drop for Child {
     fn drop(&mut self) {
-        ctrl_print!(
+        log!(
             "terminated activity {}:{}",
             self.act.activity().sel(),
             self.name
@@ -52,72 +66,114 @@ impl Drop for Child {
     }
 }
 
-#[derive(PartialEq)]
-enum TileType {
-    Good,
-    Bad,
+#[derive(Default)]
+struct Logger {
+    vals: [u8; 8],
+    idx: usize,
 }
 
-impl FromStr for TileType {
-    type Err = Error;
+struct State {
+    running: Vec<Child>,
+    logger: Option<Logger>,
+    good_tile: Rc<Tile>,
+    bad_tile: Rc<Tile>,
+}
 
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        match s {
-            "good" => Ok(Self::Good),
-            "bad" => Ok(Self::Bad),
-            _ => Err(Error::new(Code::InvArgs)),
-        }
+impl State {
+    fn child_exists(&self, name: &str) -> bool {
+        self.running.iter().find(|c| c.name == name).is_some()
+    }
+
+    fn get_req_sgate<'s>(&'s self, name: &str) -> Option<&'s SendGate> {
+        self.running
+            .iter()
+            .find(|c| c.name == name)
+            .map(|c| &c.req_sgate)
     }
 }
 
+#[derive(Debug)]
 enum Command {
-    Start(String, String, TileType),
-    Stop(String),
-    List,
+    StartSensor,
+    StopSensor,
+    StartLogger,
+    StopLogger,
+    StartDisplayLeft,
+    StopDisplayLeft,
+    StartDisplayRight,
+    StopDisplayRight,
+
+    SensorStore(u8),
+    LoggerLog,
+
+    DisplayLeftDisplay,
+    DisplayRightDisplay,
+
+    DisplayLeftTrojan(u8),
+    DisplayRightTrojan(u8),
+
+    DemoStatus,
+
     Exit,
 }
 
 fn parse_cmd(line: &str) -> Result<Command, Error> {
-    let mut words = line.split(' ');
+    let mut words = line.split(',');
     let first = words.next().ok_or_else(|| Error::new(Code::InvArgs))?;
+    let mut parse_int = || -> Result<u8, Error> {
+        words
+            .next()
+            .ok_or_else(|| Error::new(Code::InvArgs))?
+            .parse()
+            .map_err(|_| Error::new(Code::InvArgs))
+    };
+
     let cmd = match first {
-        "start" => Command::Start(
-            words
-                .next()
-                .ok_or_else(|| Error::new(Code::InvArgs))?
-                .to_string(),
-            words
-                .next()
-                .ok_or_else(|| Error::new(Code::InvArgs))?
-                .to_string(),
-            TileType::from_str(words.next().unwrap_or("bad"))?,
-        ),
-        "stop" => Command::Stop(
-            words
-                .next()
-                .ok_or_else(|| Error::new(Code::InvArgs))?
-                .to_string(),
-        ),
-        "list" => Command::List,
+        "start_sensor" => Command::StartSensor,
+        "stop_sensor" => Command::StopSensor,
+        "start_logger" => Command::StartLogger,
+        "stop_logger" => Command::StopLogger,
+        "start_displayLeft" => Command::StartDisplayLeft,
+        "stop_displayLeft" => Command::StopDisplayLeft,
+        "start_displayRight" => Command::StartDisplayRight,
+        "stop_displayRight" => Command::StopDisplayRight,
+
+        "sensor_store" => Command::SensorStore(parse_int()?),
+        "logger_log" => Command::LoggerLog,
+
+        "displayLeft_display" => Command::DisplayLeftDisplay,
+        "displayRight_display" => Command::DisplayRightDisplay,
+
+        "displayLeft_trojan" => Command::DisplayLeftTrojan(parse_int()?),
+        "displayRight_trojan" => Command::DisplayRightTrojan(parse_int()?),
+
+        "demo_status" => Command::DemoStatus,
+
         "exit" => Command::Exit,
+
         _ => return Err(Error::new(Code::InvArgs)),
     };
     Ok(cmd)
 }
 
-fn cmd_start(name: &str, arg: &str, rgate: &RecvGate, tile: Rc<Tile>) -> Result<Child, Error> {
+fn cmd_start(state: &State, name: &str, tile: Rc<Tile>) -> Result<Child, Error> {
+    if state.running.iter().find(|c| c.name == name).is_some() {
+        return Err(Error::new(Code::Exists));
+    }
+
     let act = ChildActivity::new_with(tile.clone(), ActivityArgs::new(name))?;
 
-    let sgate = SendGate::new_with(SGateArgs::new(rgate).credits(1))?;
-    act.delegate_obj(sgate.sel())?;
+    let req_rgate = RecvGate::new_with(RGateArgs::default().order(8).msg_order(8))?;
+    act.delegate_obj(req_rgate.sel())?;
+    let req_sgate = SendGate::new_with(SGateArgs::new(&req_rgate).credits(1))?;
 
-    let sel_str = format!("{}", sgate.sel());
+    let req_sel_str = format!("{}", req_rgate.sel());
     let args = match name {
-        "attacker" => ["/bin/isodemoattacker", arg, &sel_str],
-        "victim" => ["/bin/isodemovictim", arg, &sel_str],
+        DISPLAY_LEFT | DISPLAY_RIGHT => ["/bin/isodemoattacker", &req_sel_str],
+        SENSOR => ["/bin/isodemovictim", &req_sel_str],
         &_ => return Err(Error::new(Code::NotFound)),
     };
-    ctrl_print!(
+    log!(
         "starting {}:{} with {:?} on {}",
         act.sel(),
         name,
@@ -127,45 +183,186 @@ fn cmd_start(name: &str, arg: &str, rgate: &RecvGate, tile: Rc<Tile>) -> Result<
     act.exec(&args).map(|run| Child {
         name: name.to_string(),
         act: run,
-        _sgate: sgate,
+        _req_rgate: req_rgate,
+        req_sgate,
     })
 }
 
-fn cmd_stop(name: &str, running: &mut Vec<Child>) {
-    running.retain(|c| name != c.name);
+fn cmd_stop(state: &mut State, name: &str) {
+    state.running.retain(|c| name != c.name);
 }
 
-fn cmd_list(running: &Vec<Child>) {
-    for c in running {
-        ctrl_print!(
-            "{}:{} on tile {}",
-            c.act.activity().sel(),
-            c.name,
-            c.act.activity().tile().id()
-        );
+fn child_request(state: &State, name: &str, req: ChildReq) -> u8 {
+    match perform_request(state, name, &req) {
+        Ok(val) => val,
+        Err(e) => {
+            log!("request {:?} to {} failed: {:?}", req, name, e);
+            0
+        },
     }
 }
 
-fn start_upcall(running: &mut Vec<Child>) {
-    let sels = running
+fn perform_request(state: &State, name: &str, req: &ChildReq) -> Result<u8, Error> {
+    match state.get_req_sgate(name) {
+        Some(sg) => {
+            let mut reply = send_recv!(sg, RecvGate::def(), req)?;
+            let reply: ChildReply = reply.pop()?;
+            if reply.res != Code::Success {
+                Err(Error::new(reply.res))
+            }
+            else {
+                Ok(reply.val)
+            }
+        },
+        None => Err(Error::new(Code::NotFound)),
+    }
+}
+
+fn weather(val: u8) -> &'static str {
+    match val {
+        0 => "icy",
+        1..=5 => "foggy",
+        6..=15 => "rainy",
+        16..=25 => "cloudy",
+        26..=40 => "sunny",
+        _ => "hellfire",
+    }
+}
+
+fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) -> bool {
+    match cmd {
+        // start/stop sensor
+        Ok(Command::StartSensor) => match cmd_start(state, SENSOR, state.bad_tile.clone()) {
+            Ok(child) => state.running.push(child),
+            Err(e) => log!("unable to start victim: {}", e),
+        },
+        Ok(Command::StopSensor) => cmd_stop(state, SENSOR),
+
+        // start/stop display left
+        Ok(Command::StartDisplayLeft) => {
+            match cmd_start(state, DISPLAY_LEFT, state.bad_tile.clone()) {
+                Ok(child) => state.running.push(child),
+                Err(e) => log!("unable to start victim: {}", e),
+            }
+        },
+        Ok(Command::StopDisplayLeft) => cmd_stop(state, DISPLAY_LEFT),
+
+        // start/stop display left
+        Ok(Command::StartDisplayRight) => {
+            match cmd_start(state, DISPLAY_RIGHT, state.good_tile.clone()) {
+                Ok(child) => state.running.push(child),
+                Err(e) => log!("unable to start victim: {}", e),
+            }
+        },
+        Ok(Command::StopDisplayRight) => cmd_stop(state, DISPLAY_RIGHT),
+
+        // child requests
+        Ok(Command::SensorStore(val)) => {
+            child_request(state, SENSOR, ChildReq::Set(val));
+        },
+        Ok(Command::DisplayLeftDisplay) => {
+            let val = if state.child_exists(DISPLAY_LEFT) {
+                child_request(state, SENSOR, ChildReq::Get)
+            }
+            else {
+                0
+            };
+            response!("displayLeft: {{ \"display\": \"{}\" }}", weather(val));
+        },
+        Ok(Command::DisplayRightDisplay) => {
+            let val = if state.child_exists(DISPLAY_RIGHT) {
+                child_request(state, SENSOR, ChildReq::Get)
+            }
+            else {
+                0
+            };
+            response!("displayRight: {{ \"display\": \"{}\" }}", weather(val));
+        },
+        Ok(Command::DisplayLeftTrojan(val)) => {
+            child_request(state, DISPLAY_LEFT, ChildReq::Attack(val));
+        },
+        Ok(Command::DisplayRightTrojan(val)) => {
+            child_request(state, DISPLAY_RIGHT, ChildReq::Attack(val));
+        },
+
+        // start/stop logger
+        Ok(Command::StartLogger) => {
+            if state.logger.is_some() {
+                log!("unable to start logger: {}", Error::new(Code::Exists));
+            }
+            else {
+                state.logger = Some(Logger::default());
+            }
+        },
+        Ok(Command::StopLogger) => {
+            state.logger = None;
+        },
+
+        Ok(Command::LoggerLog) => {
+            let val = child_request(state, SENSOR, ChildReq::Get);
+            if let Some(ref mut log) = state.logger.as_mut() {
+                log.vals[log.idx] = val;
+                log.idx = (log.idx + 1) % log.vals.len();
+            }
+        },
+
+        Ok(Command::DemoStatus) => {
+            let sensor_value = child_request(state, SENSOR, ChildReq::Get);
+            let sensor_running = state.child_exists(SENSOR);
+            let display_left_running = state.child_exists(DISPLAY_LEFT);
+            let display_right_running = state.child_exists(DISPLAY_RIGHT);
+            let logger_running = state.logger.is_some();
+            let logger_values = match state.logger.as_ref() {
+                Some(log) => log.vals,
+                None => [0u8; 8],
+            };
+            response!(
+                concat!(
+                    "status: {{ ",
+                    "\"sensorValue\": {}, \"loggerValues\": {:?}, ",
+                    "\"sensorRunning\": {}, \"loggerRunning\": {}, ",
+                    "\"displayLeftRunning\": {}, \"displayRightRunning\": {} ",
+                    "}}"
+                ),
+                sensor_value,
+                logger_values,
+                sensor_running,
+                logger_running,
+                display_left_running,
+                display_right_running,
+            );
+        },
+
+        Ok(Command::Exit) => return false,
+
+        Err(e) => log!("unable to parse command '{}': {}", line, e),
+    }
+    true
+}
+
+fn start_upcall(state: &mut State) {
+    let sels = state
+        .running
         .iter()
         .map(|c| c.act.activity().sel())
         .collect::<Vec<_>>();
     syscalls::activity_wait(&sels, 1).expect("activity_wait failed");
 }
 
-fn handle_upcall(msg: &'static Message, running: &mut Vec<Child>) {
+fn handle_upcall(msg: &'static Message, state: &mut State) {
     let mut de = M3Deserializer::new(msg.as_words());
     let opcode: kif::upcalls::Operation = de.pop().unwrap();
     assert_eq!(opcode, kif::upcalls::Operation::ActWait);
     let upcall: kif::upcalls::ActivityWait = de.pop().unwrap();
 
-    ctrl_print!(
+    log!(
         "activity {} exited with exit code {:?}",
         upcall.act_sel,
         upcall.exitcode
     );
-    running.retain(|c| c.act.activity().sel() != upcall.act_sel);
+    state
+        .running
+        .retain(|c| c.act.activity().sel() != upcall.act_sel);
 
     let mut reply_buf = MsgBuf::borrow_def();
     m3::build_vmsg!(reply_buf, kif::DefaultReply {
@@ -191,17 +388,18 @@ pub fn main() -> Result<(), Error> {
         .set_blocking(false)
         .expect("Unable to set channel to non-blocking");
 
-    let mut running = Vec::new();
-    let good_tile = Tile::get("rocket|core").expect("Unable to get good tile");
-    let bad_tile = Tile::get("boom+nic|core").expect("Unable to get bad tile");
-    ctrl_print!("found good tile: {}", good_tile.id());
-    ctrl_print!("found bad tile: {}", bad_tile.id());
+    let mut state = State {
+        running: Vec::new(),
+        logger: None,
+        good_tile: Tile::get("rocket|core").expect("Unable to get good tile"),
+        bad_tile: Tile::get("boom+nic|core").expect("Unable to get bad tile"),
+    };
+
+    log!("found good tile: {}", state.good_tile.id());
+    log!("found bad tile: {}", state.bad_tile.id());
 
     let mut waiter = FileWaiter::default();
     waiter.add(reader.get_ref().fd(), FileEvent::INPUT);
-
-    let rgate = RecvGate::new_with(RGateArgs::default().order(14).msg_order(9))
-        .expect("Unable to create receive gate");
 
     let mut line = String::new();
     loop {
@@ -211,41 +409,21 @@ pub fn main() -> Result<(), Error> {
             }
 
             let cmd = parse_cmd(&line);
-            match cmd {
-                Ok(Command::Start(name, arg, tile_type)) => {
-                    let selected_tile = match tile_type {
-                        TileType::Good => good_tile.clone(),
-                        TileType::Bad => bad_tile.clone(),
-                    };
-                    match cmd_start(&name, &arg, &rgate, selected_tile) {
-                        Ok(child) => running.push(child),
-                        Err(e) => ctrl_print!("unable to start start {}: {}", name, e),
-                    }
-                },
-                Ok(Command::Stop(name)) => cmd_stop(&name, &mut running),
-                Ok(Command::List) => cmd_list(&running),
-                Ok(Command::Exit) => break,
-                Err(e) => ctrl_print!("unable to parse command '{}': {}", line, e),
+            if !handle_command(&mut state, &line, cmd) {
+                break;
             }
 
-            start_upcall(&mut running);
+            start_upcall(&mut state);
 
             line.clear();
         }
 
-        if let Ok(msg) = rgate.fetch() {
-            let mut is = GateIStream::new(msg, &rgate);
-            let msg: &str = is.pop().unwrap();
-            m3::println!("{}", msg);
-            reply_vmsg!(is, 0).unwrap();
-        }
-
         if let Ok(msg) = RecvGate::upcall().fetch() {
-            handle_upcall(msg, &mut running);
-            start_upcall(&mut running);
+            handle_upcall(msg, &mut state);
+            start_upcall(&mut state);
         }
 
-        waiter.wait_cond(|| rgate.has_msgs().unwrap() || RecvGate::upcall().has_msgs().unwrap());
+        waiter.wait_cond(|| RecvGate::upcall().has_msgs().unwrap());
     }
 
     Ok(())

@@ -15,32 +15,35 @@
 
 #![no_std]
 
+#[path = "../../common.rs"]
+mod common;
+
 use m3::cap::Selector;
-use m3::cfg;
 use m3::client::MapFlags;
-use m3::com::SendGate;
+use m3::com::{recv_msg, RecvGate};
 use m3::env;
-use m3::errors::Error;
+use m3::errors::{Code, Error};
 use m3::kif::Perm;
 use m3::mem::VirtAddr;
-use m3::tiles::{Activity, OwnActivity};
-use m3::time::TimeDuration;
+use m3::tiles::Activity;
 use m3::vec::Vec;
+use m3::{cfg, reply_vmsg};
 
-macro_rules! ipc_print {
-    ($sgate:expr, $fmt:expr, $($arg:tt)*) => {
-        let msg = m3::format!(concat!("!! victim: ", $fmt), $($arg)*);
-        m3::send_recv!($sgate, m3::com::RecvGate::def(), msg).unwrap();
+use common::{ChildReply, ChildReq};
+
+macro_rules! log {
+    ($fmt:expr, $($arg:tt)*) => {
+        m3::println!(concat!("!! victim: ", $fmt), $($arg)*)
     };
 }
 
 #[no_mangle]
 pub fn main() -> Result<(), Error> {
     let args = env::args().collect::<Vec<_>>();
-    let word = args[1];
 
-    let sgate_sel: Selector = args[2].parse().expect("Unable to parse selector");
-    let sgate = SendGate::new_bind(sgate_sel);
+    let req_sel: Selector = args[1].parse().expect("Unable to parse request selector");
+
+    let req_rgate = RecvGate::new_bind(req_sel);
 
     let virt = VirtAddr::from(0x3000_0000);
     Activity::own()
@@ -49,14 +52,29 @@ pub fn main() -> Result<(), Error> {
         .map_anon(virt, cfg::PAGE_SIZE, Perm::RW, MapFlags::PRIVATE)
         .expect("Unable to map anon memory");
 
+    let val = [0u8; 1];
     unsafe {
-        core::ptr::copy_nonoverlapping(word.as_ptr(), virt.as_mut_ptr(), word.len());
+        core::ptr::copy_nonoverlapping(val.as_ptr(), virt.as_mut_ptr(), val.len());
     }
-    let word_copy: &[u8] = unsafe { core::slice::from_raw_parts(virt.as_ptr(), word.len()) };
+    let val_copy: &mut [u8] =
+        unsafe { core::slice::from_raw_parts_mut(virt.as_mut_ptr(), val.len()) };
 
-    loop {
-        ipc_print!(sgate, "{:?}", core::str::from_utf8(word_copy).unwrap());
+    while let Ok(mut msg) = recv_msg(&req_rgate) {
+        let cmd: ChildReq = msg.pop().unwrap();
+        let reply = match cmd {
+            ChildReq::Get => ChildReply::new_with_val(Code::Success, val_copy[0]),
+            ChildReq::Set(val) => {
+                val_copy[0] = val;
+                ChildReply::new(Code::Success)
+            },
+            _ => {
+                log!("unsupported command: {:?}", cmd);
+                ChildReply::new(Code::InvArgs)
+            },
+        };
 
-        OwnActivity::sleep_for(TimeDuration::from_secs(1)).unwrap();
+        reply_vmsg!(msg, reply).unwrap();
     }
+
+    Ok(())
 }

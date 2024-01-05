@@ -15,34 +15,71 @@
 
 #![no_std]
 
+#[path = "../../common.rs"]
+mod common;
+
 use core::mem::size_of;
 use core::ptr::write_volatile;
 
 use m3::cap::Selector;
 use m3::client::MapFlags;
-use m3::com::SendGate;
-use m3::env;
-use m3::errors::Error;
+use m3::com::{recv_msg, RecvGate};
+use m3::errors::{Code, Error};
 use m3::kif::Perm;
 use m3::mem::VirtAddr;
 use m3::tiles::Activity;
 use m3::vec::Vec;
 use m3::{cfg, tmif};
+use m3::{env, reply_vmsg};
 
-macro_rules! ipc_print {
-    ($sgate:expr, $fmt:expr, $($arg:tt)*) => {
-        let msg = m3::format!(concat!("!! attacker: ", $fmt), $($arg)*);
-        m3::send_recv!($sgate, m3::com::RecvGate::def(), msg).unwrap();
+use common::{ChildReply, ChildReq};
+
+macro_rules! log {
+    ($fmt:expr, $($arg:tt)*) => {
+        m3::println!(concat!("!! attacker: ", $fmt), $($arg)*)
     };
+}
+
+fn perform_attack(virt: VirtAddr, val: u8) {
+    tmif::act_info(virt, virt).unwrap();
+
+    unsafe {
+        let count = *virt.as_ptr::<u64>().offset(0) as isize;
+        let page_table = VirtAddr::from(*virt.as_ptr::<u64>().offset(1) as usize);
+
+        assert!(count <= 4);
+        log!("found {} victims, using page_table {}", count, page_table);
+
+        // start with fourth page, because the pager faults in 4 pages at once
+        let start_page = 4;
+
+        for i in 0..count {
+            let pte = *virt.as_ptr::<u64>().offset(2 + i);
+            log!("getting access to victim {} (pte={:#x})", i, pte);
+
+            let pte_addr =
+                VirtAddr::from(page_table + (start_page + i) as usize * size_of::<u64>());
+            // insert PTE to access victim page
+            write_volatile(pte_addr.as_mut_ptr(), pte);
+
+            log!("overwriting with {} in victim {}", val, i);
+
+            // overwrite beginning of victim page
+            let page_addr = virt + (start_page + i) as usize * cfg::PAGE_SIZE;
+            let vals: [u8; 1] = [val];
+            core::ptr::copy_nonoverlapping(vals.as_ptr(), page_addr.as_mut_ptr(), vals.len());
+            log!("done with victim {}!", i);
+        }
+    }
 }
 
 #[no_mangle]
 pub fn main() -> Result<(), Error> {
     let args = env::args().collect::<Vec<_>>();
-    let word = args[1];
 
-    let sgate_sel: Selector = args[2].parse().expect("Unable to parse selector");
-    let sgate = SendGate::new_bind(sgate_sel);
+    let req_sel: Selector = args[1].parse().expect("Unable to parse request selector");
+
+    let req_rgate = RecvGate::new_bind(req_sel);
 
     let virt = VirtAddr::from(0x3000_0000);
     Activity::own()
@@ -54,39 +91,20 @@ pub fn main() -> Result<(), Error> {
     // fault pages in to create higher level PTEs
     unsafe { *virt.as_mut_ptr() = 42 };
 
-    tmif::act_info(virt, virt).unwrap();
+    while let Ok(mut msg) = recv_msg(&req_rgate) {
+        let cmd: ChildReq = msg.pop().unwrap();
+        let reply = match cmd {
+            ChildReq::Attack(val) => {
+                perform_attack(virt, val);
+                ChildReply::new(Code::Success)
+            },
+            _ => {
+                log!("unsupported command: {:?}", cmd);
+                ChildReply::new(Code::InvArgs)
+            },
+        };
 
-    unsafe {
-        let count = *virt.as_ptr::<u64>().offset(0) as isize;
-        let page_table = VirtAddr::from(*virt.as_ptr::<u64>().offset(1) as usize);
-
-        assert!(count <= 4);
-        ipc_print!(
-            sgate,
-            "found {} victims, using page_table {}",
-            count,
-            page_table
-        );
-
-        // start with fourth page, because the pager faults in 4 pages at once
-        let start_page = 4;
-
-        for i in 0..count {
-            let pte = *virt.as_ptr::<u64>().offset(2 + i);
-            ipc_print!(sgate, "getting access to victim {} (pte={:#x})", i, pte);
-
-            let pte_addr =
-                VirtAddr::from(page_table + (start_page + i) as usize * size_of::<u64>());
-            // insert PTE to access victim page
-            write_volatile(pte_addr.as_mut_ptr(), pte);
-
-            ipc_print!(sgate, "overwriting with {} in victim {}", word, i);
-
-            // overwrite beginning of victim page
-            let page_addr = virt + (start_page + i) as usize * cfg::PAGE_SIZE;
-            core::ptr::copy_nonoverlapping(word.as_ptr(), page_addr.as_mut_ptr(), word.len());
-            ipc_print!(sgate, "done with victim {}!", i);
-        }
+        reply_vmsg!(msg, reply).unwrap();
     }
 
     Ok(())
