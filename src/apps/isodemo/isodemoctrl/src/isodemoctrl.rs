@@ -31,7 +31,7 @@ use m3::vfs::{BufReader, File, FileEvent, FileWaiter};
 use m3::{format, send_recv};
 use m3::{kif, syscalls};
 
-use common::{ChildReply, ChildReq};
+use common::{ChildReply, ChildReq, Value};
 
 const SENSOR: &str = "sensor";
 const DISPLAY_LEFT: &str = "display-left";
@@ -68,7 +68,7 @@ impl Drop for Child {
 
 #[derive(Default)]
 struct Logger {
-    vals: [u8; 8],
+    vals: [Value; 8],
     idx: usize,
 }
 
@@ -103,14 +103,14 @@ enum Command {
     StartDisplayRight,
     StopDisplayRight,
 
-    SensorStore(u8),
+    SensorStore(Value),
     LoggerLog,
 
     DisplayLeftDisplay,
     DisplayRightDisplay,
 
-    DisplayLeftTrojan(u8),
-    DisplayRightTrojan(u8),
+    DisplayLeftTrojan(Value),
+    DisplayRightTrojan(Value),
 
     DemoStatus,
 
@@ -120,7 +120,7 @@ enum Command {
 fn parse_cmd(line: &str) -> Result<Command, Error> {
     let mut words = line.split(',');
     let first = words.next().ok_or_else(|| Error::new(Code::InvArgs))?;
-    let mut parse_int = || -> Result<u8, Error> {
+    let mut parse_int = || -> Result<Value, Error> {
         words
             .next()
             .ok_or_else(|| Error::new(Code::InvArgs))?
@@ -192,7 +192,7 @@ fn cmd_stop(state: &mut State, name: &str) {
     state.running.retain(|c| name != c.name);
 }
 
-fn child_request(state: &State, name: &str, req: ChildReq) -> u8 {
+fn child_request(state: &State, name: &str, req: ChildReq) -> Value {
     match perform_request(state, name, &req) {
         Ok(val) => val,
         Err(e) => {
@@ -202,7 +202,7 @@ fn child_request(state: &State, name: &str, req: ChildReq) -> u8 {
     }
 }
 
-fn perform_request(state: &State, name: &str, req: &ChildReq) -> Result<u8, Error> {
+fn perform_request(state: &State, name: &str, req: &ChildReq) -> Result<Value, Error> {
     match state.get_req_sgate(name) {
         Some(sg) => {
             let mut reply = send_recv!(sg, RecvGate::def(), req)?;
@@ -218,9 +218,9 @@ fn perform_request(state: &State, name: &str, req: &ChildReq) -> Result<u8, Erro
     }
 }
 
-fn weather(val: u8) -> &'static str {
+fn weather(val: Value) -> &'static str {
     match val {
-        0 => "icy",
+        -128..=0 => "icy",
         1..=5 => "foggy",
         6..=15 => "rainy",
         16..=25 => "cloudy",
@@ -314,7 +314,7 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
             let logger_running = state.logger.is_some();
             let logger_values = match state.logger.as_ref() {
                 Some(log) => log.vals,
-                None => [0u8; 8],
+                None => [0; 8],
             };
             response!(
                 concat!(

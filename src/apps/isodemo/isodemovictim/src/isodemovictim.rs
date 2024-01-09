@@ -29,7 +29,7 @@ use m3::tiles::Activity;
 use m3::vec::Vec;
 use m3::{cfg, reply_vmsg};
 
-use common::{ChildReply, ChildReq};
+use common::{ChildReply, ChildReq, Value};
 
 macro_rules! log {
     ($fmt:expr, $($arg:tt)*) => {
@@ -52,11 +52,11 @@ pub fn main() -> Result<(), Error> {
         .map_anon(virt, cfg::PAGE_SIZE, Perm::RW, MapFlags::PRIVATE)
         .expect("Unable to map anon memory");
 
-    let val = [0u8; 1];
+    let val = [0; 1];
     unsafe {
         core::ptr::copy_nonoverlapping(val.as_ptr(), virt.as_mut_ptr(), val.len());
     }
-    let val_copy: &mut [u8] =
+    let val_copy: &mut [Value] =
         unsafe { core::slice::from_raw_parts_mut(virt.as_mut_ptr(), val.len()) };
 
     while let Ok(mut msg) = recv_msg(&req_rgate) {

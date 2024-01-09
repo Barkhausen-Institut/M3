@@ -32,7 +32,7 @@ use m3::vec::Vec;
 use m3::{cfg, tmif};
 use m3::{env, reply_vmsg};
 
-use common::{ChildReply, ChildReq};
+use common::{ChildReply, ChildReq, Value};
 
 macro_rules! log {
     ($fmt:expr, $($arg:tt)*) => {
@@ -40,7 +40,7 @@ macro_rules! log {
     };
 }
 
-fn perform_attack(virt: VirtAddr, val: u8) {
+fn perform_attack(virt: VirtAddr, val: Value) {
     tmif::act_info(virt, virt).unwrap();
 
     unsafe {
@@ -66,7 +66,7 @@ fn perform_attack(virt: VirtAddr, val: u8) {
 
             // overwrite beginning of victim page
             let page_addr = virt + (start_page + i) as usize * cfg::PAGE_SIZE;
-            let vals: [u8; 1] = [val];
+            let vals: [Value; 1] = [val];
             core::ptr::copy_nonoverlapping(vals.as_ptr(), page_addr.as_mut_ptr(), vals.len());
             log!("done with victim {}!", i);
         }
