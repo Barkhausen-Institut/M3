@@ -221,10 +221,10 @@ fn perform_request(state: &State, name: &str, req: &ChildReq) -> Result<Value, E
 fn weather(val: Value) -> &'static str {
     match val {
         -128..=0 => "icy",
-        1..=5 => "foggy",
-        6..=15 => "rainy",
-        16..=25 => "cloudy",
-        26..=40 => "sunny",
+        1..=5 => "sleet",
+        6..=15 => "mixed",
+        16..=25 => "sunny",
+        26..=40 => "hot",
         _ => "hellfire",
     }
 }
@@ -295,6 +295,12 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
             }
         },
         Ok(Command::StopLogger) => {
+            if let Some(ref mut log) = state.logger.as_mut() {
+                for n in 0..(log.vals.len() - 1) {
+                    log.vals[n] = 0;
+                }
+                log.idx = 0;
+            }
             state.logger = None;
         },
 
