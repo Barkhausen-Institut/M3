@@ -375,10 +375,10 @@ def main():
 
     # check TCU versions
     for tile in fpga_inst.pms:
-        tcu_version = tile.tcu_version()
-        if tcu_version != args.version:
-            print("Tile %s has TCU version %d, but expected %d" %
-                  (tile.name, tcu_version, args.version))
+        vmajor, _, _ = tile.tcu_version()
+        if vmajor != args.version:
+            print("Tile %s has TCU major version %d, but expected %d" %
+                  (tile.name, vmajor, args.version))
             return
 
     # disable NoC ARQ for program upload
