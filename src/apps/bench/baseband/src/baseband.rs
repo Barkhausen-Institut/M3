@@ -19,6 +19,7 @@ use m3::errors::Error;
 
 mod multi;
 mod single;
+mod utils;
 
 #[no_mangle]
 pub fn main() -> Result<(), Error> {

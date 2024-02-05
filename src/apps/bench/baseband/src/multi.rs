@@ -24,13 +24,13 @@ use m3::chan::multidata::{
 use m3::col::{String, ToString, Vec};
 use m3::errors::{Code, Error};
 use m3::io::LogFlags;
-use m3::mem::{GlobOff, VirtAddr};
+use m3::mem::GlobOff;
 use m3::serialize::{Deserialize, Serialize};
-use m3::tiles::{
-    Activity, ActivityArgs, ChildActivity, RunningActivity, RunningProgramActivity, Tile,
-};
+use m3::tiles::{Activity, ChildActivity, RunningActivity, RunningProgramActivity};
 use m3::time::{CycleDuration, CycleInstant, Duration};
 use m3::{cfg, format, log, println, vec};
+
+use crate::utils;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(crate = "m3::serde")]
@@ -73,18 +73,6 @@ fn start_activity<S: ToString>(
     act.run(compute_node)
 }
 
-fn create_activity<S: AsRef<str>>(name: S) -> Result<ChildActivity, Error> {
-    let tile = Tile::get("compat")?;
-    ChildActivity::new_with(tile, ActivityArgs::new(name.as_ref()))
-}
-
-fn compute_for(name: &str, duration: CycleDuration) {
-    log!(LogFlags::Debug, "{}: computing for {:?}", name, duration);
-
-    let end = CycleInstant::now().as_cycles() + duration.as_raw();
-    while CycleInstant::now().as_cycles() < end {}
-}
-
 fn compute_node() -> Result<(), Error> {
     let mut src = Activity::own().data_source();
     let cfg: NodeConfig = src.pop().unwrap();
@@ -100,7 +88,7 @@ fn compute_node() -> Result<(), Error> {
         let last = blk.is_last();
         blk.with_data(|data| {
             for _chk in data.chunks(cfg.chunk_size) {
-                compute_for(&cfg.name, cfg.comp_time);
+                utils::compute_for(&cfg.name, cfg.comp_time);
             }
 
             if let Some(send) = send.as_mut() {
@@ -126,19 +114,13 @@ pub fn run() -> Result<(), Error> {
     const CHUNK_SIZE: usize = 1024;
     const BUF_SIZE: GlobOff = cfg::PAGE_SIZE as GlobOff;
 
-    let tile_desc = Activity::own().tile_desc();
-    let buf_addr = if tile_desc.has_virtmem() {
-        VirtAddr::new(0x3000_0000)
-    }
-    else {
-        VirtAddr::from(tile_desc.mem_size() / 2)
-    };
+    let buf_addr = utils::buffer_addr();
 
-    let n1 = create_activity("n1").expect("create n1");
+    let n1 = utils::create_activity("n1").expect("create n1");
     let n2s = (0..4)
-        .map(|i| create_activity(format!("n2_{}", i)).expect("create ns"))
+        .map(|i| utils::create_activity(format!("n2_{}", i)).expect("create ns"))
         .collect::<Vec<_>>();
-    let n3 = create_activity("n3").expect("create n3");
+    let n3 = utils::create_activity("n3").expect("create n3");
 
     let (n0n1_s, n0n1_r) = mdatachan::create_single(&n1, MSG_SIZE, CREDITS, buf_addr, BUF_SIZE)
         .expect("n0->n1 channel");
