@@ -1,5 +1,6 @@
 dirs = [
     'accelchain',
+    'baseband',
     'bench-apps',
     'cppbenchs',
     'cppnetbenchs',
