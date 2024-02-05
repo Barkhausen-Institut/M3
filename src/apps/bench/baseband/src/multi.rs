@@ -125,7 +125,14 @@ pub fn run() -> Result<(), Error> {
     const CHUNK_TIME: u64 = 100000;
     const CHUNK_SIZE: usize = 1024;
     const BUF_SIZE: GlobOff = cfg::PAGE_SIZE as GlobOff;
-    const BUFFER_ADDR: VirtAddr = VirtAddr::new(0x3000_0000);
+
+    let tile_desc = Activity::own().tile_desc();
+    let buf_addr = if tile_desc.has_virtmem() {
+        VirtAddr::new(0x3000_0000)
+    }
+    else {
+        VirtAddr::from(tile_desc.mem_size() / 2)
+    };
 
     let n1 = create_activity("n1").expect("create n1");
     let n2s = (0..4)
@@ -133,21 +140,21 @@ pub fn run() -> Result<(), Error> {
         .collect::<Vec<_>>();
     let n3 = create_activity("n3").expect("create n3");
 
-    let (n0n1_s, n0n1_r) = mdatachan::create_single(&n1, MSG_SIZE, CREDITS, BUFFER_ADDR, BUF_SIZE)
+    let (n0n1_s, n0n1_r) = mdatachan::create_single(&n1, MSG_SIZE, CREDITS, buf_addr, BUF_SIZE)
         .expect("n0->n1 channel");
     let (n1n2s_s, n1n2s_r) = mdatachan::create_fanout(
         n2s.iter().map(|a| a.deref()),
         MSG_SIZE,
         CREDITS,
-        BUFFER_ADDR,
+        buf_addr,
         BUF_SIZE,
     )
     .expect("n1->n2s channel");
     let (n2sn3_s, n2sn3_r) =
-        mdatachan::create_fanin(&n3, MSG_SIZE, CREDITS, BUFFER_ADDR, BUF_SIZE, n2s.len())
+        mdatachan::create_fanin(&n3, MSG_SIZE, CREDITS, buf_addr, BUF_SIZE, n2s.len())
             .expect("n2s->n3 channel");
     let (n3n0_s, n3n0_r) =
-        mdatachan::create_single(Activity::own(), MSG_SIZE, CREDITS, BUFFER_ADDR, BUF_SIZE)
+        mdatachan::create_single(Activity::own(), MSG_SIZE, CREDITS, buf_addr, BUF_SIZE)
             .expect("n3->n0 channel");
 
     let n1 = start_activity(

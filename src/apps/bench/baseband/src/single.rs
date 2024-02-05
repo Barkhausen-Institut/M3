@@ -114,18 +114,26 @@ pub fn run() -> Result<(), Error> {
     const CHUNK_TIME: u64 = 100000;
     const CHUNK_SIZE: usize = 1024;
     const BUF_SIZE: GlobOff = cfg::PAGE_SIZE as GlobOff;
-    const BUFFER_ADDR: VirtAddr = VirtAddr::new(0x3000_0000);
+
+    // TODO that's a bit of guess work here; at some point we might want to have an abstraction in
+    // libm3 that manages our address space or so.
+    let tile_desc = Activity::own().tile_desc();
+    let buf_addr = if tile_desc.has_virtmem() {
+        VirtAddr::new(0x3000_0000)
+    }
+    else {
+        VirtAddr::from(tile_desc.mem_size() / 2)
+    };
 
     let n1 = create_activity("n1").expect("create n1");
     let n2 = create_activity("n2").expect("create n2");
 
     let (n0n1_s, n0n1_r) =
-        datachan::create(&n1, MSG_SIZE, CREDITS, BUFFER_ADDR, BUF_SIZE).expect("n0->n1 channel");
+        datachan::create(&n1, MSG_SIZE, CREDITS, buf_addr, BUF_SIZE).expect("n0->n1 channel");
     let (n1n2_s, n1n2_r) =
-        datachan::create(&n2, MSG_SIZE, CREDITS, BUFFER_ADDR, BUF_SIZE).expect("n1->n2 channel");
-    let (n2n0_s, n2n0_r) =
-        datachan::create(Activity::own(), MSG_SIZE, CREDITS, BUFFER_ADDR, BUF_SIZE)
-            .expect("n2->n0 channel");
+        datachan::create(&n2, MSG_SIZE, CREDITS, buf_addr, BUF_SIZE).expect("n1->n2 channel");
+    let (n2n0_s, n2n0_r) = datachan::create(Activity::own(), MSG_SIZE, CREDITS, buf_addr, BUF_SIZE)
+        .expect("n2->n0 channel");
 
     let n1 = start_activity(
         "n1",
