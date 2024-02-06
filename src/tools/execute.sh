@@ -11,7 +11,6 @@ fi
 
 build=build/$M3_TARGET-$M3_ISA-$M3_BUILD
 bindir=$build/bin
-hwssh=${M3_HW_SSH:-syn}
 
 if [ $# -lt 1 ]; then
     usage "$0"
@@ -195,12 +194,11 @@ build_params_hw() {
         args="$args --fs $(basename "$build/$M3_FS")"
     fi
 
-    fpga="--fpga ${M3_HW_FPGA:-0}"
+    fpga="--fpga $M3_HW_FPGA_NO"
 
     {
         echo "#!/bin/sh"
-        echo "export PYTHONPATH=\$HOME/tcu/fpga_tools/python:\$PYTHONPATH"
-        echo "export PYTHONPATH=\$HOME/tcu/fpga_tools/pyelftools-0.26:\$PYTHONPATH"
+        echo "export PYTHONPATH=\$HOME/$M3_HW_FPGA_DIR/python:\$PYTHONPATH"
         # echo "export RUST_FILE_LOG=debug"
         echo ""
         if [ "$debug" != "" ]; then
@@ -222,16 +220,18 @@ build_params_hw() {
             echo '$OPENOCD/openocd -f $OPENOCD/fpga_switch.cfg >openocd.log 2>&1'
 
             # make sure that openocd is stopped
-            trap "ssh -t $hwssh 'killall openocd'" ERR INT TERM
+            trap 'ssh -t $M3_HW_FPGA_HOST "killall openocd"' ERR INT TERM
         else
             echo "python3 ./fpga.py $fpga $args 2>&1 | tee -i log.txt"
         fi
     } > "$M3_OUT/run.sh"
 
-    rsync -z src/tools/fpga.py "${files[@]}" "$M3_OUT/run.sh" "$hwssh:m3"
+    rsync -rz \
+        src/tools/fpga.py platform/hw/fpga_tools/python "${files[@]}" "$M3_OUT/run.sh" \
+        "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR"
 
-    ssh -t "$hwssh" "cd m3 && sh run.sh"
-    scp "$hwssh:m3/log.txt" "$hwssh:m3/log/pm*" "$M3_OUT"
+    ssh -t "$M3_HW_FPGA_HOST" "cd $M3_HW_FPGA_DIR && sh run.sh"
+    scp "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR/log.txt" "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR/log/pm*" "$M3_OUT"
 }
 
 if [ "$M3_TARGET" = "gem5" ] || [ "$M3_RUN_GEM5" = "1" ]; then

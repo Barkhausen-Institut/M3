@@ -90,6 +90,8 @@ help() {
     echo "    ninja ...:               run ninja with given arguments."
     echo "    run <script>:            run the specified <script>. See directory boot."
     echo "    rungem5 <script>:        run the specified <script> on gem5. See directory boot."
+    echo "    loadfpga=<bitfile>:      loads the given Bitfile onto the FPGA. The Bitfile is"
+    echo "                             specified relative to platform/hw/fpga_tools/bitfiles."
     echo "    clippy:                  run clippy for rust code."
     echo "    doc:                     generate rust documentation."
     echo "    fmt:                     run rustfmt for rust code."
@@ -143,10 +145,14 @@ help() {
     echo "    M3_GEM5_FSNUM:           The number of times to load the FS image."
     echo "    M3_GEM5_PAUSE:           Pause the tile with given number until GDB connects"
     echo "                             (only on gem5 and with command dbg=)."
-    echo "    M3_HW_SSH:               The SSH alias for the FPGA PC (default: syn)"
-    echo "    M3_HW_FPGA:              The FPGA number (default 0 = IP 192.168.42.240)"
-    echo "    M3_HW_RESET:             Reset the FPGA before starting"
-    echo "    M3_HW_VM:                Use virtual memory (default = 1)"
+    echo "    M3_HW_FPGA_HOST:         The SSH alias for the FPGA PC."
+    echo "    M3_HW_FPGA_DIR:          The directory on the FPGA PC to use for temporary"
+    echo "                             files. The directory will be created automatically."
+    echo "    M3_HW_FPGA_NO:           The FPGA number. Every FPGA has an IP of"
+    echo "                             192.168.42.240 + \$M3_HW_FPGA_NO."
+    echo "    M3_HW_VIVADO:            Absolute path on FPGA PC to Vivado/Vivado Lab."
+    echo "    M3_HW_RESET:             Reset the FPGA before starting."
+    echo "    M3_HW_VM:                Use virtual memory (default = 1)."
     echo "    M3_HW_TIMEOUT:           Stop execution after given number of seconds."
     echo "    M3_HW_PAUSE:             Pause the tile with given number at startup"
     echo "                             (only on hw and with command dbg=)."
@@ -199,6 +205,18 @@ case "$cmd" in
         ninja -f $build/build.ninja "${ninjaargs[@]}" "$script" "$@"
         exit $?
         ;;
+
+    # these commands require on hw that the M3_HW_FPGA_* vars are defined
+    run|dbg=*|loadfpga=*)
+        if [ "$M3_TARGET" = "hw" ] || [ "$M3_TARGET" = "hw22" ]; then
+            if [ -z "$M3_HW_FPGA_HOST" ] || [ -z "$M3_HW_FPGA_DIR" ]; then
+                echo "Please define M3_HW_FPGA_HOST and M3_HW_FPGA_DIR." >&2 && exit 1
+            fi
+            if [ -z "$M3_HW_FPGA_NO" ]; then
+                echo "Please define M3_HW_FPGA_NO." >&2 && exit 1
+            fi
+        fi
+        ;;
 esac
 
 if [ $skipbuild -eq 0 ]; then
@@ -224,6 +242,31 @@ case "$cmd" in
 
     rungem5)
         M3_RUN_GEM5=1 ./src/tools/execute.sh "$script" 2>&1 | tee $M3_OUT/log.txt
+        ;;
+
+    loadfpga=*)
+        if [ "$M3_TARGET" != "hw" ]; then
+            echo "Only supported on M3_TARGET=hw." >&2 && exit 1
+        fi
+        if [ -z "$M3_HW_VIVADO" ]; then
+            echo "Please define M3_HW_VIVADO to the absolute path to Vivado." >&2 && exit 1
+        fi
+
+        bitfile=${cmd#loadfpga=}
+        fpgatools="platform/hw/fpga_tools"
+        if [ ! -f "$fpgatools/bitfiles/$bitfile" ]; then
+            echo "Bitfile '$fpgatools/bitfiles/$bitfile' does not exist." >&2 && exit 1
+        fi
+
+        rsync -z \
+            "$fpgatools/bitfiles/$bitfile" \
+            "$fpgatools/scripts/program_fpga.tcl" \
+            "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR"
+
+        ssh "$M3_HW_FPGA_HOST" \
+            "$M3_HW_VIVADO"' -mode batch \
+                             -source '"$M3_HW_FPGA_DIR"'/program_fpga.tcl \
+                             -tclargs '"$M3_HW_FPGA_DIR"'/'"$bitfile"
         ;;
 
     clippy)
@@ -321,7 +364,7 @@ case "$cmd" in
             ./src/tools/execute.sh "$script" "--debug=${cmd#dbg=}" &>/dev/null &
 
             port=$((3340 + M3_HW_PAUSE))
-            ssh -N -L 30000:localhost:$port "${M3_HW_SSH:-syn}" 2>/dev/null &
+            ssh -N -L 30000:localhost:$port "$M3_HW_FPGA_HOST" 2>/dev/null &
             trap 'trap - SIGTERM && kill -- -$$' SIGINT SIGTERM EXIT
 
             echo -n "Connecting..."
@@ -329,7 +372,7 @@ case "$cmd" in
             while [ "$(telnet localhost 30000 2>/dev/null | grep '\+')" = "" ]; do
                 # after some warmup, detect if something went wrong
                 if [ $time -gt 5 ]; then
-                    ssh "${M3_HW_SSH:-syn}" "test -e m3/.running" ||
+                    ssh "$M3_HW_FPGA_HOST" "test -e m3/.running" ||
                         { echo "Remote side stopped." && exit 1; }
                 fi
                 echo -n "."

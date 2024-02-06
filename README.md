@@ -46,17 +46,18 @@ Note that you can specify the number of threads to use for building in the last 
 
 ### 3. Preparation for the hardware platform
 
-The current workflow assumes that the FPGA is connected to a machine `M_fpga` that is reachable via SSH from the machine `M_m3` that hosts M³. On `M_fpga`, the `platform/hw` submodule of the M³ repository needs to be available at `$HOME/tcu`:
+The current workflow assumes that the FPGA is connected to a machine `M_fpga` that is reachable via SSH from the machine `M_m3` that hosts M³. A couple of environment variables have to be set before starting with the FPGA:
 
-    $ git clone https://gitlab.com/Nils-TUD/tcu.git
+    $ export M3_HW_FPGA_HOST=ssh-alias-for-M_fpga
+    $ export M3_HW_FPGA_DIR=directory-on-M_fpga     # relative to the home directory
+    $ export M3_HW_FPGA_NO=fpga-number              # e.g. 0 if your FPGA has IP 192.168.42.240
+    $ export M3_HW_VIVADO=path-to-vivado-on-M_fpga  # can also be vivado_lab
 
-The bitfiles for the hardware platform can be found in `tcu/fpga_tools/bitfiles`. The bitfiles are built for the Xilinx VCU118 FPGA. Provided that Vivado Labs is installed, the following command can be used to load the latest bitfile onto the FPGA:
+Note that `M_fpga` and `M_m3` can also be the same, in which case `M3_HW_FPGA_HOST` has to be set to localhost and a local SSH server is required.
 
-    $ cd tcu/fpga_tools/testcases/tc_rocket_boot && make program-fpga
+The bitfiles for the hardware platform can be found in `platform/hw/fpga_tools/bitfiles`. The bitfiles are built for the Xilinx VCU118 FPGA. The following command can be used to load the latest bitfile onto the FPGA. This requires an installation of Vivado or Vivado Lab:
 
-Finally, before starting M³ on the FPGA, you have to tell M³ on `M_m3` how `M_fpga` can be reached:
-
-    $ export M3_HW_SSH=ssh-alias-for-M_fpga
+    $ ./b loadfpga=fpga_top.bit
 
 Note that the source of the hardware platform is [openly available](https://github.com/Barkhausen-Institut/M3-hardware) as well.
 
