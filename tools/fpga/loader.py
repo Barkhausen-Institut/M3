@@ -5,7 +5,8 @@ from elftools.elf.elffile import ELFFile
 
 import memory
 import pm
-from tcu import EP, MemEP, Flags
+from tcu import EP, MemEP, Flags, TCUExtReg
+from tile import TileType
 
 import utils
 
@@ -41,24 +42,26 @@ class Loader:
         for i, tile in enumerate(tiles, 0):
             self._init_tile(dram, tile, i, i < len(kernel_tiles))
 
-        # load kernels on tiles
+        # load kernels on tiles (only for Rocket cores)
         for i, pargs in enumerate(kernel_tiles, 0):
-            self._load_prog(tiles, dram, i, pargs.split(' '), logflags)
+            if tiles[i].type == TileType.ROCKET:
+                self._load_prog(tiles, dram, i, pargs.split(' '), logflags)
 
     def start(self, tiles: list[pm], debug: int):
-        # start kernel tiles
+        # start kernel tiles (only for Rocket cores)
         debug_tile = len(tiles) if debug is None else debug
         for i, tile in enumerate(tiles, 0):
-            if i != debug_tile:
+            if tiles[i].type == TileType.ROCKET and i != debug_tile:
                 # start core (via interrupt 0)
-                tiles[i].rocket_start()
+                tiles[i].inst.rocket_start()
 
     def _init_tile(self, dram: memory, tile: pm, tile_idx: int, loaded: bool):
         # reset TCU (clear command log and reset registers except FEATURES and EPs)
         tile.tcu_reset()
 
-        # enable instruction trace for all tiles (doesn't cost anything)
-        tile.rocket_enableTrace()
+        # enable instruction trace for all Rocket tiles (doesn't cost anything)
+        if tile.type == TileType.ROCKET:
+            tile.inst.rocket_enableTrace()
 
         # set features: privileged, vm, ctxsw
         tile.tcu_set_features(1, self.vm, 1)
@@ -74,8 +77,8 @@ class Loader:
 
             # install first PMP EP
             pmp_ep = MemEP()
-            pmp_ep.set_chip(dram.mem.nocid[0])
-            pmp_ep.set_tile(dram.mem.nocid[1])
+            pmp_ep.set_chip(dram.nocid[0])
+            pmp_ep.set_tile(dram.nocid[1])
             pmp_ep.set_act(0xFFFF)
             pmp_ep.set_flags(Flags.READ | Flags.WRITE)
             pmp_ep.set_addr(mem_begin)
@@ -114,7 +117,7 @@ class Loader:
         pm = tiles[tile_idx]
 
         # start core
-        pm.start()
+        pm.inst.start()
 
         print("%s: loading %s..." % (pm.name, args[0]))
         sys.stdout.flush()
@@ -159,7 +162,7 @@ class Loader:
         for tile in tiles:
             utils.write_u64(dram, dram_env + env_off, tile.nocid[0] << 8 | tile.nocid[1])
             env_off += 8
-        utils.write_u64(dram, dram_env + env_off, dram.mem.nocid[0] << 8 | dram.mem.nocid[1])
+        utils.write_u64(dram, dram_env + env_off, dram.nocid[0] << 8 | dram.nocid[1])
 
         sys.stdout.flush()
 

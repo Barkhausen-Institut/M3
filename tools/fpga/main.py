@@ -10,6 +10,7 @@ import sys
 import fpga_top
 from noc import NoCmonitor
 from fpga_utils import FPGA_Error
+from tile import TileType
 
 import loader
 import term
@@ -120,28 +121,32 @@ def extract_tcu_log(tile, no: int):
 
 
 def extract_instr_trace(tile, no: int):
+    if tile.type != TileType.ROCKET:
+        return
+
     try:
-        tile.rocket_printTrace('log/pm' + str(no) + '-instrs.log')
+        tile.inst.rocket_printTrace('log/pm' + str(no) + '-instrs.log')
     except Exception as e:
         print("PM{}: unable to read instruction trace: {}".format(no, e))
         print("PM{}: resetting TCU and reading all logs...".format(no))
         sys.stdout.flush()
         tile.tcu_reset()
         try:
-            tile.rocket_printTrace('log/pm' + str(no) + '-instrs.log', all=True)
+            tile.inst.rocket_printTrace('log/pm' + str(no) + '-instrs.log', all=True)
         except Exception:
             pass
 
 
 def stop_tiles(fpga_inst, timed_out):
     print("Stopping all tiles...")
-    for i, tile in enumerate(fpga_inst.pms, 0):
+    for i, tile in enumerate(fpga_inst.pmTiles, 0):
         extract_tcu_stats(tile, i)
         if timed_out:
             extract_tcu_log(tile, i)
         extract_instr_trace(tile, i)
 
-        tile.stop()
+        if tile.type == TileType.ROCKET:
+            tile.inst.stop()
 
 
 def main():
@@ -165,12 +170,13 @@ def main():
     # connect to FPGA
     fpga_inst = fpga_top.FPGA_TOP(args.version, args.fpga, args.reset)
 
-    # stop all tiles
-    for tile in fpga_inst.pms:
-        tile.stop()
+    # stop all tiles (only Rocket cores)
+    for tile in fpga_inst.pmTiles:
+        if tile.type == TileType.ROCKET:
+            tile.inst.stop()
 
     # check TCU versions
-    for tile in fpga_inst.pms:
+    for tile in fpga_inst.pmTiles:
         vmajor, _, _ = tile.tcu_version()
         if vmajor != args.version:
             print("Tile %s has TCU major version %d, but expected %d" %
@@ -185,12 +191,12 @@ def main():
     # disable NoC ARQ for program upload
     fpga_inst.set_arq_enable(False)
 
-    ld.init(fpga_inst.pms, fpga_inst.dram1, args.tile, mods, args.logflags)
+    ld.init(fpga_inst.pmTiles, fpga_inst.dram1, args.tile, mods, args.logflags)
 
     # enable NoC ARQ when cores are running
     fpga_inst.set_arq_enable(True)
 
-    ld.start(fpga_inst.pms, args.debug)
+    ld.start(fpga_inst.pmTiles, args.debug)
 
     # signal run.sh that everything has been loaded
     if args.debug is not None:
