@@ -1,18 +1,18 @@
 [submodule "hw/gem5"]
 	path = platform/gem5
-	url = ../gem5-TCU.git
+	url = https://github.com/Barkhausen-Institut/gem5-TCU.git
 [submodule "platform/hw"]
 	path = platform/hw
-	url = ../tcu-if.git
+	url = https://github.com/Barkhausen-Institut/tcu-if.git
 [submodule "src/libs/musl"]
 	path = src/libs/musl
-	url = ../m3-musl.git
+	url = https://github.com/Barkhausen-Institut/m3-musl.git
 [submodule "src/libs/leveldb"]
 	path = src/libs/leveldb
-	url = ../m3-leveldb.git
+	url = https://github.com/Barkhausen-Institut/m3-leveldb.git
 [submodule "src/libs/flac"]
 	path = src/libs/flac
-	url = ../m3-flac.git
+	url = https://github.com/Barkhausen-Institut/m3-flac.git
 [submodule "src/apps/bsdutils"]
 	path = src/apps/bsdutils
-	url = ../m3-bsdcoreutils.git
+	url = https://github.com/Barkhausen-Institut/m3-bsdcoreutils.git
