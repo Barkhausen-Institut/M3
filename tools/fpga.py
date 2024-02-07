@@ -13,13 +13,12 @@ import serial
 from serial.tools.miniterm import Miniterm
 import termios
 
-import modids
 import fpga_top
 from elftools.elf.elffile import ELFFile
 from noc import NoCmonitor
 from tcu import EP, MemEP, Flags
+from tile import TileType
 from fpga_utils import FPGA_Error
-import memory
 
 DRAM_OFF = 0x10000000
 ENV = 0x10001000
@@ -149,8 +148,9 @@ def init_tile(dram, tile, i, loaded, vm):
     # reset TCU (clear command log and reset registers except FEATURES and EPs)
     tile.tcu_reset()
 
-    # enable instruction trace for all tiles (doesn't cost anything)
-    tile.rocket_enableTrace()
+    # enable instruction trace for all Rocket tiles (doesn't cost anything)
+    if tile.type == TileType.ROCKET:
+        tile.inst.rocket_enableTrace()
 
     # set features: privileged, vm, ctxsw
     tile.tcu_set_features(1, vm, 1)
@@ -166,8 +166,8 @@ def init_tile(dram, tile, i, loaded, vm):
 
         # install first PMP EP
         pmp_ep = MemEP()
-        pmp_ep.set_chip(dram.mem.nocid[0])
-        pmp_ep.set_tile(dram.mem.nocid[1])
+        pmp_ep.set_chip(dram.nocid[0])
+        pmp_ep.set_tile(dram.nocid[1])
         pmp_ep.set_act(0xFFFF)
         pmp_ep.set_flags(Flags.READ | Flags.WRITE)
         pmp_ep.set_addr(mem_begin)
@@ -179,7 +179,7 @@ def load_prog(dram, tiles, i, args, vm, logflags):
     pm = tiles[i]
 
     # start core
-    pm.start()
+    pm.inst.start()
 
     print("%s: loading %s..." % (pm.name, args[0]))
     sys.stdout.flush()
@@ -224,7 +224,7 @@ def load_prog(dram, tiles, i, args, vm, logflags):
     for tile in tiles:
         write_u64(dram, dram_env + env_off, tile.nocid[0] << 8 | tile.nocid[1])
         env_off += 8
-    write_u64(dram, dram_env + env_off, dram.mem.nocid[0] << 8 | dram.mem.nocid[1])
+    write_u64(dram, dram_env + env_off, dram.nocid[0] << 8 | dram.nocid[1])
 
     sys.stdout.flush()
 
@@ -369,12 +369,13 @@ def main():
     # connect to FPGA
     fpga_inst = fpga_top.FPGA_TOP(args.version, args.fpga, args.reset)
 
-    # stop all tiles
-    for tile in fpga_inst.pms:
-        tile.stop()
+    # stop all tiles (only Rocket cores)
+    for tile in fpga_inst.pmTiles:
+        if tile.type == TileType.ROCKET:
+            tile.inst.stop()
 
     # check TCU versions
-    for tile in fpga_inst.pms:
+    for tile in fpga_inst.pmTiles:
         vmajor, _, _ = tile.tcu_version()
         if vmajor != args.version:
             print("Tile %s has TCU major version %d, but expected %d" %
@@ -382,7 +383,7 @@ def main():
             return
 
     # disable NoC ARQ for program upload
-    for tile in fpga_inst.pms:
+    for tile in fpga_inst.pmTiles:
         tile.nocarq.set_arq_enable(0)
     fpga_inst.eth_rf.nocarq.set_arq_enable(0)
     fpga_inst.dram1.nocarq.set_arq_enable(0)
@@ -392,36 +393,37 @@ def main():
     pmp_size = 16 * 1024 * 1024 if args.vm else 64 * 1024 * 1024
 
     # load boot info into DRAM
-    kernel_tiles = args.tile[0:len(fpga_inst.pms)]
+    kernel_tiles = args.tile[0:len(fpga_inst.pmTiles)]
     if args.vm:
         mods_addr = PMP_ADDR + (len(kernel_tiles) * pmp_size)
     else:
-        mods_addr = PMP_ADDR + (len(fpga_inst.pms) * pmp_size)
+        mods_addr = PMP_ADDR + (len(fpga_inst.pmTiles) * pmp_size)
     mods = [] if args.mod is None else args.mod
-    load_boot_info(fpga_inst.dram1, mods, fpga_inst.pms, args.vm, mods_addr)
+    load_boot_info(fpga_inst.dram1, mods, fpga_inst.pmTiles, args.vm, mods_addr)
 
     # init all tiles
-    for i, tile in enumerate(fpga_inst.pms, 0):
+    for i, tile in enumerate(fpga_inst.pmTiles, 0):
         init_tile(fpga_inst.dram1, tile, i, i < len(kernel_tiles), args.vm)
 
-    # load kernels on tiles
+    # load kernels on tiles (only for Rocket cores)
     for i, pargs in enumerate(kernel_tiles, 0):
-        load_prog(fpga_inst.dram1, fpga_inst.pms, i,
-                  pargs.split(' '), args.vm, args.logflags)
+        if fpga_inst.pmTiles[i].type == TileType.ROCKET:
+            load_prog(fpga_inst.dram1, fpga_inst.pmTiles, i,
+                        pargs.split(' '), args.vm, args.logflags)
 
     # enable NoC ARQ when cores are running
-    for tile in fpga_inst.pms:
+    for tile in fpga_inst.pmTiles:
         tile.nocarq.set_arq_enable(1)
         tile.nocarq.set_arq_timeout(200)  # reduce timeout
     fpga_inst.dram1.nocarq.set_arq_enable(1)
     fpga_inst.dram2.nocarq.set_arq_enable(1)
 
-    # start kernel tiles
-    debug_tile = len(fpga_inst.pms) if args.debug is None else args.debug
-    for i, tile in enumerate(fpga_inst.pms, 0):
-        if i != debug_tile:
+    # start kernel tiles (only for Rocket cores)
+    debug_tile = len(fpga_inst.pmTiles) if args.debug is None else args.debug
+    for i, tile in enumerate(fpga_inst.pmTiles, 0):
+        if fpga_inst.pmTiles[i].type == TileType.ROCKET and i != debug_tile:
             # start core (via interrupt 0)
-            fpga_inst.pms[i].rocket_start()
+            fpga_inst.pmTiles[i].inst.rocket_start()
 
     # signal run.sh that everything has been loaded
     if args.debug is not None:
@@ -475,14 +477,14 @@ def main():
     term.cleanup()
 
     # disable NoC ARQ again for post-processing
-    for tile in fpga_inst.pms:
+    for tile in fpga_inst.pmTiles:
         tile.nocarq.set_arq_enable(0)
     fpga_inst.dram1.nocarq.set_arq_enable(0)
     fpga_inst.dram2.nocarq.set_arq_enable(0)
 
     # stop all tiles
     print("Stopping all tiles...")
-    for i, tile in enumerate(fpga_inst.pms, 0):
+    for i, tile in enumerate(fpga_inst.pmTiles, 0):
         try:
             dropped_packets = tile.nocarq.get_arq_drop_packet_count()
             total_packets = tile.nocarq.get_arq_packet_count()
@@ -514,19 +516,20 @@ def main():
                     pass
 
         # extract instruction trace
-        try:
-            tile.rocket_printTrace('log/pm' + str(i) + '-instrs.log')
-        except Exception as e:
-            print("PM{}: unable to read instruction trace: {}".format(i, e))
-            print("PM{}: resetting TCU and reading all logs...".format(i))
-            sys.stdout.flush()
-            tile.tcu_reset()
+        if tile.type == TileType.ROCKET:
             try:
-                tile.rocket_printTrace('log/pm' + str(i) + '-instrs.log', all=True)
-            except:
-                pass
+                tile.inst.rocket_printTrace('log/pm' + str(i) + '-instrs.log')
+            except Exception as e:
+                print("PM{}: unable to read instruction trace: {}".format(i, e))
+                print("PM{}: resetting TCU and reading all logs...".format(i))
+                sys.stdout.flush()
+                tile.tcu_reset()
+                try:
+                    tile.inst.rocket_printTrace('log/pm' + str(i) + '-instrs.log', all=True)
+                except:
+                    pass
 
-        tile.stop()
+            tile.inst.stop()
 
 
 try:
