@@ -16,4 +16,4 @@ pci = { path = "../../libs/rust/pci" }
 bitflags = "1.2.1"
 log = "0.4.11"
 memoffset = { version = "0.6.5", features = [ "unstable_const" ] }
-smoltcp = { git = "https://github.com/smoltcp-rs/smoltcp.git", branch = "master", default-features = false, features = [ "log", "alloc", "proto-ipv4", "socket-tcp", "socket-udp", "socket-raw", "medium-ethernet" ] }
+smoltcp = { git = "https://github.com/smoltcp-rs/smoltcp.git", rev = "d05ebdd88f7f2b87a2ffe3256a42f67809d2d7e4", default-features = false, features = [ "log", "alloc", "proto-ipv4", "socket-tcp", "socket-udp", "socket-raw", "medium-ethernet" ] }
