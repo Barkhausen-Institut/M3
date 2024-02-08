@@ -5,6 +5,7 @@ import traceback
 from time import sleep, time
 from datetime import datetime
 import fcntl, os, sys, select
+import threading
 import termios
 
 import modids
@@ -220,9 +221,33 @@ class TCUTerm:
     def cleanup(self):
         termios.tcsetattr(self.fd, termios.TCSAFLUSH, self.old)
 
-def main():
-    mon = NoCmonitor()
 
+timeout_ev = threading.Event()
+started_ev = threading.Event()
+
+
+class TimeoutThread(threading.Thread):
+    def __init__(self, timeout):
+        super(TimeoutThread, self).__init__()
+        self.daemon = True
+        self.timeout = timeout
+        self.start()
+
+    def run(self):
+        end = int(time()) + self.timeout
+        while True:
+            now = int(time())
+            if now >= end:
+                break
+            sleep(end - now)
+        print("Execution timed out after {} seconds".format(self.timeout))
+        sys.stdout.flush()
+        timeout_ev.set()
+        if not started_ev.is_set():
+            os._exit(1)
+
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--fpga', type=int)
     parser.add_argument('--reset', action='store_true')
@@ -233,6 +258,10 @@ def main():
     parser.add_argument('--timeout', type=int)
     parser.add_argument('--fs')
     args = parser.parse_args()
+
+    mon = NoCmonitor()
+    if args.timeout is not None:
+        timeout = TimeoutThread(args.timeout)
 
     # connect to FPGA
     fpga_inst = fpga_top.FPGA_TOP(args.fpga, args.reset)
@@ -289,13 +318,12 @@ def main():
     term.setup()
 
     # wait for prints
-    start = int(time())
+    started_ev.set()
     timed_out = False
     try:
         while True:
             # check for timeout
-            if not args.timeout is None and int(time()) - start >= args.timeout:
-                print("Execution timed out after {} seconds".format(args.timeout))
+            if timeout_ev.is_set():
                 timed_out = True
                 break
 
