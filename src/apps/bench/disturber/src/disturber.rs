@@ -71,6 +71,7 @@ pub fn main() -> i32 {
     let iters = args[2]
         .parse::<u64>()
         .expect("Unable to parse iters argument");
+    let print = args[3] == "1";
 
     let mut prof = Profiler::default().repeats(iters).warmup(10);
     let res = match mode {
@@ -79,7 +80,9 @@ pub fn main() -> i32 {
         "memory" => memory(&mut prof),
         _ => panic!("Unsupported mode {}", mode),
     };
-    wv_perf!(mode, &res);
+    if print {
+        wv_perf!(mode, &res);
+    }
 
     0
 }
