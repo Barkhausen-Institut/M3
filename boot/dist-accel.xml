@@ -1,0 +1,29 @@
+<config>
+    <mods>
+        <mod name="fs" file="default.img" />
+    </mods>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="m3fs mem" daemon="1">
+                    <serv name="m3fs" />
+                    <mod name="fs" />
+                </app>
+            </dom>
+            <dom>
+                <app args="pager">
+                    <sess name="m3fs" />
+                    <mod name="fs" perm="r" />
+                    <mod name="tilemux" perm="r" />
+                    <tiles type="core" count="1" />
+                    <app args="/bin/distaccel">
+                        <mount fs="m3fs" path="/" />
+                        <tiles type="core" count="2" />
+                    </app>
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>
+
