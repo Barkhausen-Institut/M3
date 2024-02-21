@@ -20,6 +20,7 @@
 #include <assert.h>
 #include <errno.h>
 #include <inttypes.h>
+#include <iomanip>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,13 +35,13 @@
 #include <queue>
 #include <regex>
 #include <set>
+#include <unordered_map>
 #include <vector>
 
 #include "Symbols.h"
 
-static bool verbose = 0;
+static bool verbose = 1;
 static const uint64_t GEM5_TICKS_PER_SEC = 1000000000;
-static const int GEM5_MAX_TILES = 64;
 static const int GEM5_MAX_ACTS = 1024 + 1;
 static const unsigned PRIV_ACTID = 0xFFFF;
 static const unsigned IDLE_ACTID = 0xFFFE;
@@ -80,6 +81,52 @@ static const char *event_names[] = {
     "EVENT_SET_ACTID",
 };
 
+struct TileId {
+    uint16_t chip;
+    uint16_t tile;
+
+    explicit TileId() : chip(), tile() {
+    }
+    explicit TileId(uint16_t chip, uint16_t tile) : chip(chip), tile(tile) {
+    }
+
+    uint32_t raw() const {
+        return static_cast<uint32_t>(chip) << 16 | tile;
+    }
+
+    bool operator==(const TileId &other) const {
+        return chip == other.chip && tile == other.tile;
+    }
+
+    friend std::istream &operator>>(std::istream &is, TileId &t) {
+        uint16_t chip, tile;
+        is.get(); // C
+        is >> chip;
+        is.get(); // T
+        is >> tile;
+        t = TileId(chip, tile);
+        return is;
+    }
+
+    friend std::ostream &operator<<(std::ostream &os, const TileId &t) {
+        if(t.chip == 0xFFFF)
+            os << t.tile;
+        else
+            os << "C" << t.chip << "T" << std::setw(2) << std::setfill('0') << t.tile;
+        return os;
+    }
+};
+
+template<>
+struct std::hash<TileId> {
+    size_t operator()(const TileId &t) const {
+        size_t res = 17;
+        res = res * 31 + std::hash<uint16_t>()(t.chip);
+        res = res * 31 + std::hash<uint16_t>()(t.tile);
+        return res;
+    }
+};
+
 struct Event {
     explicit Event()
         : tile(),
@@ -91,7 +138,7 @@ struct Event {
           bin(static_cast<uint32_t>(-1)),
           name() {
     }
-    explicit Event(uint32_t tile, uint64_t ts, int type, size_t size, uint32_t remote, uint64_t tag)
+    explicit Event(TileId tile, uint64_t ts, int type, size_t size, TileId remote, uint64_t tag)
         : tile(tile),
           timestamp(ts / 1000),
           type(type),
@@ -101,7 +148,7 @@ struct Event {
           bin(static_cast<uint32_t>(-1)),
           name() {
     }
-    explicit Event(uint32_t tile, uint64_t ts, int type, uint32_t bin, const char *name)
+    explicit Event(TileId tile, uint64_t ts, int type, uint32_t bin, const char *name)
         : tile(tile),
           timestamp(ts / 1000),
           type(type),
@@ -138,13 +185,13 @@ struct Event {
         return os;
     }
 
-    uint32_t tile;
+    TileId tile;
     uint64_t timestamp;
 
     int type;
 
     size_t size;
-    uint32_t remote;
+    TileId remote;
     uint64_t tag;
 
     uint32_t bin;
@@ -186,14 +233,22 @@ enum Mode {
 
 static Symbols syms;
 
-static Event build_event(event_type type, uint64_t timestamp, uint32_t tile,
+static Event build_event(event_type type, uint64_t timestamp, TileId tile,
                          const std::string &remote, const std::string &size, uint64_t tag) {
-    Event ev(tile, timestamp, type, strtoull(size.c_str(), nullptr, 10),
-             strtoull(remote.c_str(), nullptr, 10), tag);
+    TileId remoteTile;
+    if(!remote.empty()) {
+        std::istringstream is(remote);
+        is >> remoteTile;
+    }
+
+    Event ev(tile, timestamp, type, strtoull(size.c_str(), nullptr, 10), remoteTile, tag);
     return ev;
 }
 
-uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
+std::unordered_map<TileId, State> read_trace_file(const char *path, Mode mode,
+                                                  std::vector<Event> &buf) {
+    std::unordered_map<TileId, State> states;
+
     char filename[256];
     char readbuf[256];
     if(path) {
@@ -206,14 +261,14 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
     FILE *fd = fopen(filename, "r");
     if(!fd) {
         perror("cannot open trace file");
-        return 0;
+        return states;
     }
 
     std::regex msg_snd_regex(
-        "^: \e\\[1m\\[(?:sd|rp) -> C\\d+T(\\d+)\\]\e\\[0m with EP\\d+ of (?:0x)?[0-9a-f]+:(\\d+)");
-    std::regex msg_rcv_regex("^: \e\\[1m\\[rv <- C\\d+T(\\d+)\\]\e\\[0m (\\d+) bytes on EP\\d+");
+        "^: \e\\[1m\\[(?:sd|rp) -> (C\\d+T\\d+)\\]\e\\[0m with EP\\d+ of (?:0x)?[0-9a-f]+:(\\d+)");
+    std::regex msg_rcv_regex("^: \e\\[1m\\[rv <- (C\\d+T\\d+)\\]\e\\[0m (\\d+) bytes on EP\\d+");
     std::regex msg_rw_regex(
-        "^: \e\\[1m\\[(rd|wr) -> C\\d+T(\\d+)\\]\e\\[0m at (?:0x)?[0-9a-f]+\\+(?:0x)?[0-9a-f]+"
+        "^: \e\\[1m\\[(rd|wr) -> (C\\d+T\\d+)\\]\e\\[0m at (?:0x)?[0-9a-f]+\\+(?:0x)?[0-9a-f]+"
         " with EP\\d+ (?:from|into) (?:0x)?[0-9a-f]+:(\\d+)");
     std::regex suswake_regex("(Suspending|Waking up) core");
     std::regex setact_regex("^\\.regFile: TCU-> PRI\\[CUR_ACT     \\]: 0x([0-9a-f]+)");
@@ -222,9 +277,6 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
     std::regex call_regex("^(?:0x)([0-9a-f]+) @ .*  :   CALL_NEAR");
     std::regex ret_regex("^(?:0x)([0-9a-f]+) @ .*\\.0  :   RET_NEAR");
 
-    State states[GEM5_MAX_TILES];
-
-    uint32_t last_tile = 0;
     uint64_t tag = 1;
 
     std::smatch match;
@@ -232,12 +284,15 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
     unsigned long long timestamp;
     while(fgets(readbuf, sizeof(readbuf), fd)) {
         unsigned long addr;
-        uint32_t tile;
+        TileId tile;
+        unsigned _chip, _tile;
         int numchars;
         int tid;
 
-        if(mode == MODE_ACTS &&
-           sscanf(readbuf, "%Lu: C0T%u.cpu T%d : %lx @", &timestamp, &tile, &tid, &addr) == 4) {
+        if(mode == MODE_ACTS && sscanf(readbuf, "%Lu: C%uT%u.cpu T%d : %lx @", &timestamp, &_chip,
+                                       &_tile, &tid, &addr) == 5) {
+            tile.tile = _tile;
+            tile.chip = _chip;
             if(states[tile].addr == addr)
                 continue;
 
@@ -265,14 +320,15 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
             buf.push_back(Event(tile, timestamp, EVENT_UFUNC_ENTER, bin, namebuf));
 
             states[tile].sym = sym;
-            last_tile = std::max(tile, last_tile);
             continue;
         }
 
         // read only up to the end of the tile id to ensure that it matches until the end if scanf
         // reports that 2 conversions were done.
-        if(sscanf(readbuf, "%Lu: C0T%d%n", &timestamp, &tile, &numchars) != 2)
+        if(sscanf(readbuf, "%Lu: C%uT%u%n", &timestamp, &_chip, &_tile, &numchars) != 3)
             continue;
+        tile = TileId(_chip, _tile);
+
         // now that we know that, check if the following is indeed ".tcu" and only then continue
         if(strncmp(readbuf + numchars, ".tcu", 4) != 0)
             continue;
@@ -281,25 +337,23 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
         std::string line(readbuf + numchars);
 
         if(strstr(line.c_str(), "rv") && std::regex_search(line, match, msg_rcv_regex)) {
-            uint32_t sender = strtoul(match[1].str().c_str(), nullptr, 0);
+            TileId sender;
+            std::istringstream is(match[1]);
+            is >> sender;
+
             Event ev = build_event(EVENT_MSG_RECV, timestamp, tile, match[1].str(), match[2].str(),
                                    states[sender].tag);
             buf.push_back(ev);
-
-            last_tile = std::max(tile, std::max(last_tile, ev.remote));
         }
         else if(strstr(line.c_str(), "ing") && std::regex_search(line, match, suswake_regex)) {
             event_type type = match[1].str() == "Waking up" ? EVENT_WAKEUP : EVENT_SUSPEND;
             buf.push_back(build_event(type, timestamp, tile, "", "", tag));
 
-            last_tile = std::max(tile, last_tile);
             states[tile].tag = tag++;
         }
         else if(strstr(line.c_str(), "CUR_ACT") && std::regex_search(line, match, setact_regex)) {
             uint32_t acttag = strtoul(match[1].str().c_str(), NULL, 16) & 0xFFFF;
             buf.push_back(build_event(EVENT_SET_ACTID, timestamp, tile, "", "", acttag));
-
-            last_tile = std::max(tile, last_tile);
         }
         else if(mode == MODE_ACTS && std::regex_search(line, match, debug_regex)) {
             uint64_t value = strtoul(match[1].str().c_str(), NULL, 16);
@@ -327,11 +381,10 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
                         type = EVENT_MEM_READ_DONE;
                     else
                         type = EVENT_MEM_WRITE_DONE;
-                    uint32_t remote = start_ev.remote;
+                    TileId remote = start_ev.remote;
                     Event ev(tile, timestamp, type, start_ev.size, remote, states[tile].tag);
                     buf.push_back(ev);
 
-                    last_tile = std::max(tile, std::max(last_tile, remote));
                     states[tile].start_idx = State::INVALID_IDX;
                 }
 
@@ -367,35 +420,39 @@ uint32_t read_trace_file(const char *path, Mode mode, std::vector<Event> &buf) {
         }
     }
 
-    for(size_t i = 0; i <= last_tile; ++i) {
-        if(states[i].addr)
-            buf.push_back(Event(i, ++timestamp, EVENT_UFUNC_EXIT, 0, ""));
+    for(const std::pair<TileId, State> s : states) {
+        if(s.second.addr)
+            buf.push_back(Event(s.first, ++timestamp, EVENT_UFUNC_EXIT, 0, ""));
     }
 
     fclose(fd);
-    return last_tile + 1;
+    return states;
 }
 
 static void gen_pe_events(OTF_Writer *writer, Stats &stats, std::vector<Event> &trace_buf,
-                          uint32_t tile_count) {
+                          std::unordered_map<TileId, State> &states) {
     // Processes.
     uint32_t stream = 1;
-    for(uint32_t i = 0; i < tile_count; ++i) {
+    for(const std::pair<TileId, State> s : states) {
         char peName[8];
-        snprintf(peName, sizeof(peName), "Tile%d", i);
-        OTF_Writer_writeDefProcess(writer, 0, i, peName, 0);
-        OTF_Writer_assignProcess(writer, i, stream);
+        snprintf(peName, sizeof(peName), "C%huT%02hu", s.first.chip, s.first.tile);
+        OTF_Writer_writeDefProcess(writer, 0, s.first.raw(), peName, 0);
+        OTF_Writer_assignProcess(writer, s.first.raw(), stream);
     }
 
     // Process groups
-    uint32_t allPEs[tile_count];
-    for(uint32_t i = 0; i < tile_count; ++i)
-        allPEs[i] = i;
+    size_t i = 0;
+    uint32_t allPEs[states.size()];
+    for(const std::pair<TileId, State> s : states) {
+        allPEs[i] = s.first.raw();
+        i++;
+    }
 
     unsigned grp_mem = (1 << 20) + 1;
-    OTF_Writer_writeDefProcessGroup(writer, 0, grp_mem, "Memory Read/Write", tile_count, allPEs);
+    OTF_Writer_writeDefProcessGroup(writer, 0, grp_mem, "Memory Read/Write", states.size(), allPEs);
     unsigned grp_msg = (1 << 20) + 2;
-    OTF_Writer_writeDefProcessGroup(writer, 0, grp_msg, "Message Send/Receive", tile_count, allPEs);
+    OTF_Writer_writeDefProcessGroup(writer, 0, grp_msg, "Message Send/Receive", states.size(),
+                                    allPEs);
 
     // Function groups
     unsigned grp_func_count = 0;
@@ -420,13 +477,13 @@ static void gen_pe_events(OTF_Writer *writer, Stats &stats, std::vector<Event> &
 
     uint64_t timestamp = 0;
 
-    bool awake[tile_count];
-    unsigned cur_act[tile_count];
+    std::unordered_map<TileId, bool> awake;
+    std::unordered_map<TileId, bool> cur_act;
 
-    for(uint32_t i = 0; i < tile_count; ++i) {
-        awake[i] = true;
-        cur_act[i] = fn_act_priv;
-        OTF_Writer_writeEnter(writer, timestamp, fn_act_priv, i, 0);
+    for(const std::pair<TileId, State> s : states) {
+        awake[s.first] = true;
+        cur_act[s.first] = fn_act_priv;
+        OTF_Writer_writeEnter(writer, timestamp, fn_act_priv, s.first.raw(), 0);
     }
 
     // finally loop over events and write OTF
@@ -442,56 +499,58 @@ static void gen_pe_events(OTF_Writer *writer, Stats &stats, std::vector<Event> &
 
         switch(event->type) {
             case EVENT_MSG_SEND_START:
-                OTF_Writer_writeSendMsg(writer, timestamp, event->tile, event->remote, grp_msg,
-                                        event->tag, event->size, 0);
+                OTF_Writer_writeSendMsg(writer, timestamp, event->tile.raw(), event->remote.raw(),
+                                        grp_msg, event->tag, event->size, 0);
                 ++stats.send;
                 break;
 
             case EVENT_MSG_RECV:
-                OTF_Writer_writeRecvMsg(writer, timestamp, event->tile, event->remote, grp_msg,
-                                        event->tag, event->size, 0);
+                OTF_Writer_writeRecvMsg(writer, timestamp, event->tile.raw(), event->remote.raw(),
+                                        grp_msg, event->tag, event->size, 0);
                 ++stats.recv;
                 break;
 
             case EVENT_MSG_SEND_DONE: break;
 
             case EVENT_MEM_READ_START:
-                OTF_Writer_writeSendMsg(writer, timestamp, event->tile, event->remote, grp_mem,
-                                        event->tag, event->size, 0);
+                OTF_Writer_writeSendMsg(writer, timestamp, event->tile.raw(), event->remote.raw(),
+                                        grp_mem, event->tag, event->size, 0);
                 ++stats.read;
                 break;
 
             case EVENT_MEM_READ_DONE:
-                OTF_Writer_writeRecvMsg(writer, timestamp, event->remote, event->tile, grp_mem,
-                                        event->tag, event->size, 0);
+                OTF_Writer_writeRecvMsg(writer, timestamp, event->remote.raw(), event->tile.raw(),
+                                        grp_mem, event->tag, event->size, 0);
                 ++stats.finish;
                 break;
 
             case EVENT_MEM_WRITE_START:
-                OTF_Writer_writeSendMsg(writer, timestamp, event->tile, event->remote, grp_mem,
-                                        event->tag, event->size, 0);
+                OTF_Writer_writeSendMsg(writer, timestamp, event->tile.raw(), event->remote.raw(),
+                                        grp_mem, event->tag, event->size, 0);
                 ++stats.write;
                 break;
 
             case EVENT_MEM_WRITE_DONE:
-                OTF_Writer_writeRecvMsg(writer, timestamp, event->remote, event->tile, grp_mem,
-                                        event->tag, event->size, 0);
+                OTF_Writer_writeRecvMsg(writer, timestamp, event->remote.raw(), event->tile.raw(),
+                                        grp_mem, event->tag, event->size, 0);
                 ++stats.finish;
                 break;
 
             case EVENT_WAKEUP:
                 if(!awake[event->tile]) {
-                    OTF_Writer_writeLeave(writer, timestamp - 1, fn_exec_sleep, event->tile, 0);
-                    OTF_Writer_writeEnter(writer, timestamp, cur_act[event->tile], event->tile, 0);
+                    OTF_Writer_writeLeave(writer, timestamp - 1, fn_exec_sleep, event->tile.raw(),
+                                          0);
+                    OTF_Writer_writeEnter(writer, timestamp, cur_act[event->tile],
+                                          event->tile.raw(), 0);
                     awake[event->tile] = true;
                 }
                 break;
 
             case EVENT_SUSPEND:
                 if(awake[event->tile]) {
-                    OTF_Writer_writeLeave(writer, timestamp - 1, cur_act[event->tile], event->tile,
-                                          0);
-                    OTF_Writer_writeEnter(writer, timestamp, fn_exec_sleep, event->tile, 0);
+                    OTF_Writer_writeLeave(writer, timestamp - 1, cur_act[event->tile],
+                                          event->tile.raw(), 0);
+                    OTF_Writer_writeEnter(writer, timestamp, fn_exec_sleep, event->tile.raw(), 0);
                     awake[event->tile] = false;
                 }
                 break;
@@ -508,9 +567,9 @@ static void gen_pe_events(OTF_Writer *writer, Stats &stats, std::vector<Event> &
                 }
 
                 if(awake[event->tile] && cur_act[event->tile] != fn->second) {
-                    OTF_Writer_writeLeave(writer, timestamp - 1, cur_act[event->tile], event->tile,
-                                          0);
-                    OTF_Writer_writeEnter(writer, timestamp, fn->second, event->tile, 0);
+                    OTF_Writer_writeLeave(writer, timestamp - 1, cur_act[event->tile],
+                                          event->tile.raw(), 0);
+                    OTF_Writer_writeEnter(writer, timestamp, fn->second, event->tile.raw(), 0);
                 }
 
                 cur_act[event->tile] = fn->second;
@@ -521,16 +580,17 @@ static void gen_pe_events(OTF_Writer *writer, Stats &stats, std::vector<Event> &
         ++stats.total;
     }
 
-    for(uint32_t i = 0; i < tile_count; ++i) {
-        if(awake[i])
-            OTF_Writer_writeLeave(writer, timestamp, cur_act[i], i, 0);
+    for(const std::pair<TileId, State> s : states) {
+        if(awake[s.first])
+            OTF_Writer_writeLeave(writer, timestamp, cur_act[s.first], s.first.raw(), 0);
         else
-            OTF_Writer_writeLeave(writer, timestamp, fn_exec_sleep, i, 0);
+            OTF_Writer_writeLeave(writer, timestamp, fn_exec_sleep, s.first.raw(), 0);
     }
 }
 
 static void gen_act_events(OTF_Writer *writer, Stats &stats, std::vector<Event> &trace_buf,
-                           uint32_t tile_count, uint32_t binary_count, char **binaries) {
+                           std::unordered_map<TileId, State> &states, uint32_t binary_count,
+                           char **binaries) {
     // Processes
     std::set<unsigned> actIds;
 
@@ -556,9 +616,10 @@ static void gen_act_events(OTF_Writer *writer, Stats &stats, std::vector<Event> 
         allActs[i] = *it;
 
     unsigned grp_mem = (1 << 20) + 1;
-    OTF_Writer_writeDefProcessGroup(writer, 0, grp_mem, "Memory Read/Write", tile_count, allActs);
+    OTF_Writer_writeDefProcessGroup(writer, 0, grp_mem, "Memory Read/Write", actIds.size(),
+                                    allActs);
     unsigned grp_msg = (1 << 20) + 2;
-    OTF_Writer_writeDefProcessGroup(writer, 0, grp_msg, "Message Send/Receive", tile_count,
+    OTF_Writer_writeDefProcessGroup(writer, 0, grp_msg, "Message Send/Receive", actIds.size(),
                                     allActs);
 
     // Function groups
@@ -596,10 +657,11 @@ static void gen_act_events(OTF_Writer *writer, Stats &stats, std::vector<Event> 
 
     printf("writing OTF events\n");
 
-    unsigned cur_act[tile_count];
+    std::unordered_map<unsigned, bool> awake;
+    std::unordered_map<TileId, unsigned> cur_act;
 
-    for(uint32_t i = 0; i < tile_count; ++i)
-        cur_act[i] = PRIV_ACTID;
+    for(const std::pair<TileId, State> s : states)
+        cur_act[s.first] = PRIV_ACTID;
 
     uint32_t ufunc_max_id = (3 << 20);
     std::map<std::pair<int, std::string>, uint32_t> ufunc_map;
@@ -614,7 +676,6 @@ static void gen_act_events(OTF_Writer *writer, Stats &stats, std::vector<Event> 
 
     uint64_t timestamp = 0;
 
-    std::map<unsigned, bool> awake;
     for(auto it = actIds.begin(); it != actIds.end(); ++it) {
         awake[*it] = false;
         OTF_Writer_writeEnter(writer, timestamp, fn_exec_sleep, *it, 0);
@@ -631,10 +692,10 @@ static void gen_act_events(OTF_Writer *writer, Stats &stats, std::vector<Event> 
         unsigned remote_act = cur_act[event->remote];
 
         if(verbose) {
-            unsigned tile = event->tile;
-            unsigned remote = event->remote;
-            event->tile = act;
-            event->remote = remote_act;
+            TileId tile = event->tile;
+            TileId remote = event->remote;
+            event->tile = TileId(0xFFFF, act);
+            event->remote = TileId(0xFFFF, remote_act);
             std::cout << tile << ": " << *event << "\n";
             event->tile = tile;
             event->remote = remote;
@@ -829,7 +890,7 @@ int main(int argc, char **argv) {
 
     std::vector<Event> trace_buf;
 
-    uint32_t tile_count = read_trace_file(argv[argstart + 1], mode, trace_buf);
+    std::unordered_map<TileId, State> states = read_trace_file(argv[argstart + 1], mode, trace_buf);
 
     // now sort the trace buffer according to timestamps
     printf("sorting %zu events\n", trace_buf.size());
@@ -857,9 +918,9 @@ int main(int argc, char **argv) {
     Stats stats;
 
     if(mode == MODE_TILES)
-        gen_pe_events(writer, stats, trace_buf, tile_count);
+        gen_pe_events(writer, stats, trace_buf, states);
     else {
-        gen_act_events(writer, stats, trace_buf, tile_count,
+        gen_act_events(writer, stats, trace_buf, states,
                        static_cast<uint32_t>(argc - (argstart + 2)), argv + argstart + 2);
     }
 
