@@ -20,6 +20,7 @@ use m3::{
         self as datachan, BlockReceiver, BlockSender, Receiver, ReceiverCap, ReceiverDesc, Sender,
         SenderCap, SenderDesc,
     },
+    cfg,
     col::{String, ToString, Vec},
     env,
     errors::Error,
@@ -29,6 +30,7 @@ use m3::{
     serialize::{Deserialize, Serialize},
     tiles::{Activity, ActivityArgs, ChildActivity, RunningActivity, RunningProgramActivity, Tile},
     time::{Profiler, TimeInstant},
+    util::math,
     vec, wv_perf,
 };
 
@@ -135,7 +137,7 @@ fn star(buf_size: GlobOff) -> Result<(), Error> {
         Activity::own(),
         MSG_SIZE,
         CREDITS,
-        BUF_ADDR + buf_size,
+        BUF_ADDR + math::round_up(buf_size, cfg::PAGE_SIZE as GlobOff),
         buf_size,
     )
     .unwrap();
