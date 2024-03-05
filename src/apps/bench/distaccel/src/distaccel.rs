@@ -16,22 +16,22 @@
 #![no_std]
 
 use m3::{
+    cfg,
     chan::data::{
         self as datachan, BlockReceiver, BlockSender, Receiver, ReceiverCap, ReceiverDesc, Sender,
         SenderCap, SenderDesc,
     },
-    cfg,
     col::{String, ToString, Vec},
     env,
     errors::Error,
     io::LogFlags,
     log,
-    mem::{GlobOff, VirtAddr},
+    mem::{AlignedBuf, GlobOff, VirtAddr},
     serialize::{Deserialize, Serialize},
     tiles::{Activity, ActivityArgs, ChildActivity, RunningActivity, RunningProgramActivity, Tile},
     time::{Profiler, TimeInstant},
     util::math,
-    vec, wv_perf,
+    wv_perf,
 };
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -93,6 +93,8 @@ const CREDITS: u32 = 1;
 const MSG_SIZE: usize = 128;
 const BUF_ADDR: VirtAddr = VirtAddr::new(0x3000_0000);
 
+static BUF: AlignedBuf<{ 32 * 1024 }> = AlignedBuf::new_zeroed();
+
 fn pipeline(buf_size: GlobOff) -> Result<(), Error> {
     let n1 = create_activity("n1").unwrap();
     let n2 = create_activity("n2").unwrap();
@@ -108,12 +110,12 @@ fn pipeline(buf_size: GlobOff) -> Result<(), Error> {
     let mut chan_n0n1 = Sender::new("n0", n0n1_s.desc()).unwrap();
     let chan_n2n0 = Receiver::new("n0", n2n0_r.desc()).unwrap();
 
-    let data = vec![0u8; buf_size as usize];
-
     let prof = Profiler::default().warmup(4).repeats(50);
 
     let res = prof.run::<TimeInstant, _>(|| {
-        chan_n0n1.send_slice(&data, false, ()).unwrap();
+        chan_n0n1
+            .send_slice(&BUF[0..buf_size as usize], false, ())
+            .unwrap();
         let _blk = chan_n2n0.receive::<(), u8>().unwrap();
     });
 
@@ -150,12 +152,12 @@ fn star(buf_size: GlobOff) -> Result<(), Error> {
     let chan_n1n0 = Receiver::new("n0", n1n0_r.desc()).unwrap();
     let chan_n2n0 = Receiver::new("n0", n2n0_r.desc()).unwrap();
 
-    let data = vec![0u8; buf_size as usize];
-
     let prof = Profiler::default().warmup(4).repeats(50);
 
     let res = prof.run::<TimeInstant, _>(|| {
-        chan_n0n1.send_slice(&data, false, ()).unwrap();
+        chan_n0n1
+            .send_slice(&BUF[0..buf_size as usize], false, ())
+            .unwrap();
         let blk = chan_n1n0.receive::<(), u8>().unwrap();
         chan_n0n2.send(blk, ()).unwrap();
         let _blk = chan_n2n0.receive::<(), u8>().unwrap();
