@@ -28,7 +28,7 @@ use crate::com::{
 use crate::errors::{Code, Error};
 use crate::io::LogFlags;
 use crate::kif::Perm;
-use crate::mem::{size_of, GlobOff, MsgBuf, VirtAddr};
+use crate::mem::{size_of, size_of_val, GlobOff, MsgBuf, VirtAddr};
 use crate::serialize::{Deserialize, Serialize};
 use crate::tiles::{Activity, ChildActivity};
 use crate::util::math;
@@ -130,9 +130,9 @@ pub trait BlockSender {
 
     fn wait_all(&mut self) -> Result<(), Error>;
 
-    fn send<'a, U: Debug + Clone + Serialize, T: Clone>(
+    fn send<U: Debug + Clone + Serialize, T: Clone>(
         &mut self,
-        blk: Self::Block<'a, U, T>,
+        blk: Self::Block<'_, U, T>,
         user: U,
     ) -> Result<(), Error>;
 
@@ -220,7 +220,7 @@ impl BlockSender for Sender {
         Ok(())
     }
 
-    fn send<'r, U, T>(&mut self, blk: Self::Block<'r, U, T>, user: U) -> Result<(), Error>
+    fn send<U, T>(&mut self, blk: Self::Block<'_, U, T>, user: U) -> Result<(), Error>
     where
         U: Debug + Clone + Serialize,
         T: Clone,
@@ -240,7 +240,7 @@ impl BlockSender for Sender {
             self.fetch_reply()?;
         }
 
-        let size = data.len() * size_of::<T>();
+        let size = size_of_val(data);
         let off = self.idx * self.buf_dist as usize;
         log!(
             LogFlags::LibDataChan,
@@ -467,7 +467,7 @@ impl BlockReceiver for Receiver {
         BlockIterator {
             recv: self,
             seen_last: false,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 }
@@ -585,7 +585,7 @@ where
     }
 
     // receive remaining blocks
-    while let Some(blk) = iter.next() {
+    for blk in iter {
         func(blk);
     }
 

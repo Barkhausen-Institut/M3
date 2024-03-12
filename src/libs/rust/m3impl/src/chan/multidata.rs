@@ -90,7 +90,7 @@ impl BlockSender for MultiSender {
         self.sender[0].block_size()
     }
 
-    fn send<'a, U, T>(&mut self, mut mblk: Self::Block<'a, U, T>, user: U) -> Result<(), Error>
+    fn send<U, T>(&mut self, mut mblk: Self::Block<'_, U, T>, user: U) -> Result<(), Error>
     where
         U: Clone + Debug + Serialize,
         T: Clone,
@@ -243,7 +243,7 @@ impl BlockReceiver for MultiReceiver {
         MultiBlockIterator {
             recv: self,
             seen_last: false,
-            phantom: PhantomData::default(),
+            phantom: PhantomData,
         }
     }
 }
