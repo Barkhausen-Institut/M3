@@ -242,6 +242,7 @@ impl BlockReceiver for MultiReceiver {
     {
         MultiBlockIterator {
             recv: self,
+            seen_last: false,
             phantom: PhantomData::default(),
         }
     }
@@ -289,6 +290,7 @@ impl<'a, U, T: Clone> MultiBlock<'a, U, T> {
 
 pub struct MultiBlockIterator<'a, U, T> {
     recv: &'a MultiReceiver,
+    seen_last: bool,
     phantom: PhantomData<(U, T)>,
 }
 
@@ -298,7 +300,13 @@ impl<'a, U: Serialize + Deserialize<'static> + Debug, T: Clone + 'a> Iterator
     type Item = MultiBlock<'a, U, T>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.recv.receive().ok()
+        if self.seen_last {
+            return None;
+        }
+
+        let mblock = self.recv.receive().ok()?;
+        self.seen_last = mblock.is_last();
+        Some(mblock)
     }
 }
 
