@@ -1,5 +1,3 @@
-use libc;
-
 use num_enum::IntoPrimitive;
 
 use crate::errors::{Code, Error};

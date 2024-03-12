@@ -166,7 +166,7 @@ class M3Env(Env):
 
     def rust_exe(self, gen, out, deps=[]):
         deps += env.glob(gen, '**/*.rs') + [SourcePath.new(self, 'Cargo.toml')]
-        cfg = SourcePath.new(self, '.cargo/config')
+        cfg = SourcePath.new(self, '.cargo/config.toml')
         if os.path.isfile(cfg):
             deps += [cfg]
         return Env.rust_exe(self, gen, out, deps=deps)
@@ -185,7 +185,7 @@ class M3Env(Env):
 
     def rust_deps(self):
         global rustlibs
-        deps = [SourcePath('src/Cargo.toml'), SourcePath('src/.cargo/config')]
+        deps = [SourcePath('src/Cargo.toml'), SourcePath('src/.cargo/config.toml')]
         deps += [SourcePath('rust-toolchain.toml')]
         if os.path.isfile('src/toolchain/rust/' + self['TRIPLE'] + '.json'):
             deps += [SourcePath('src/toolchain/rust/' + self['TRIPLE'] + '.json')]
@@ -238,7 +238,7 @@ class M3Env(Env):
         env = self.clone()
 
         deps = env.rust_deps()
-        deps += [SourcePath.new(env, 'Cargo.toml'), SourcePath.new(env, '.cargo/config')]
+        deps += [SourcePath.new(env, 'Cargo.toml'), SourcePath.new(env, '.cargo/config.toml')]
         for o in outs:
             deps += [SourcePath.new(env, o + '/Cargo.toml')]
             deps += env.glob(gen, SourcePath.new(env, o + '/**/*.rs'))

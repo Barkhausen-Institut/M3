@@ -22,7 +22,7 @@ use base::mem::{GlobAddr, GlobOff, PhysAddr, PhysAddrRaw, VirtAddr, VirtAddrRaw}
 use base::tcu;
 use base::util::math;
 
-use paging::{self, AddrSpace, Allocator, ArchPaging, Paging};
+use paging::{AddrSpace, Allocator, ArchPaging, Paging};
 
 extern "C" {
     static _text_start: u8;

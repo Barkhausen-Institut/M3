@@ -1,5 +1,3 @@
-use libc;
-
 use crate::cfg;
 use crate::kif;
 use crate::mem::VirtAddr;
