@@ -18,7 +18,6 @@
 
 use core::cell::Cell;
 use core::fmt;
-use core::marker::Sync;
 
 /// A cell that can be used as a static object in single threaded environments
 ///

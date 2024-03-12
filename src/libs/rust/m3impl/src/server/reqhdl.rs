@@ -13,7 +13,6 @@
  * General Public License version 2 for more details.
  */
 
-use core::convert::TryFrom;
 use core::fmt::Debug;
 use core::marker::PhantomData;
 

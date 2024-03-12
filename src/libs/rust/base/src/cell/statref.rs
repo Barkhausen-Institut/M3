@@ -18,7 +18,6 @@
 
 use core::cell::{Ref, RefCell, RefMut};
 use core::fmt;
-use core::marker::Sync;
 
 /// A cell that allows to mutate a static immutable object in single threaded environments.
 ///

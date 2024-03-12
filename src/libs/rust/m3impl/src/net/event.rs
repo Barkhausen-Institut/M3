@@ -14,7 +14,6 @@
  * General Public License version 2 for more details.
  */
 
-use core::convert::TryFrom;
 use core::fmt;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};

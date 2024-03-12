@@ -28,7 +28,6 @@ use base::rc::{Rc, SRc, Weak};
 use base::tcu::{self, ActId, EpId, TileId};
 
 use core::cmp;
-use core::convert::TryFrom;
 
 use crate::cap::{
     EPCategory, EPObject, EPQuota, GateObject, MGateObject, RGateObject, SGateObject, TileObject,

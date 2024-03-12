@@ -19,7 +19,6 @@
 //! Provides access to the program environment
 
 use core::iter;
-use core::ops::FnOnce;
 
 use derivative::Derivative;
 

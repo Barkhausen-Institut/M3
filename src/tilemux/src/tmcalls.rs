@@ -13,8 +13,6 @@
  * General Public License version 2 for more details.
  */
 
-use core::convert::TryFrom;
-
 use base::errors::{Code, Error};
 use base::io::LogFlags;
 use base::kif;

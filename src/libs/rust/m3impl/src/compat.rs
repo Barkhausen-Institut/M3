@@ -18,7 +18,6 @@
 //! This compatibility layer is used by our translation layer in musl to translate between Linux
 //! system calls and the M³ API.
 
-use core::convert::From;
 use core::mem;
 
 use crate::boxed::Box;

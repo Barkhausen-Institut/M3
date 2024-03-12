@@ -17,7 +17,6 @@
  */
 
 use core::cell::UnsafeCell;
-use core::marker::Sync;
 
 use crate::mem;
 

@@ -20,8 +20,6 @@
 
 use core::fmt::{Display, Formatter};
 
-use crate::println;
-
 /// Runs the tests
 pub trait WvTester {
     /// Runs the given test suite

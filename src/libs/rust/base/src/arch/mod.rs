@@ -64,15 +64,19 @@ pub trait CPUOps {
 /// The TileMux ABI operations
 pub trait TMABIOps {
     /// A TileMux call with a single argument
+    #[allow(unused)]
     fn call1(op: Operation, arg1: usize) -> Result<(), Error>;
 
     /// A TileMux call with a two arguments
+    #[allow(unused)]
     fn call2(op: Operation, arg1: usize, arg2: usize) -> Result<(), Error>;
 
     /// A TileMux call with a three arguments
+    #[allow(unused)]
     fn call3(op: Operation, arg1: usize, arg2: usize, arg3: usize) -> Result<(), Error>;
 
     /// A TileMux call with a four arguments
+    #[allow(unused)]
     fn call4(
         op: Operation,
         arg1: usize,

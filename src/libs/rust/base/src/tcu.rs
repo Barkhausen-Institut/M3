@@ -23,7 +23,6 @@ use bitflags::bitflags;
 use cfg_if::cfg_if;
 
 use core::cmp;
-use core::convert::TryFrom;
 use core::fmt;
 use core::intrinsics;
 use core::slice;

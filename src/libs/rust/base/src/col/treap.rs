@@ -16,7 +16,7 @@
  * General Public License version 2 for more details.
  */
 
-use core::cmp::{Ord, Ordering};
+use core::cmp::Ordering;
 use core::fmt;
 use core::num::Wrapping;
 use core::ptr::{read_volatile, NonNull};
