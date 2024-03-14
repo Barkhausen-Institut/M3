@@ -30,7 +30,7 @@ else:
 if os.environ.get('M3_BUILD') == 'coverage':
     rustabi = 'muslcov'
 crossdir = os.path.abspath('build/cross-' + isa + '/host')
-crossver = '11.3.0'
+crossver = '13.2.0'
 
 # ensure that the cross compiler is installed and up to date
 crossgcc = crossdir + '/bin/' + cross + 'g++'
@@ -312,9 +312,9 @@ if btype == 'debug':
     env['ASFLAGS'] += ['-g']
 else:
     env['CRGFLAGS'] += ['--release']
-    env['CXXFLAGS'] += ['-O2', '-DNDEBUG', '-flto']
-    env['CFLAGS'] += ['-O2', '-DNDEBUG', '-flto']
-    env['LINKFLAGS'] += ['-O2', '-flto']
+    env['CXXFLAGS'] += ['-O2', '-DNDEBUG', '-flto=auto']
+    env['CFLAGS'] += ['-O2', '-DNDEBUG', '-flto=auto']
+    env['LINKFLAGS'] += ['-O2', '-flto=auto']
 if btype == 'bench':
     env['CPPFLAGS'] += ['-Dbench']
 
@@ -337,9 +337,9 @@ hostenv = env.clone()
 hostenv['CXXFLAGS'] += ['-std=c++11']
 hostenv['CPPFLAGS'] += ['-D__tools__']
 if btype != 'debug':
-    hostenv.remove_flag('CXXFLAGS', '-flto')
-    hostenv.remove_flag('CFLAGS', '-flto')
-    hostenv.remove_flag('LINKFLAGS', '-flto')
+    hostenv.remove_flag('CXXFLAGS', '-flto=auto')
+    hostenv.remove_flag('CFLAGS', '-flto=auto')
+    hostenv.remove_flag('LINKFLAGS', '-flto=auto')
 
 # for target compilation
 env['CROSS'] = cross
@@ -374,7 +374,7 @@ lxenv['RUSTBINS'] = builddir + '/lxbin'
 env.hostenv = hostenv
 
 # m3-specific settings
-env['CXXFLAGS'] += ['-ffreestanding', '-fno-threadsafe-statics']
+env['CXXFLAGS'] += ['-fno-builtin', '-fno-threadsafe-statics']
 env['CPPFLAGS'] += ['-D_GNU_SOURCE']
 env['TRIPLE'] = rustisa + '-linux-m3-' + rustabi
 if isa == 'x86_64':
@@ -382,10 +382,11 @@ if isa == 'x86_64':
     # IRQ handlers since applications run in privileged mode. TODO can we enable that now?
     env['CFLAGS'] += ['-mno-red-zone']
     env['CXXFLAGS'] += ['-mno-red-zone']
+    env['LINKFLAGS'] += ['-Wl,-z,noexecstack']
 elif isa == 'arm':
     env['CFLAGS'] += ['-march=armv7-a']
     env['CXXFLAGS'] += ['-march=armv7-a']
-    env['LINKFLAGS'] += ['-march=armv7-a']
+    env['LINKFLAGS'] += ['-march=armv7-a', '-Wl,-z,noexecstack']
     env['ASFLAGS'] += ['-march=armv7-a']
 elif isa == 'riscv':
     env['CFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']

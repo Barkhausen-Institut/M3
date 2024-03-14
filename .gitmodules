@@ -18,7 +18,7 @@
 	url = https://github.com/Barkhausen-Institut/m3-bsdcoreutils.git
 [submodule "cross/buildroot"]
 	path = cross/buildroot
-	url = https://git.buildroot.net/buildroot
+	url = https://github.com/Barkhausen-Institut/m3-buildroot.git
 [submodule "ninjapie"]
 	path = tools/ninjapie
 	url = https://github.com/Barkhausen-Institut/Ninjapie.git

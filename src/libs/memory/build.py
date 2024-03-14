@@ -3,7 +3,7 @@ from ninjapie import BuildPath
 
 def build(gen, env):
     env = env.clone()
-    env.remove_flag('CXXFLAGS', '-flto')
+    env.remove_flag('CXXFLAGS', '-flto=auto')
 
     files = env.glob(gen, '*.cc')
 
