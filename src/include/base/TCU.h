@@ -578,6 +578,8 @@ private:
 #if defined(__hw__) || defined(__gem5__)
         write_reg(ep, 3, 0);
 #endif
+        // ensure that the writes are finished before continuing
+        CPU::memory_barrier();
     }
 
     static void config_recv(epid_t ep, goff_t buf, unsigned order, unsigned msgorder,
@@ -601,6 +603,7 @@ private:
         write_reg(ep, 2, occupied);
         write_reg(ep, 3, unread);
 #endif
+        CPU::memory_barrier();
     }
 
     static void config_send(epid_t ep, label_t lbl, TileId tile, epid_t dstep, unsigned msgorder,
@@ -621,6 +624,7 @@ private:
 #if defined(__hw__) || defined(__gem5__)
         write_reg(ep, 3, 0);
 #endif
+        CPU::memory_barrier();
     }
 
     static void config_mem(epid_t ep, TileId tile, goff_t addr, size_t size, int perm) {
@@ -633,6 +637,7 @@ private:
 #if defined(__hw__) || defined(__gem5__)
         write_reg(ep, 3, 0);
 #endif
+        CPU::memory_barrier();
     }
 
     static void write_reg(epid_t ep, size_t idx, reg_t value) {
