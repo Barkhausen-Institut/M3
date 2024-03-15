@@ -202,7 +202,7 @@ class Loader:
             # mem size | TileAttr::IMEM | TileType::MEM
             return (DRAM_SIZE >> 12) << 28 | ((1 << 4) << 11) | 1
 
-        tile_desc = 1 << 6  # RISCV
+        tile_desc = 1 << 6  # RISCV64
         if not self.vm:
             # mem size | TileAttr::IMEM
             tile_desc |= ((self.pmp_size >> 12) << 28) | ((1 << 4) << 11)

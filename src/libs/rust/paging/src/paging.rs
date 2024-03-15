@@ -91,10 +91,10 @@ cfg_if::cfg_if! {
         pub type MMUFlags = <arch::ARMPaging as ArchPaging>::MMUFlags;
     }
     else if #[cfg(target_arch = "riscv64")] {
-        #[path = "riscv/mod.rs"]
+        #[path = "riscv64/mod.rs"]
         mod arch;
-        pub type Paging = arch::RISCVPaging;
-        pub type MMUFlags = <arch::RISCVPaging as ArchPaging>::MMUFlags;
+        pub type Paging = arch::RISCV64Paging;
+        pub type MMUFlags = <arch::RISCV64Paging as ArchPaging>::MMUFlags;
     }
 }
 

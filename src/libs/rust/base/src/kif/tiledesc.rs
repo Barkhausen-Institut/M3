@@ -43,8 +43,8 @@ pub enum TileISA {
     /// Dummy ISA to represent memory tiles
     #[default]
     None,
-    /// RISCV as supported on hw and gem5
-    RISCV,
+    /// RISCV64 as supported on hw and gem5
+    RISCV64,
     /// x86_64 as supported by gem5
     X86,
     /// ARMv7 as supported by gem5
@@ -161,7 +161,7 @@ impl TileDesc {
 
     /// Returns whether the tile executes software
     pub fn is_programmable(self) -> bool {
-        matches!(self.isa(), TileISA::X86 | TileISA::ARM | TileISA::RISCV)
+        matches!(self.isa(), TileISA::X86 | TileISA::ARM | TileISA::RISCV64)
     }
 
     /// Return if the tile supports multiple contexts
@@ -204,7 +204,7 @@ impl TileDesc {
             match prop {
                 "arm" => res = TileDesc::new(TileType::Comp, TileISA::ARM, 0),
                 "x86" => res = TileDesc::new(TileType::Comp, TileISA::X86, 0),
-                "riscv" => res = TileDesc::new(TileType::Comp, TileISA::RISCV, 0),
+                "riscv64" => res = TileDesc::new(TileType::Comp, TileISA::RISCV64, 0),
 
                 "effi" => {
                     res = TileDesc::new_with_attr(

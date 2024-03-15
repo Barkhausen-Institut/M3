@@ -3,7 +3,7 @@
 MAKE_ARGS="-j"$(nproc)
 
 usage() {
-    echo "Usage: $1 (x86_64|arm|riscv) ..." >&2
+    echo "Usage: $1 (x86_64|arm|riscv64) ..." >&2
     exit
 }
 
@@ -13,7 +13,7 @@ fi
 
 ARCH="$1"
 shift
-if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "arm" ] && [ "$ARCH" != "riscv" ]; then
+if [ "$ARCH" != "x86_64" ] && [ "$ARCH" != "arm" ] && [ "$ARCH" != "riscv64" ]; then
     usage "$0"
 fi
 

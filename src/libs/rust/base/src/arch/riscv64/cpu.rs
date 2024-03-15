@@ -67,9 +67,9 @@ macro_rules! set_csr_bits {
     }};
 }
 
-pub struct RISCVCPU {}
+pub struct RISCV64CPU {}
 
-impl CPUOps for RISCVCPU {
+impl CPUOps for RISCV64CPU {
     unsafe fn read8b(addr: *const u64) -> u64 {
         addr.read_volatile()
     }

@@ -6,7 +6,7 @@ import subprocess
 
 target = os.environ.get('M3_TARGET')
 isa = os.environ.get('M3_ISA', 'x86_64')
-if (target in ['hw', 'hw22', 'hw23']) and isa != 'riscv':
+if (target in ['hw', 'hw22', 'hw23']) and isa != 'riscv64':
     exit('Unsupport ISA "' + isa + '" for hw')
 
 if isa == 'arm':
@@ -15,7 +15,7 @@ if isa == 'arm':
     cross = 'arm-buildroot-linux-musleabi-'
     crts0 = ['crt0.o', 'crtbegin.o']
     crtsn = ['crtend.o']
-elif isa == 'riscv':
+elif isa == 'riscv64':
     rustisa = 'riscv64'
     rustabi = 'musl'
     cross = 'riscv64-buildroot-linux-musl-'
@@ -51,7 +51,7 @@ rustapps = []
 rustlibs = []
 rustfeatures = []
 ldscripts = {}
-if isa == 'riscv':
+if isa == 'riscv64':
     link_addr = 0x11000000
 else:
     link_addr = 0x1000000
@@ -82,7 +82,7 @@ class M3Env(Env):
             self['ASFLAGS'] += ['-msoft-float', '-mno-sse']
             self['CFLAGS'] += ['-msoft-float', '-mno-sse']
             self['CXXFLAGS'] += ['-msoft-float', '-mno-sse']
-        elif self['ISA'] == 'riscv':
+        elif self['ISA'] == 'riscv64':
             self['ASFLAGS'] += ['-mabi=lp64']
             self['CFLAGS'] += ['-march=rv64imac', '-mabi=lp64']
             self['CXXFLAGS'] += ['-march=rv64imac', '-mabi=lp64']
@@ -179,7 +179,7 @@ class M3Env(Env):
     def add_rust_features(self):
         if self['BUILD'] == 'bench':
             self['CRGFLAGS'] += ['--features', 'base/bench']
-        if self['BUILD'] == 'coverage' and self['ISA'] == 'riscv':
+        if self['BUILD'] == 'coverage' and self['ISA'] == 'riscv64':
             self['CRGFLAGS'] += ['--features', 'base/coverage']
         self['CRGFLAGS'] += ['--features', 'base/' + self['TGT']]
 
@@ -388,17 +388,16 @@ elif isa == 'arm':
     env['CXXFLAGS'] += ['-march=armv7-a']
     env['LINKFLAGS'] += ['-march=armv7-a', '-Wl,-z,noexecstack']
     env['ASFLAGS'] += ['-march=armv7-a']
-elif isa == 'riscv':
+elif isa == 'riscv64':
     env['CFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
     env['CXXFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
     env['LINKFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
     env['ASFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
-musl_isa = 'riscv64' if isa == 'riscv' else isa
 env['CPPPATH'] += [
     # cross directories only to make clangd happy
     crossdir + '/' + cross[:-1] + '/include/c++/' + crossver,
     crossdir + '/' + cross[:-1] + '/include/c++/' + crossver + '/' + cross[:-1],
-    'src/libs/musl/arch/' + musl_isa,
+    'src/libs/musl/arch/' + isa,
     'src/libs/musl/arch/generic',
     'src/libs/musl/m3/include/' + isa,
     'src/libs/musl/include',
@@ -442,7 +441,7 @@ ldscripts['tilemux'] = tilemux_env.cpp(gen, out='ld-tilemux.conf', input=ldscrip
 # generate build edges
 env.sub_build(gen, 'src')
 env.sub_build(gen, 'tools')
-if isa == 'riscv' and os.path.exists('src/m3lx/build.py'):
+if isa == 'riscv64' and os.path.exists('src/m3lx/build.py'):
     lxenv.sub_build(gen, 'src/m3lx')
 
 # finally, write it to file

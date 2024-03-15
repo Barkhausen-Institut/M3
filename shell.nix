@@ -46,7 +46,7 @@ in mkShellNoCC {
 		export RUSTUP_HOME=$PWD/.rustup
 		export CARGO_HOME=$PWD/.cargo
 		export M3_TARGET=''${M3_TARGET:-gem5}
-		export M3_ISA=''${M3_ISA:-riscv}
+		export M3_ISA=''${M3_ISA:-riscv64}
 		export M3_BUILD=''${M3_BUILD:-release}
 
 		test -r ~/.shellrc && . ~/.shellrc

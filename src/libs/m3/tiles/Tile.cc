@@ -36,8 +36,8 @@ static TileDesc desc_with_properties(TileDesc desc, const char *props) {
             res = TileDesc(res.type(), TileISA::ARM, 0);
         else if(strcmp(prop, "x86") == 0)
             res = TileDesc(res.type(), TileISA::X86, 0);
-        else if(strcmp(prop, "riscv") == 0)
-            res = TileDesc(res.type(), TileISA::RISCV, 0);
+        else if(strcmp(prop, "riscv64") == 0)
+            res = TileDesc(res.type(), TileISA::RISCV64, 0);
         else if(strcmp(prop, "effi") == 0)
             res = TileDesc(res.type(), res.isa(), 0, res.attr() | TileAttr::EFFI);
         else if(strcmp(prop, "perf") == 0)

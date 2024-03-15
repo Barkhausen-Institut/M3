@@ -38,7 +38,7 @@ pub const MODE_SV39: u64 = 8;
 
 bitflags! {
     #[derive(Copy, Clone, Debug, PartialEq, Eq)]
-    pub struct RISCVMMUFlags : MMUPTE {
+    pub struct RISCV64MMUFlags : MMUPTE {
         const V     = 0b0000_0001;          // valid
         const R     = 0b0100_0010;          // readable
                                             // note: the accessed bit is set here, because the
@@ -58,7 +58,7 @@ bitflags! {
     }
 }
 
-impl ArchMMUFlags for RISCVMMUFlags {
+impl ArchMMUFlags for RISCV64MMUFlags {
     fn has_empty_perm(&self) -> bool {
         !self.contains(Self::V)
     }
@@ -75,10 +75,10 @@ impl ArchMMUFlags for RISCVMMUFlags {
     }
 }
 
-pub struct RISCVPaging {}
+pub struct RISCV64Paging {}
 
-impl crate::ArchPaging for RISCVPaging {
-    type MMUFlags = RISCVMMUFlags;
+impl crate::ArchPaging for RISCV64Paging {
+    type MMUFlags = RISCV64MMUFlags;
 
     fn build_pte(phys: PhysAddr, perm: Self::MMUFlags, _level: usize, leaf: bool) -> MMUPTE {
         if leaf {

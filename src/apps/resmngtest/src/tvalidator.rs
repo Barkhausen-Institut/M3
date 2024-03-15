@@ -164,7 +164,7 @@ fn tiles(t: &mut dyn WvTester) {
     let mut res = Resources::default();
     res.tiles_mut().add(Rc::new(Tile::new_bind_with(
         TileId::new(0, 1),
-        TileDesc::new(TileType::Comp, TileISA::RISCV, 0),
+        TileDesc::new(TileType::Comp, TileISA::RISCV64, 0),
         64,
     )));
     res.tiles_mut().add(Rc::new(Tile::new_bind_with(

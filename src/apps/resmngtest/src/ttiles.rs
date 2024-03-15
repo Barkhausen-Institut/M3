@@ -27,7 +27,7 @@ fn create_tiles() -> TileManager {
     let mut mng = TileManager::default();
     mng.add(Rc::new(Tile::new_bind_with(
         TileId::new(0, 1),
-        TileDesc::new(TileType::Comp, TileISA::RISCV, 0),
+        TileDesc::new(TileType::Comp, TileISA::RISCV64, 0),
         64,
     )));
     mng.add(Rc::new(Tile::new_bind_with(
@@ -51,7 +51,7 @@ pub fn run(t: &mut dyn WvTester) {
 fn find(t: &mut dyn WvTester) {
     let mng = create_tiles();
 
-    let riscv = wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV, 0)));
+    let riscv = wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)));
     wv_assert_eq!(t, riscv.tile_id(), TileId::new(0, 1));
     wv_assert_eq!(t, riscv.tile_obj().sel(), 64);
     let arm = wv_assert_ok!(mng.find(TileDesc::new_with_attr(
@@ -68,7 +68,7 @@ fn find(t: &mut dyn WvTester) {
         Code::NotFound
     );
 
-    let base = TileDesc::new(TileType::Comp, TileISA::RISCV, 0);
+    let base = TileDesc::new(TileType::Comp, TileISA::RISCV64, 0);
     let riscv = wv_assert_ok!(mng.find_with_attr(base, "perf|core"));
     wv_assert_eq!(t, riscv.tile_id(), TileId::new(0, 1));
     let arm = wv_assert_ok!(mng.find_with_attr(base, "arm+imem"));
@@ -78,13 +78,13 @@ fn find(t: &mut dyn WvTester) {
 fn usage(t: &mut dyn WvTester) {
     let mng = create_tiles();
 
-    wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV, 0)));
-    let riscv = wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV, 0)));
+    wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)));
+    let riscv = wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)));
     mng.add_user(&riscv);
 
     wv_assert_err!(
         t,
-        mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV, 0)),
+        mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)),
         Code::NotFound
     );
 
@@ -93,11 +93,11 @@ fn usage(t: &mut dyn WvTester) {
 
     wv_assert_err!(
         t,
-        mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV, 0)),
+        mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)),
         Code::NotFound
     );
 
     mng.remove_user(&riscv);
 
-    wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV, 0)));
+    wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)));
 }

@@ -40,7 +40,7 @@ pub const TMC_ARG4: usize = 13; // a4 = x14
 #[derive(Default)]
 // see comment in ARM code
 #[repr(C, align(8))]
-pub struct RISCVState {
+pub struct RISCV64State {
     // general purpose registers
     pub r: [usize; 31],
     pub cause: usize,
@@ -48,7 +48,7 @@ pub struct RISCVState {
     pub status: usize,
 }
 
-impl crate::StateArch for RISCVState {
+impl crate::StateArch for RISCV64State {
     fn instr_pointer(&self) -> VirtAddr {
         VirtAddr::from(self.epc)
     }
@@ -93,7 +93,7 @@ pub enum Vector {
     MachExtIRQ     = 27,
 }
 
-impl fmt::Debug for RISCVState {
+impl fmt::Debug for RISCV64State {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
         let vec = if (self.cause & 0x8000_0000_0000_0000) != 0 {
             16 + (self.cause & 0xF)
@@ -178,7 +178,7 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern "C" fn isr_handler(state: &mut RISCVState) -> *mut libc::c_void {
+pub extern "C" fn isr_handler(state: &mut RISCV64State) -> *mut libc::c_void {
     let vec = if (state.cause & 0x8000_0000_0000_0000) != 0 {
         16 + (state.cause & 0xF)
     }
@@ -194,10 +194,10 @@ pub extern "C" fn isr_handler(state: &mut RISCVState) -> *mut libc::c_void {
     crate::ISRS.borrow()[vec](state)
 }
 
-pub struct RISCVISR {}
+pub struct RISCV64ISR {}
 
-impl crate::ISRArch for RISCVISR {
-    type State = RISCVState;
+impl crate::ISRArch for RISCV64ISR {
+    type State = RISCV64State;
 
     fn init(state: &mut Self::State) {
         // configure PLIC

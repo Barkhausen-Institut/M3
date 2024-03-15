@@ -40,7 +40,7 @@ enum class TileType {
  */
 enum class TileISA {
     NONE = 0,
-    RISCV = 1,
+    RISCV64 = 1,
     X86 = 2,
     ARM = 3,
     ACCEL_INDIR = 4,

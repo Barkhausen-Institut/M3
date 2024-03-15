@@ -277,7 +277,7 @@ impl TileType {
 
                 "arm" => desc.isa() == kif::TileISA::ARM,
                 "x86" => desc.isa() == kif::TileISA::X86,
-                "riscv" => desc.isa() == kif::TileISA::RISCV,
+                "riscv64" => desc.isa() == kif::TileISA::RISCV64,
 
                 "nic" => desc.attr().contains(kif::TileAttr::NIC),
                 "perf" => desc.attr().contains(kif::TileAttr::PERF),

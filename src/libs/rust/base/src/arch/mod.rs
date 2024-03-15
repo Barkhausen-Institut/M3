@@ -104,12 +104,12 @@ cfg_if! {
         pub type TMABI = crate::arch::isa::tmabi::ARMTMABI;
     }
     else {
-        #[path = "riscv/mod.rs"]
+        #[path = "riscv64/mod.rs"]
         mod isa;
 
-        pub type CPU = crate::arch::isa::cpu::RISCVCPU;
+        pub type CPU = crate::arch::isa::cpu::RISCV64CPU;
         #[cfg(not(feature = "linux"))]
-        pub type TMABI = crate::arch::isa::tmabi::RISCVTMABI;
+        pub type TMABI = crate::arch::isa::tmabi::RISCV64TMABI;
     }
 }
 

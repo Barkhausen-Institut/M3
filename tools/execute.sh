@@ -261,6 +261,20 @@ build_params_gem5() {
     export M3_GEM5_TILES=$M3_GEM5_CORES
     export M3_GEM5_IDE_DRIVE=$M3_GEM5_HDD
 
+    if [ "$M3_ISA" = "x86_64" ]; then
+        gem5build="X86"
+        gem5isa="x86_64"
+    elif [ "$M3_ISA" = "arm" ]; then
+        gem5build="ARM"
+        gem5isa="arm"
+    elif [ "$M3_ISA" = "riscv64" ]; then
+        gem5build="RISCV"
+        gem5isa="riscv"
+    else
+        echo "Unsupported ISA: $M3_ISA" >&2
+        exit 1
+    fi
+
     params=()
     params=("${params[@]}" --outdir="$M3_OUT" --debug-file=gem5.log --debug-flags="$M3_GEM5_LOG")
     if [ "$M3_GEM5_PAUSE" != "" ]; then
@@ -269,22 +283,11 @@ build_params_gem5() {
     if [ "$M3_GEM5_LOGSTART" != "" ]; then
         params=("${params[@]}" --debug-start="$M3_GEM5_LOGSTART")
     fi
-    params=("${params[@]}" "$M3_GEM5_CFG" --cpu-type "$M3_GEM5_CPU" --isa "$M3_ISA")
+    params=("${params[@]}" "$M3_GEM5_CFG" --cpu-type "$M3_GEM5_CPU" --isa "$gem5isa")
     params=("${params[@]}" --cmd "$cmd" --mods "$mods" --logflags "$M3_LOG")
     params=("${params[@]}" --cpu-clock="$M3_GEM5_CPUFREQ" --sys-clock="$M3_GEM5_MEMFREQ")
     if [ "$M3_GEM5_PAUSE" != "" ]; then
         params=("${params[@]}" --pausetile="$M3_GEM5_PAUSE")
-    fi
-
-    if [ "$M3_ISA" = "x86_64" ]; then
-        gem5build="X86"
-    elif [ "$M3_ISA" = "arm" ]; then
-        gem5build="ARM"
-    elif [ "$M3_ISA" = "riscv" ]; then
-        gem5build="RISCV"
-    else
-        echo "Unsupported ISA: $M3_ISA" >&2
-        exit 1
     fi
 
     # remove all coverage files

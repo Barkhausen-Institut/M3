@@ -8,7 +8,7 @@ if [ -z "$M3_TARGET" ]; then
     M3_TARGET='gem5'
 fi
 if [ -z "$M3_ISA" ]; then
-    M3_ISA='riscv'
+    M3_ISA='riscv64'
 fi
 if [ -z "$M3_OUT" ]; then
     M3_OUT="run"
@@ -16,11 +16,11 @@ fi
 
 # set target
 if [ "$M3_TARGET" = "gem5" ]; then
-    if [ "$M3_ISA" != "arm" ] && [ "$M3_ISA" != "x86_64" ] && [ "$M3_ISA" != "riscv" ]; then
+    if [ "$M3_ISA" != "arm" ] && [ "$M3_ISA" != "x86_64" ] && [ "$M3_ISA" != "riscv64" ]; then
         echo "ISA $M3_ISA not supported for target gem5." >&2 && exit 1
     fi
 elif [ "$M3_TARGET" = "hw" ] || [ "$M3_TARGET" = "hw22" ] || [ "$M3_TARGET" = "hw23" ]; then
-    M3_ISA="riscv"
+    M3_ISA="riscv64"
 else
     echo "Target $M3_TARGET not supported." >&2 && exit 1
 fi
@@ -29,8 +29,8 @@ if [ "$M3_BUILD" != "debug" ] && [ "$M3_BUILD" != "release" ] &&
     [ "$M3_BUILD" != "bench" ] && [ "$M3_BUILD" != "coverage" ]; then
     echo "Build mode $M3_BUILD not supported." >&2 && exit 1
 fi
-if [ "$M3_BUILD" = "coverage" ] && [ "$M3_ISA" != "riscv" ] && [ "$M3_ISA" != "x86_64" ]; then
-    echo "Coverage mode is only supported with M3_ISA=riscv and M3_ISA=x86_64." >&2 && exit 1
+if [ "$M3_BUILD" = "coverage" ] && [ "$M3_ISA" != "riscv64" ] && [ "$M3_ISA" != "x86_64" ]; then
+    echo "Coverage mode is only supported with M3_ISA=riscv64 and M3_ISA=x86_64." >&2 && exit 1
 fi
 
 export M3_BUILD M3_TARGET M3_ISA M3_OUT
@@ -40,7 +40,7 @@ root=$(readlink -f .)
 crossdir="./build/cross-$M3_ISA/host"
 if [ "$M3_ISA" = "arm" ]; then
     crossname="arm-buildroot-linux-musleabi-"
-elif [ "$M3_ISA" = "riscv" ]; then
+elif [ "$M3_ISA" = "riscv64" ]; then
     crossname="riscv64-buildroot-linux-musl-"
 else
     crossname="x86_64-buildroot-linux-musl-"
@@ -63,11 +63,7 @@ tooldir=$build/toolsbin
 # rust env vars
 rusttoolchain="$root/src/toolchain/rust"
 rustbuild="$root/$build/rust"
-if [ "$M3_ISA" = "riscv" ]; then
-    rustisa="riscv64"
-else
-    rustisa="$M3_ISA"
-fi
+rustisa="$M3_ISA"
 export RUST_TARGET=$rustisa-linux-m3-$rustabi
 export RUST_TARGET_PATH=$rusttoolchain
 rust_host_args=(--target-dir "$rustbuild")
@@ -77,7 +73,7 @@ rust_target_args=(
 )
 
 # configure TARGET_CFLAGS for llvmprofile within minicov (only used with RISC-V)
-if [[ "$M3_ISA" = "riscv" && "$M3_BUILD" = "coverage" ]]; then
+if [[ "$M3_ISA" = "riscv64" && "$M3_BUILD" = "coverage" ]]; then
     flags="-march=rv64imafdc -mabi=lp64d"
     # add C include paths to ensure that these instead of the include paths for the clang host
     # compiler will be used
@@ -100,7 +96,7 @@ help() {
     echo "This is a convenience script that is responsible for building everything"
     echo "and running the specified command afterwards. The most important environment"
     echo "variables that influence its behaviour are M3_TARGET=(gem5|hw|hw22|hw23),"
-    echo "M3_ISA=(x86_64|arm|riscv) [on gem5 only], and"
+    echo "M3_ISA=(x86_64|arm|riscv64) [on gem5 only], and"
     echo "M3_BUILD=(debug|release|bench|coverage)."
     echo ""
     echo "The flag -n skips the build and executes the given command directly. This"
@@ -173,7 +169,7 @@ help() {
     echo "  General:"
     echo "    M3_TARGET:               the target: 'gem5', 'hw', 'hw22', or 'hw23', default"
     echo "                             is 'gem5'."
-    echo "    M3_ISA:                  the ISA to use. On gem5, 'arm', 'riscv', and 'x86_64'"
+    echo "    M3_ISA:                  the ISA to use. On gem5, 'arm', 'riscv64', and 'x86_64'"
     echo "                             is supported. On other targets, it is ignored."
     echo "    M3_BUILD:                the build type is 'debug', 'release', 'bench' or"
     echo "                             'coverage'. In debug mode optimizations are disabled,"
@@ -549,7 +545,7 @@ case "$cmd" in
             grep "\.ctors\|\.init_array" | sed -e 's/\[.*\]//g' | xargs)
         off=0x$(echo "$section" | cut -d ' ' -f 4)
         len=0x$(echo "$section" | cut -d ' ' -f 5)
-        if [ "$M3_ISA" = "x86_64" ] || [ "$M3_ISA" = "riscv" ]; then
+        if [ "$M3_ISA" = "x86_64" ] || [ "$M3_ISA" = "riscv64" ]; then
             bytes=8
         else
             bytes=4
@@ -638,7 +634,7 @@ case "$cmd" in
     clippy)
         while IFS= read -r -d '' f; do
             # vmtest only works on RISC-V
-            if [ "$M3_ISA" != "riscv" ] && [[ "$f" =~ "vmtest" ]]; then
+            if [ "$M3_ISA" != "riscv64" ] && [[ "$f" =~ "vmtest" ]]; then
                 continue
             fi
             run_clippy "$f"

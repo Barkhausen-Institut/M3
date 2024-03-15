@@ -79,7 +79,7 @@ Note that the source of the hardware platform is [openly available](https://gith
 To build M³, you need to first build a cross compiler for the desired ISA. Note that only gem5 supports all three ISAs (arm is currently broken, though); the hardware platform only supports RISC-V. You can build the cross compiler as follows:
 
     $ cd cross
-    $ ./build.sh (x86_64|arm|riscv)
+    $ ./build.sh (x86_64|arm|riscv64)
 
 The cross compiler will be installed to ``<m3-root>/build/cross-<ISA>``.
 
@@ -91,7 +91,7 @@ M³ is primarily written in Rust and requires some nightly features of Rust. The
 
 Before you build M³, you should choose your target platform, the build mode, and the ISA by exporting the corresponding environment variables. For example:
 
-    $ export M3_BUILD=release M3_TARGET=gem5 M3_ISA=riscv
+    $ export M3_BUILD=release M3_TARGET=gem5 M3_ISA=riscv64
 
 Now, M³ can be built by using the script `b`:
 

@@ -303,7 +303,7 @@ fn instr_is_sp_assign(isa: &crate::ISA, line: &str) -> bool {
     match isa {
         crate::ISA::X86_64 => line.contains("subi   rsp, rsp, 0x8"),
         crate::ISA::ARM => line.contains("subi_uop   sp, sp,"),
-        crate::ISA::RISCV => line.contains("c_addi sp, -") || line.contains("c_addi16sp sp, -"),
+        crate::ISA::RISCV64 => line.contains("c_addi sp, -") || line.contains("c_addi16sp sp, -"),
     }
 }
 
@@ -312,7 +312,7 @@ fn instr_is_sp_init(isa: &crate::ISA, line: &str) -> bool {
     match isa {
         crate::ISA::X86_64 => line.contains("ld   rsp, DS:[rdi + 0x8]"),
         crate::ISA::ARM => line.contains("ldr2_uop   fp,sp,"),
-        crate::ISA::RISCV => line.contains("ld sp, 16(a1)"),
+        crate::ISA::RISCV64 => line.contains("ld sp, 16(a1)"),
     }
 }
 
@@ -320,7 +320,7 @@ fn is_isr_exit(isa: &crate::ISA, line: &str) -> bool {
     match isa {
         crate::ISA::X86_64 => line.contains("IRET_PROT : wrip   , t0, t1"),
         crate::ISA::ARM => line.contains("movs   pc, lr"),
-        crate::ISA::RISCV => line.contains("sret"),
+        crate::ISA::RISCV64 => line.contains("sret"),
     }
 }
 
