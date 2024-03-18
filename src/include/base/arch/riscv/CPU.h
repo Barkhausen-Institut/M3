@@ -30,13 +30,35 @@
 namespace m3 {
 
 inline uint64_t CPU::read8b(uintptr_t addr) {
+#if __riscv_xlen == 64
     uint64_t res;
     asm volatile("ld %0, (%1)" : "=r"(res) : "r"(addr));
     return res;
+#else
+    uint32_t resh, resl;
+    asm volatile(
+        "lw %0, 4(%2)\n"
+        "lw %1, 0(%2)\n"
+        : "=&r"(resh), "=r"(resl)
+        : "r"(addr));
+    return static_cast<uint64_t>(resh) << 32 | resl;
+#endif
 }
 
 inline void CPU::write8b(uintptr_t addr, uint64_t val) {
-    asm volatile("sd %0, (%1)" : : "r"(val), "r"(addr));
+#if __riscv_xlen == 64
+    asm volatile("sd %0, (%1)" : : "r"(val), "r"(addr) : "memory");
+#else
+    // ensure that we write the upper half first as the lower half might trigger an action (e.g.,
+    // the command register)
+    asm volatile(
+        "sw %0, 4(%2)\n"
+        "fence\n"
+        "sw %1, 0(%2)\n"
+        :
+        : "r"(val >> 32), "r"(val & 0xFFFFFFFF), "r"(addr)
+        : "memory");
+#endif
 }
 
 ALWAYS_INLINE word_t CPU::base_pointer() {
@@ -52,9 +74,23 @@ ALWAYS_INLINE word_t CPU::stack_pointer() {
 }
 
 inline cycles_t CPU::elapsed_cycles() {
+#if __riscv_xlen == 64
     cycles_t res;
     asm volatile("rdcycle %0" : "=r"(res) : : "memory");
     return res;
+#else
+    uint32_t cycles_hi0, cycles_hi1, cycles_lo;
+    asm volatile(
+        "rdcycleh %0\n"
+        "rdcycle %1\n"
+        "rdcycleh %2\n"
+        "sub %0, %0, %2\n"
+        "seqz %0, %0\n"
+        "sub %0, zero, %0\n"
+        "and %1, %1, %0\n"
+        : "=r"(cycles_hi0), "=r"(cycles_lo), "=r"(cycles_hi1));
+    return (static_cast<uint64_t>(cycles_hi1) << 32) | cycles_lo;
+#endif
 }
 
 inline uintptr_t CPU::backtrace_step(uintptr_t bp, uintptr_t *func) {
@@ -83,5 +119,4 @@ inline cycles_t CPU::gem5_debug(uint64_t msg) {
     asm volatile(".long 0xC600007B" : "+r"(a0));
     return a0;
 }
-
 }

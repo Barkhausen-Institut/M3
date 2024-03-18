@@ -96,6 +96,12 @@ cfg_if::cfg_if! {
         pub type Paging = arch::RISCV64Paging;
         pub type MMUFlags = <arch::RISCV64Paging as ArchPaging>::MMUFlags;
     }
+    else if #[cfg(target_arch = "riscv32")] {
+        #[path = "riscv32/mod.rs"]
+        mod arch;
+        pub type Paging = arch::RISCV32Paging;
+        pub type MMUFlags = <arch::RISCV32Paging as ArchPaging>::MMUFlags;
+    }
 }
 
 pub use arch::MMUPTE;

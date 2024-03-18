@@ -139,7 +139,11 @@ pub extern "C" fn unexpected_irq(state: &mut arch::State) -> *mut libc::c_void {
     leave(state)
 }
 
-#[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
+#[cfg(any(
+    target_arch = "riscv64",
+    target_arch = "riscv32",
+    target_arch = "x86_64"
+))]
 pub extern "C" fn fpu_ex(state: &mut arch::State) -> *mut libc::c_void {
     arch::handle_fpu_ex(state);
     leave(state)
@@ -221,7 +225,11 @@ pub extern "C" fn init() -> usize {
     isr::reg_all(unexpected_irq);
     ISR::reg_tm_calls(tmcall);
     ISR::reg_page_faults(mmu_pf);
-    #[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
+    #[cfg(any(
+        target_arch = "riscv64",
+        target_arch = "riscv32",
+        target_arch = "x86_64"
+    ))]
     ISR::reg_illegal_instr(fpu_ex);
     ISR::reg_cu_reqs(ext_irq);
     ISR::reg_timer(ext_irq);

@@ -27,7 +27,7 @@ typedef unsigned long ulong;
 typedef long long llong;
 typedef unsigned long long ullong;
 
-#if defined(__arm__)
+#if defined(__arm__) || (defined(__riscv) && __riscv_xlen == 32)
 typedef unsigned int size_t;
 typedef int ssize_t;
 #else

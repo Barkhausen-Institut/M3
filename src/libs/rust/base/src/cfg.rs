@@ -51,18 +51,18 @@ pub const RESMNG_EPS: usize = 16;
 #[cfg(not(any(feature = "hw22", feature = "hw23")))]
 pub const RESMNG_EPS: usize = 64;
 
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
 pub const MEM_OFFSET: usize = 0x1000_0000;
-#[cfg(not(target_arch = "riscv64"))]
+#[cfg(not(any(target_arch = "riscv64", target_arch = "riscv32")))]
 pub const MEM_OFFSET: usize = 0;
 
 pub const TILE_MEM_BASE: VirtAddr = VirtAddr::new(0xE000_0000);
 
 pub const MEM_CAP_END: VirtAddr = RBUF_STD_ADDR;
 
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
 pub const ENV_START: VirtAddr = VirtAddr::new((MEM_OFFSET + PAGE_SIZE) as VirtAddrRaw);
-#[cfg(not(target_arch = "riscv64"))]
+#[cfg(not(any(target_arch = "riscv64", target_arch = "riscv32")))]
 pub const ENV_START: VirtAddr = VirtAddr::new((MEM_OFFSET + 0x1F_E000) as VirtAddrRaw);
 pub const ENV_SIZE: usize = PAGE_SIZE;
 

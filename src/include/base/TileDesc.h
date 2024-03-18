@@ -41,14 +41,15 @@ enum class TileType {
 enum class TileISA {
     NONE = 0,
     RISCV64 = 1,
-    X86 = 2,
-    ARM = 3,
-    ACCEL_INDIR = 4,
-    ACCEL_COPY = 5,
-    ACCEL_ROT13 = 6,
-    IDE_DEV = 7,
-    NIC_DEV = 8,
-    SERIAL_DEV = 9,
+    RISCV32 = 2,
+    X86 = 3,
+    ARM = 4,
+    ACCEL_INDIR = 5,
+    ACCEL_COPY = 6,
+    ACCEL_ROT13 = 7,
+    IDE_DEV = 8,
+    NIC_DEV = 9,
+    SERIAL_DEV = 10,
 };
 
 enum TileAttr {

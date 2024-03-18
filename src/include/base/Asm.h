@@ -24,3 +24,15 @@
 
 #define END_FUNC(name)          \
     .size   name, . - name
+
+#if defined(__riscv)
+#   if __riscv_xlen == 64
+#       define WS 8
+#       define smw sd
+#       define lmw ld
+#   else
+#       define WS 4
+#       define smw sw
+#       define lmw lw
+#   endif
+#endif

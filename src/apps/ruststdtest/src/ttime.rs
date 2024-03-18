@@ -14,16 +14,26 @@
  */
 
 use m3::test::WvTester;
-use m3::{wv_assert, wv_run_test};
 
-use std::thread::sleep;
-use std::time::{Duration, Instant};
-
-pub fn run(t: &mut dyn WvTester) {
-    wv_run_test!(t, basics);
+pub fn run(_t: &mut dyn WvTester) {
+    #[cfg(not(target_arch = "riscv32"))]
+    {
+        use m3::wv_run_test;
+        wv_run_test!(_t, basics);
+    }
 }
 
+// TODO time-related functions are currently not supported for riscv32, because rust-std thinks
+// time_t is a 32-bit integer, while musl defines it as a 64-bit integer. I assume this is because
+// we tell rust-std that we have glibc instead of musl (which we have to, because rust-std + RISCV
+// + musl is not supported at all).
+#[cfg(not(target_arch = "riscv32"))]
 fn basics(t: &mut dyn WvTester) {
+    use m3::wv_assert;
+
+    use std::thread::sleep;
+    use std::time::{Duration, Instant};
+
     let instant = Instant::now();
     let three_millis = Duration::from_millis(3);
     sleep(three_millis);

@@ -50,7 +50,7 @@ enum Operation : word_t {
 #    elif defined(__arm__)
 #        include "arch/arm/TMABI.h"
 #    elif defined(__riscv)
-#        include "arch/riscv64/TMABI.h"
+#        include "arch/riscv/TMABI.h"
 #    else
 #        error "Unsupported ISA"
 #    endif

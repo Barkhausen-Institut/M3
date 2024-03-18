@@ -28,7 +28,7 @@
 #elif defined(__arm__)
 #    include <thread/isa/arm/Thread.h>
 #elif defined(__riscv)
-#    include <thread/isa/riscv64/Thread.h>
+#    include <thread/isa/riscv/Thread.h>
 #else
 #    error "Unsupported ISA"
 #endif

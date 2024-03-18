@@ -137,7 +137,11 @@ pub struct Activity {
     next: Option<NonNull<Activity>>,
     aspace: Option<paging::AddrSpace<PTAllocator>>,
     frames: Vec<PhysAddr>,
-    #[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
+    #[cfg(any(
+        target_arch = "riscv64",
+        target_arch = "riscv32",
+        target_arch = "x86_64"
+    ))]
     fpu_state: arch::FPUState,
     user_state: arch::State,
     user_state_addr: VirtAddr,
@@ -216,6 +220,9 @@ pub fn init() {
     }
 
     let (frame, root_pt) = if pex_env().tile_desc.has_virtmem() {
+        #[cfg(target_arch = "riscv32")]
+        assert!(false, "Virtual memory is not yet supported on RV32");
+
         let (mem_tile, mem_base, mem_size, _) = tcu::TCU::unpack_mem_ep(0).unwrap();
 
         let base = GlobAddr::new_with(mem_tile, mem_base);
@@ -654,7 +661,11 @@ impl Activity {
             frames: Vec::new(),
             act_reg: id,
             state: ActState::Blocked,
-            #[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
+            #[cfg(any(
+                target_arch = "riscv64",
+                target_arch = "riscv32",
+                target_arch = "x86_64"
+            ))]
             fpu_state: arch::FPUState::default(),
             user_state: arch::State::default(),
             user_state_addr: VirtAddr::null(),
@@ -707,7 +718,11 @@ impl Activity {
         self.act_reg = val;
     }
 
-    #[cfg(any(target_arch = "riscv64", target_arch = "x86_64"))]
+    #[cfg(any(
+        target_arch = "riscv64",
+        target_arch = "riscv32",
+        target_arch = "x86_64"
+    ))]
     pub fn fpu_state(&mut self) -> &mut arch::FPUState {
         &mut self.fpu_state
     }

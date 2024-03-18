@@ -1,6 +1,6 @@
 /*
- * Copyright (C) 2016-2018 Nils Asmussen <nils@os.inf.tu-dresden.de>
- * Economic rights: Technische Universitaet Dresden (Germany)
+ * Copyright (C) 2016-2018 Nils Asmussen <nils@os.inf.tu-dresmwen.de>
+ * Economic rights: Technische Universitaet Dresmwen (Germany)
  *
  * Copyright (C) 2019-2020 Nils Asmussen, Barkhausen Institut
  *
@@ -21,39 +21,39 @@
 # void thread_switch(m3::Thread::Regs *old, m3::Thread::Regs *new)
 BEGIN_FUNC(thread_switch)
     # save registers
-    sd ra, 8(a0)
-    sd sp, 16(a0)
-    sd fp, 24(a0)
-    sd s1, 32(a0)
-    sd s2, 40(a0)
-    sd s3, 48(a0)
-    sd s4, 56(a0)
-    sd s5, 64(a0)
-    sd s6, 72(a0)
-    sd s7, 80(a0)
-    sd s8, 88(a0)
-    sd s9, 96(a0)
-    sd s10, 104(a0)
-    sd s11, 112(a0)
+    smw ra, 1*WS(a0)
+    smw sp, 2*WS(a0)
+    smw fp, 3*WS(a0)
+    smw s1, 4*WS(a0)
+    smw s2, 5*WS(a0)
+    smw s3, 6*WS(a0)
+    smw s4, 7*WS(a0)
+    smw s5, 8*WS(a0)
+    smw s6, 9*WS(a0)
+    smw s7, 10*WS(a0)
+    smw s8, 11*WS(a0)
+    smw s9, 12*WS(a0)
+    smw s10, 13*WS(a0)
+    smw s11, 14*WS(a0)
 
     # restore registers
-    ld ra, 8(a1)
-    ld sp, 16(a1)
-    ld fp, 24(a1)
-    ld s1, 32(a1)
-    ld s2, 40(a1)
-    ld s3, 48(a1)
-    ld s4, 56(a1)
-    ld s5, 64(a1)
-    ld s6, 72(a1)
-    ld s7, 80(a1)
-    ld s8, 88(a1)
-    ld s9, 96(a1)
-    ld s10, 104(a1)
-    ld s11, 112(a1)
+    lmw ra, 1*WS(a1)
+    lmw sp, 2*WS(a1)
+    lmw fp, 3*WS(a1)
+    lmw s1, 4*WS(a1)
+    lmw s2, 5*WS(a1)
+    lmw s3, 6*WS(a1)
+    lmw s4, 7*WS(a1)
+    lmw s5, 8*WS(a1)
+    lmw s6, 9*WS(a1)
+    lmw s7, 10*WS(a1)
+    lmw s8, 11*WS(a1)
+    lmw s9, 12*WS(a1)
+    lmw s10, 13*WS(a1)
+    lmw s11, 14*WS(a1)
 
     # not saved, but restored for the thread argument
-    ld a0, 0(a1)
+    lmw a0, 0(a1)
 
     ret
 END_FUNC(thread_switch)

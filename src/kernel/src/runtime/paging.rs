@@ -73,6 +73,9 @@ pub fn init() {
         return;
     }
 
+    #[cfg(target_arch = "riscv32")]
+    assert!(false, "Virtual memory is not yet supported on RV32");
+
     let (mem_tile, mem_base, mem_size, _) = tcu::TCU::unpack_mem_ep(0).unwrap();
 
     let base = GlobAddr::new_with(mem_tile, mem_base);

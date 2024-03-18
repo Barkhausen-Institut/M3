@@ -18,7 +18,7 @@ use base::errors::Code;
 use base::io::LogFlags;
 use base::kif::tilemux;
 use base::libc;
-use base::mem::MaybeUninit;
+use base::mem::{size_of, MaybeUninit};
 use base::{log, read_csr, write_csr};
 
 use num_enum::{FromPrimitive, IntoPrimitive};
@@ -128,7 +128,13 @@ pub fn handle_fpu_ex(state: &mut State) {
             unsafe { restore_fpu(fpu_state) };
         }
         else {
-            unsafe { libc::memset(fpu_state as *mut _ as *mut libc::c_void, 0, 8 * 33) };
+            unsafe {
+                libc::memset(
+                    fpu_state as *mut _ as *mut libc::c_void,
+                    0,
+                    size_of::<usize>() * 33,
+                )
+            };
             fpu_state.init = true;
         }
 

@@ -71,9 +71,9 @@ cfg_if! {
         pub type ISR = isa::ARMISR;
     }
     else {
-        #[path = "riscv64/mod.rs"]
+        #[path = "riscv/mod.rs"]
         mod isa;
-        pub type ISR = isa::RISCV64ISR;
+        pub type ISR = isa::RISCVISR;
     }
 }
 

@@ -24,8 +24,8 @@ mod isa;
 #[path = "arm/mod.rs"]
 mod isa;
 
-#[cfg(target_arch = "riscv64")]
-#[path = "riscv64/mod.rs"]
+#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
+#[path = "riscv/mod.rs"]
 mod isa;
 
 pub use self::isa::*;

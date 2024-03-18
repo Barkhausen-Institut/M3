@@ -58,7 +58,7 @@ public:
 #elif defined(__arm__)
 #    include <base/arch/arm/CPU.h>
 #elif defined(__riscv)
-#    include <base/arch/riscv64/CPU.h>
+#    include <base/arch/riscv/CPU.h>
 #else
 #    error "Unsupported ISA"
 #endif

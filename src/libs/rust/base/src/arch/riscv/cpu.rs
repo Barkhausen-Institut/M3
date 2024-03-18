@@ -67,13 +67,31 @@ macro_rules! set_csr_bits {
     }};
 }
 
-pub struct RISCV64CPU {}
+pub struct RISCVCPU {}
 
-impl CPUOps for RISCV64CPU {
+impl CPUOps for RISCVCPU {
     unsafe fn read8b(addr: *const u64) -> u64 {
         addr.read_volatile()
     }
 
+    #[cfg(target_arch = "riscv32")]
+    unsafe fn write8b(addr: *mut u64, val: u64) {
+        // ensure that we write the upper half first as the lower half might trigger an action
+        // (e.g., the command register)
+        unsafe {
+            asm!(
+                "sw {0}, 4({2})",
+                "fence",
+                "sw {1}, 0({2})",
+                in(reg) (val >> 32) as u32,
+                in(reg) (val & 0xFFFF_FFFF) as u32,
+                in(reg) addr,
+                options(nostack),
+            )
+        }
+    }
+
+    #[cfg(target_arch = "riscv64")]
     unsafe fn write8b(addr: *mut u64, val: u64) {
         addr.write_volatile(val)
     }
@@ -104,6 +122,29 @@ impl CPUOps for RISCV64CPU {
         VirtAddr::from(fp)
     }
 
+    #[cfg(target_arch = "riscv32")]
+    fn elapsed_cycles() -> u64 {
+        let mut res_low: u32;
+        let mut res_high: u32;
+        unsafe {
+            asm!(
+                "rdcycleh {0}",
+                "rdcycle {1}",
+                "rdcycleh {tmp}",
+                "sub {0}, {0}, {tmp}",
+                "seqz {0}, {0}",
+                "sub {0}, zero, {0}",
+                "and {1}, {1}, {0}",
+                out(reg) res_high,
+                out(reg) res_low,
+                tmp = out(reg) _,
+                options(nomem, nostack),
+            );
+        }
+        res_low as u64 | (res_high as u64) << 32
+    }
+
+    #[cfg(target_arch = "riscv64")]
     fn elapsed_cycles() -> u64 {
         let mut res: u64;
         unsafe {
@@ -123,7 +164,7 @@ impl CPUOps for RISCV64CPU {
     }
 
     fn gem5_debug(msg: u64) -> u64 {
-        let mut res = msg;
+        let mut res: usize = msg as usize;
         unsafe {
             asm!(
                 ".long 0xC600007B",
@@ -131,6 +172,6 @@ impl CPUOps for RISCV64CPU {
                 options(nostack),
             );
         }
-        res
+        res as u64
     }
 }

@@ -1,5 +1,6 @@
 def build(gen, env):
-    files = ['src/' + env['ISA'] + '/Entry.S']
+    dir = env['ISA'] if not env['ISA'].startswith('riscv') else 'riscv'
+    files = ['src/' + dir + '/Entry.S']
 
     lib = env.static_lib(gen, out='isr', ins=files)
     env.install(gen, env['LIBDIR'], lib)

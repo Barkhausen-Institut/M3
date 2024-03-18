@@ -1,5 +1,6 @@
 def build(gen, env):
-    files = env.glob(gen, env['ISA'] + '/*.*')
+    dir = env['ISA'] if not env['ISA'].startswith('riscv') else 'riscv'
+    files = env.glob(gen, dir + '/*.*')
 
     lib = env.static_lib(gen, out='gem5', ins=files)
     env.install(gen, env['LIBDIR'], lib)

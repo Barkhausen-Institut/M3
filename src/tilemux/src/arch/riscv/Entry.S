@@ -88,7 +88,7 @@ BEGIN_FUNC(save_fpu)
     fsd     f30, 8*30(a0)
     fsd     f31, 8*31(a0)
     csrr    t0, fcsr
-    sd      t0, 8*32(a0)
+    smw     t0, 8*32(a0)
     ret
 END_FUNC(save_fpu)
 
@@ -126,7 +126,7 @@ BEGIN_FUNC(restore_fpu)
     fld     f29, 8*29(a0)
     fld     f30, 8*30(a0)
     fld     f31, 8*31(a0)
-    ld      t0, 8*32(a0)
+    lmw     t0, 8*32(a0)
     csrw    fcsr, t0
     ret
 END_FUNC(restore_fpu)
@@ -136,7 +136,7 @@ END_FUNC(restore_fpu)
 BEGIN_FUNC(sleep)
     la      a0, ENV_START
     // load platform from environment
-    ld      a0, 0(a0)
+    lmw     a0, 0(a0)
     // skip wfi on hw (TODO why does that not work?)
 1:  bnez    a0, 2f
     wfi

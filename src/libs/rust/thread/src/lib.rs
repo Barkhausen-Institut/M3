@@ -69,7 +69,7 @@ pub struct Regs {
     cpsr: usize,
 }
 
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
 #[derive(Default)]
 #[repr(C, align(8))]
 pub struct Regs {
@@ -111,7 +111,7 @@ fn thread_init(thread: &mut Thread, func_addr: VirtAddr, arg: usize) {
     thread.regs.cpsr = 0x13; // supervisor mode
 }
 
-#[cfg(target_arch = "riscv64")]
+#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
 fn thread_init(thread: &mut Thread, func_addr: VirtAddr, arg: usize) {
     let top_idx = thread.stack.len() - 2;
     thread.regs.a0 = arg;

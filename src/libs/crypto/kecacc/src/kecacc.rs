@@ -12,7 +12,10 @@
  * General Public License version 2 for more details.
  */
 
-use base::crypto::{HashAlgorithm, HashType};
+use base::{
+    cpu::{CPUOps, CPU},
+    crypto::{HashAlgorithm, HashType},
+};
 use core::sync::atomic;
 
 const STATE_SIZE: usize = 256;
@@ -91,7 +94,7 @@ impl KecAcc {
     }
 
     pub fn is_busy(&self) -> bool {
-        unsafe { core::ptr::read_volatile(self.addr as *const u64) != 0 }
+        unsafe { CPU::read8b(self.addr as *const u64) != 0 }
     }
 
     pub fn poll_complete(&self) {
@@ -110,7 +113,7 @@ impl KecAcc {
     fn start_cmd(&self, cmd: Cmd) {
         self.poll_complete();
         unsafe {
-            core::ptr::write_volatile(self.addr as *mut u64, cmd.0);
+            CPU::write8b(self.addr as *mut u64, cmd.0);
         }
     }
 

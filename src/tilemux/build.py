@@ -14,7 +14,8 @@ def build(gen, env):
     if env['ISA'] == 'arm':
         env['LINKFLAGS'] += ['-Wl,--whole-archive', '-lisrsf', '-Wl,--no-whole-archive']
 
-    entry_file = 'src/arch/' + env['ISA'] + '/Entry.S'
+    dir = env['ISA'] if not env['ISA'].startswith('riscv') else 'riscv'
+    entry_file = 'src/arch/' + dir + '/Entry.S'
     entry = env.asm(gen, out=entry_file[:-2] + '.o', ins=[entry_file])
 
     libs = ['isrsf']

@@ -939,7 +939,7 @@ impl TCU {
         addr - base.as_local()
     }
 
-    /// Acknowledges the most recent IRQ.
+    /// Fetches and thereby acknowledges the currently handled IRQ.
     ///
     /// This notifies the TCU that the next IRQ can be triggered, if any.
     pub fn fetch_irq() -> Result<IRQ, Error> {

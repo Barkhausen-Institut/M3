@@ -15,6 +15,12 @@ if isa == 'arm':
     cross = 'arm-buildroot-linux-musleabi-'
     crts0 = ['crt0.o', 'crtbegin.o']
     crtsn = ['crtend.o']
+elif isa == 'riscv32':
+    rustisa = 'riscv32'
+    rustabi = 'musl'
+    cross = 'riscv32-buildroot-linux-musl-'
+    crts0 = ['crt0.o', 'crtbegin.o']
+    crtsn = ['crtend.o']
 elif isa == 'riscv64':
     rustisa = 'riscv64'
     rustabi = 'musl'
@@ -51,7 +57,7 @@ rustapps = []
 rustlibs = []
 rustfeatures = []
 ldscripts = {}
-if isa == 'riscv64':
+if isa == 'riscv64' or isa == 'riscv32':
     link_addr = 0x11000000
 else:
     link_addr = 0x1000000
@@ -82,6 +88,18 @@ class M3Env(Env):
             self['ASFLAGS'] += ['-msoft-float', '-mno-sse']
             self['CFLAGS'] += ['-msoft-float', '-mno-sse']
             self['CXXFLAGS'] += ['-msoft-float', '-mno-sse']
+        elif self['ISA'] == 'riscv32':
+            self['ASFLAGS'] += ['-mabi=ilp32']
+            self['CFLAGS'] += ['-march=rv32imac', '-mabi=ilp32']
+            self['CXXFLAGS'] += ['-march=rv32imac', '-mabi=ilp32']
+            self['LINKFLAGS'] += ['-march=rv32imac', '-mabi=ilp32']
+            # make sure that embedded C-code or similar (minicov with llvm-profile library)
+            # for Rust is built with soft-float as well
+            cflags = os.environ.get('TARGET_CFLAGS')
+            if cflags:
+                cflags = cflags.replace('-march=rv32imafdc', '-march=rv32imac')
+                cflags = cflags.replace('-mabi=ilp32d', '-mabi=ilp32')
+                self['CRGENV']['TARGET_CFLAGS'] = cflags
         elif self['ISA'] == 'riscv64':
             self['ASFLAGS'] += ['-mabi=lp64']
             self['CFLAGS'] += ['-march=rv64imac', '-mabi=lp64']
@@ -196,7 +214,11 @@ class M3Env(Env):
 
     def m3_cargo(self, gen, out):
         env = self.clone()
-        env['CRGFLAGS'] += ['--target', env['TRIPLE']]
+        # better specify the path to the json file, because Rust seems to be picky about the triple
+        # name in some cases. For example, it doesn't like riscv32-linux-m3-muslsf for some reason.
+        # if we specify a path, Rust doesn't seem to care.
+        tgtspec = os.path.abspath('src/toolchain/rust/' + env['TRIPLE'] + '.json')
+        env['CRGFLAGS'] += ['--target', tgtspec]
         env['CRGFLAGS'] += ['-Z build-std=core,alloc,std,panic_abort']
         env.add_rust_features()
         return env.rust_exe(gen, out, self.rust_deps())
@@ -214,7 +236,8 @@ class M3Env(Env):
             # specify crates explicitly, because some crates are only supported by some targets
             env['CRGFLAGS'] += ['-p', crate_name]
 
-        env['CRGFLAGS'] += ['--target', env['TRIPLE']]
+        tgtspec = os.path.abspath('src/toolchain/rust/' + env['TRIPLE'] + '.json')
+        env['CRGFLAGS'] += ['--target', tgtspec]
         env['CRGFLAGS'] += ['-Z build-std=core,alloc,std,panic_abort']
         for f in rustfeatures:
             env['CRGFLAGS'] += ['--features', f]
@@ -388,6 +411,11 @@ elif isa == 'arm':
     env['CXXFLAGS'] += ['-march=armv7-a']
     env['LINKFLAGS'] += ['-march=armv7-a', '-Wl,-z,noexecstack']
     env['ASFLAGS'] += ['-march=armv7-a']
+elif isa == 'riscv32':
+    env['CFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
+    env['CXXFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
+    env['LINKFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
+    env['ASFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
 elif isa == 'riscv64':
     env['CFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
     env['CXXFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']

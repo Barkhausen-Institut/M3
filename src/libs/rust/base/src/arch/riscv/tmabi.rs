@@ -19,9 +19,9 @@ use crate::arch::TMABIOps;
 use crate::errors::Error;
 use crate::tmif::Operation;
 
-pub struct RISCV64TMABI {}
+pub struct RISCVTMABI {}
 
-impl TMABIOps for RISCV64TMABI {
+impl TMABIOps for RISCVTMABI {
     fn call1(op: Operation, arg1: usize) -> Result<(), Error> {
         Self::call2(op, arg1, 0)
     }

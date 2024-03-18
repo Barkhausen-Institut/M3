@@ -17,6 +17,7 @@ use base::backtrace;
 use base::env;
 use base::kif::PageFlags;
 use base::libc;
+use base::mem::size_of;
 use base::mem::VirtAddr;
 use base::tcu;
 use base::{read_csr, set_csr_bits, write_csr};
@@ -40,7 +41,7 @@ pub const TMC_ARG4: usize = 13; // a4 = x14
 #[derive(Default)]
 // see comment in ARM code
 #[repr(C, align(8))]
-pub struct RISCV64State {
+pub struct RISCVState {
     // general purpose registers
     pub r: [usize; 31],
     pub cause: usize,
@@ -48,7 +49,7 @@ pub struct RISCV64State {
     pub status: usize,
 }
 
-impl crate::StateArch for RISCV64State {
+impl crate::StateArch for RISCVState {
     fn instr_pointer(&self) -> VirtAddr {
         VirtAddr::from(self.epc)
     }
@@ -93,9 +94,11 @@ pub enum Vector {
     MachExtIRQ     = 27,
 }
 
-impl fmt::Debug for RISCV64State {
+const CAUSE_INT: usize = 1 << ((size_of::<usize>() * 8) - 1);
+
+impl fmt::Debug for RISCVState {
     fn fmt(&self, fmt: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        let vec = if (self.cause & 0x8000_0000_0000_0000) != 0 {
+        let vec = if (self.cause & CAUSE_INT) != 0 {
             16 + (self.cause & 0xF)
         }
         else {
@@ -178,8 +181,8 @@ extern "C" {
 }
 
 #[no_mangle]
-pub extern "C" fn isr_handler(state: &mut RISCV64State) -> *mut libc::c_void {
-    let vec = if (state.cause & 0x8000_0000_0000_0000) != 0 {
+pub extern "C" fn isr_handler(state: &mut RISCVState) -> *mut libc::c_void {
+    let vec = if (state.cause & CAUSE_INT) != 0 {
         16 + (state.cause & 0xF)
     }
     else {
@@ -194,10 +197,10 @@ pub extern "C" fn isr_handler(state: &mut RISCV64State) -> *mut libc::c_void {
     crate::ISRS.borrow()[vec](state)
 }
 
-pub struct RISCV64ISR {}
+pub struct RISCVISR {}
 
-impl crate::ISRArch for RISCV64ISR {
-    type State = RISCV64State;
+impl crate::ISRArch for RISCVISR {
+    type State = RISCVState;
 
     fn init(state: &mut Self::State) {
         // configure PLIC

@@ -263,13 +263,10 @@ build_params_gem5() {
 
     if [ "$M3_ISA" = "x86_64" ]; then
         gem5build="X86"
-        gem5isa="x86_64"
     elif [ "$M3_ISA" = "arm" ]; then
         gem5build="ARM"
-        gem5isa="arm"
-    elif [ "$M3_ISA" = "riscv64" ]; then
+    elif [ "$M3_ISA" = "riscv64" ] || [ "$M3_ISA" = "riscv32" ]; then
         gem5build="RISCV"
-        gem5isa="riscv"
     else
         echo "Unsupported ISA: $M3_ISA" >&2
         exit 1
@@ -283,7 +280,7 @@ build_params_gem5() {
     if [ "$M3_GEM5_LOGSTART" != "" ]; then
         params=("${params[@]}" --debug-start="$M3_GEM5_LOGSTART")
     fi
-    params=("${params[@]}" "$M3_GEM5_CFG" --cpu-type "$M3_GEM5_CPU" --isa "$gem5isa")
+    params=("${params[@]}" "$M3_GEM5_CFG" --cpu-type "$M3_GEM5_CPU" --isa "$M3_ISA")
     params=("${params[@]}" --cmd "$cmd" --mods "$mods" --logflags "$M3_LOG")
     params=("${params[@]}" --cpu-clock="$M3_GEM5_CPUFREQ" --sys-clock="$M3_GEM5_MEMFREQ")
     if [ "$M3_GEM5_PAUSE" != "" ]; then

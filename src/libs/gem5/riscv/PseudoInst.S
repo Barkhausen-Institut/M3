@@ -23,6 +23,7 @@ BEGIN_FUNC(gem5_shutdown)
 1:  j     1b
 END_FUNC(gem5_shutdown)
 
+#if __riscv_xlen == 64
 BEGIN_FUNC(gem5_writefile)
     .long 0x9E00007B
     ret
@@ -32,6 +33,7 @@ BEGIN_FUNC(gem5_readfile)
     .long 0xA000007B
     ret
 END_FUNC(gem5_readfile)
+#endif
 
 BEGIN_FUNC(gem5_resetstats)
     .long   0x8000007B
