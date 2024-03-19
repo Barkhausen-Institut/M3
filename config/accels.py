@@ -47,11 +47,12 @@ for i in range(0, num_mem):
                          size='3072MB')
     tiles.append(tile)
 
-# create tile for serial input
-tile = createSerialTile(noc=root.noc,
-                        options=options,
-                        id=TileId(0, num_tiles + len(accs) + num_mem),
-                        memTile=None)
-tiles.append(tile)
+# create tile for serial input (unless we're debugging gem5)
+if int(os.environ.get("DBG_GEM5", 0)) != 1:
+    tile = createSerialTile(noc=root.noc,
+                            options=options,
+                            id=TileId(0, num_tiles + len(accs) + num_mem),
+                            memTile=None)
+    tiles.append(tile)
 
 runSimulation(root, options, tiles)

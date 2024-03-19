@@ -54,12 +54,13 @@ for i in range(0, num_cores_per_chip):
                           l2size='256kB')
     tiles.append(tile)
 
-# create tile for serial input
-tile = createSerialTile(noc=root.noc1,
-                        options=options,
-                        id=TileId(0, num_cores_per_chip),
-                        memTile=None)
-tiles.append(tile)
+# create tile for serial input (unless we're debugging gem5)
+if int(os.environ.get("DBG_GEM5", 0)) != 1:
+    tile = createSerialTile(noc=root.noc1,
+                            options=options,
+                            id=TileId(0, num_cores_per_chip),
+                            memTile=None)
+    tiles.append(tile)
 
 for i in range(0, num_cores_per_chip):
     tile = createCoreTile(noc=root.noc2,
