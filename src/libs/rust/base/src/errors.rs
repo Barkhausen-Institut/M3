@@ -57,6 +57,7 @@ pub enum Code {
     TLBMiss,
     TLBFull,
     NoPMPEP,
+    NoIRQ,
     // SW Errors
     InvArgs,
     ActivityGone,

@@ -248,7 +248,6 @@ private:
         PRIV_CMD = 2,
         PRIV_CMD_ARG = 3,
         CUR_ACT = 4,
-        CLEAR_IRQ = 5,
     };
 
     enum class UnprivRegs {
@@ -294,7 +293,7 @@ private:
         XCHG_ACT = 4,
         SET_TIMER = 5,
         ABORT_CMD = 6,
-        FLUSH_CACHE = 7,
+        FETCH_IRQ = 7,
     };
 
     enum class ExtCmdOpCode {
@@ -493,10 +492,6 @@ private:
     }
     static const Message *offset_to_msg(size_t base, size_t msg_off) {
         return reinterpret_cast<const Message *>(base + msg_off);
-    }
-
-    void clear_irq(IRQ irq) {
-        write_reg(PrivRegs::CLEAR_IRQ, static_cast<reg_t>(irq));
     }
 
     static Errors::Code get_error() {

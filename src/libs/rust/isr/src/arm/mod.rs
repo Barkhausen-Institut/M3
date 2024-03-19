@@ -205,8 +205,7 @@ impl crate::ISRArch for ARMISR {
     }
 
     fn fetch_irq() -> IRQSource {
-        let irq = tcu::TCU::get_irq().unwrap();
-        tcu::TCU::clear_irq(irq);
+        let irq = tcu::TCU::fetch_irq().unwrap();
         IRQSource::TCU(irq)
     }
 

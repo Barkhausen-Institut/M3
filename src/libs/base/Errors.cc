@@ -52,10 +52,11 @@ static const char *errmsgs[] = {
     "TLB entry not found",
     "TLB contains only fixed entries",
     "No PMP endpoint",
+    "No pending IRQ",
     "Invalid arguments",
     "Activity gone",
-    "Out of memory",
     /* 30 */
+    "Out of memory",
     "No such file or directory",
     "Not supported",
     "No free/suitable tile",
@@ -65,8 +66,8 @@ static const char *errmsgs[] = {
     "Cross-filesystem link not possible",
     "Directory not empty",
     "Is a directory",
-    "Is no directory",
     /* 40 */
+    "Is no directory",
     "Endpoint is invalid",
     "End of file",
     "Messages are waiting to be handled",
@@ -76,8 +77,8 @@ static const char *errmsgs[] = {
     "Not found",
     "Not revocable",
     "Timeout",
-    "Read failed",
     /* 50 */
+    "Read failed",
     "Write failed",
     "UTF-8 error",
     "Bad file descriptor",

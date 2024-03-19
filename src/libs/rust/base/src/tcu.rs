@@ -265,8 +265,6 @@ cfg_if! {
             PrivCmdArg,
             /// The current activity
             CurAct,
-            /// Used to ack IRQ requests
-            ClearIRQ,
         }
     }
     else {
@@ -286,8 +284,6 @@ cfg_if! {
             PrivCmdArg,
             /// The current activity
             CurAct,
-            /// Used to ack IRQ requests
-            ClearIRQ,
         }
     }
 }
@@ -393,6 +389,8 @@ pub enum PrivCmdOpCode {
     SetTimer,
     /// Abort the current command
     AbortCmd,
+    /// Fetches and acknowledges the most recent IRQ
+    FetchIRQ,
 }
 
 /// The external commands
@@ -941,14 +939,14 @@ impl TCU {
         addr - base.as_local()
     }
 
-    /// Returns the injected IRQ (assuming that a IRQ has been injected and was not cleared yet)
-    pub fn get_irq() -> Result<IRQ, Error> {
-        IRQ::try_from(Self::read_priv_reg(PrivReg::ClearIRQ)).map_err(|_| Error::new(Code::InvArgs))
-    }
-
-    /// Clears the given IRQ to notify the TCU that the IRQ has been accepted
-    pub fn clear_irq(irq: IRQ) {
-        Self::write_priv_reg(PrivReg::ClearIRQ, irq.into());
+    /// Acknowledges the most recent IRQ.
+    ///
+    /// This notifies the TCU that the next IRQ can be triggered, if any.
+    pub fn fetch_irq() -> Result<IRQ, Error> {
+        Self::write_priv_reg(PrivReg::PrivCmd, PrivCmdOpCode::FetchIRQ as Reg);
+        Self::get_priv_error()?;
+        IRQ::try_from(Self::read_priv_reg(PrivReg::PrivCmdArg))
+            .map_err(|_| Error::new(Code::InvArgs))
     }
 
     /// Returns the current CU request

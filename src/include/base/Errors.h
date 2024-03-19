@@ -56,6 +56,7 @@ struct Errors {
         TLB_MISS,
         TLB_FULL,
         NO_PMP_EP,
+        NO_IRQ,
         // SW errors
         INV_ARGS,
         ACT_GONE,

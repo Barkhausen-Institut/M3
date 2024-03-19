@@ -284,8 +284,7 @@ impl crate::ISRArch for RISCV64ISR {
             }
         }
         else {
-            let tcu_irq = tcu::TCU::get_irq().unwrap();
-            tcu::TCU::clear_irq(tcu_irq);
+            tcu::TCU::fetch_irq().unwrap();
         }
         plic::ack(irq);
 
