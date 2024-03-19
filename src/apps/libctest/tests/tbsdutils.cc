@@ -100,11 +100,21 @@ static void bsd_ls() {
 }
 
 static void bsd_printenv() {
+    // in case LOG has been set, save&unset it before the test
+    char *log = getenv("LOG");
+    std::string logcpy(log ? log : "");
+    if(log)
+        unsetenv("LOG");
+
     VFS::set_cwd("/bin");
     const char *expected = "PWD=/bin\n";
     const char *argv[] = {"/bin/printenv", nullptr};
     run_command(ARRAY_SIZE(argv) - 1, argv, expected);
     VFS::set_cwd("/");
+
+    // restore LOG if it was set
+    if(log)
+        setenv("LOG", logcpy.c_str(), 1);
 }
 
 static void bsd_stat() {
