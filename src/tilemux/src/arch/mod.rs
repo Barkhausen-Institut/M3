@@ -20,10 +20,6 @@
 #[path = "x86_64/mod.rs"]
 mod isa;
 
-#[cfg(target_arch = "arm")]
-#[path = "arm/mod.rs"]
-mod isa;
-
 #[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
 #[path = "riscv/mod.rs"]
 mod isa;

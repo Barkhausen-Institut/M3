@@ -302,7 +302,6 @@ fn instr_is_sp_assign(isa: &crate::ISA, line: &str) -> bool {
     // find the "first" instruction that tells us the stack pointer
     match isa {
         crate::ISA::X86_64 => line.contains("subi   rsp, rsp, 0x8"),
-        crate::ISA::ARM => line.contains("subi_uop   sp, sp,"),
         crate::ISA::RISCV32 | crate::ISA::RISCV64 => {
             line.contains("c_addi sp, -") || line.contains("c_addi16sp sp, -")
         },
@@ -313,7 +312,6 @@ fn instr_is_sp_init(isa: &crate::ISA, line: &str) -> bool {
     // find the specific line in thread_resume that inits the stack pointer
     match isa {
         crate::ISA::X86_64 => line.contains("ld   rsp, DS:[rdi + 0x8]"),
-        crate::ISA::ARM => line.contains("ldr2_uop   fp,sp,"),
         crate::ISA::RISCV32 => line.contains("lw sp, 8(a1)"),
         crate::ISA::RISCV64 => line.contains("ld sp, 16(a1)"),
     }
@@ -322,7 +320,6 @@ fn instr_is_sp_init(isa: &crate::ISA, line: &str) -> bool {
 fn is_isr_exit(isa: &crate::ISA, line: &str) -> bool {
     match isa {
         crate::ISA::X86_64 => line.contains("IRET_PROT : wrip   , t0, t1"),
-        crate::ISA::ARM => line.contains("movs   pc, lr"),
         crate::ISA::RISCV32 | crate::ISA::RISCV64 => line.contains("sret"),
     }
 }
@@ -462,11 +459,7 @@ pub fn generate(
                 // detect thread switches
                 if sym.name == "thread_switch" && instr_is_sp_init(isa, &line) {
                     if let Some(pos) = line.find("D=") {
-                        let mut tid = u64::from_str_radix(&line[(pos + 4)..(pos + 20)], 16)?;
-                        if *isa == crate::ISA::ARM {
-                            // we get both FP and SP, but only care about SP
-                            tid >>= 32;
-                        }
+                        let tid = u64::from_str_radix(&line[(pos + 4)..(pos + 20)], 16)?;
                         cur_bin.thread_switch(tid, time);
                     }
                 }

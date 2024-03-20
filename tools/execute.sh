@@ -263,8 +263,6 @@ build_params_gem5() {
 
     if [ "$M3_ISA" = "x86_64" ]; then
         gem5build="X86"
-    elif [ "$M3_ISA" = "arm" ]; then
-        gem5build="ARM"
     elif [ "$M3_ISA" = "riscv64" ] || [ "$M3_ISA" = "riscv32" ]; then
         gem5build="RISCV"
     else

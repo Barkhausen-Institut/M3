@@ -275,7 +275,6 @@ impl TileType {
             let matches = match attr {
                 "core" => desc.is_programmable(),
 
-                "arm" => desc.isa() == kif::TileISA::ARM,
                 "x86" => desc.isa() == kif::TileISA::X86,
                 "riscv32" => desc.isa() == kif::TileISA::RISCV32,
                 "riscv64" => desc.isa() == kif::TileISA::RISCV64,

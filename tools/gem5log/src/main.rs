@@ -61,14 +61,13 @@ pub enum Mode {
 #[derive(Eq, PartialEq)]
 pub enum ISA {
     X86_64,
-    ARM,
     RISCV32,
     RISCV64,
 }
 
 fn usage(prog: &str) -> ! {
     eprintln!(
-        "Usage: {} (x86_64|arm|riscv32|riscv64) (trace|flamegraph|snapshot <time>) [<binary>[+<offset>]...]",
+        "Usage: {} (x86_64|riscv32|riscv64) (trace|flamegraph|snapshot <time>) [<binary>[+<offset>]...]",
         prog
     );
     exit(1)
@@ -83,7 +82,6 @@ fn main() -> Result<(), error::Error> {
 
     let isa = match args.get(1) {
         Some(isa) if isa == "x86_64" => ISA::X86_64,
-        Some(isa) if isa == "arm" => ISA::ARM,
         Some(isa) if isa == "riscv32" => ISA::RISCV32,
         Some(isa) if isa == "riscv64" => ISA::RISCV64,
         _ => usage(&args[0]),

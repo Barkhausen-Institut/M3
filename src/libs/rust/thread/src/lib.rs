@@ -51,24 +51,6 @@ pub struct Regs {
     rdi: usize,
 }
 
-#[cfg(target_arch = "arm")]
-#[derive(Default)]
-#[repr(C, align(4))]
-pub struct Regs {
-    r0: usize,
-    r4: usize,
-    r5: usize,
-    r6: usize,
-    r7: usize,
-    r8: usize,
-    r9: usize,
-    r10: usize,
-    r11: usize,
-    r13: usize,
-    r14: usize,
-    cpsr: usize,
-}
-
 #[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
 #[derive(Default)]
 #[repr(C, align(8))]
@@ -99,16 +81,6 @@ fn thread_init(thread: &mut Thread, func_addr: VirtAddr, arg: usize) {
     thread.stack[top_idx] = func_addr.as_local();
     thread.regs.rbp = thread.regs.rsp;
     thread.regs.rflags = 0x200; // enable interrupts
-}
-
-#[cfg(target_arch = "arm")]
-fn thread_init(thread: &mut Thread, func_addr: VirtAddr, arg: usize) {
-    let top_idx = thread.stack.len() - 2;
-    thread.regs.r0 = arg; // arg
-    thread.regs.r13 = &thread.stack[top_idx] as *const usize as usize; // sp
-    thread.regs.r11 = 0; // fp
-    thread.regs.r14 = func_addr.as_local(); // lr
-    thread.regs.cpsr = 0x13; // supervisor mode
 }
 
 #[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]

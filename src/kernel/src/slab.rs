@@ -34,7 +34,7 @@ const NEW_AREA_COUNT: usize = 64;
 struct Area {
     slab: NonNull<Slab>,
     next: Option<NonNull<Area>>,
-    #[cfg(any(target_arch = "arm", target_arch = "riscv32"))]
+    #[cfg(any(target_arch = "riscv32"))]
     _pad: u64,
     user: u64,
 }

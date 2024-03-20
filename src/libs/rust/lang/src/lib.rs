@@ -102,17 +102,3 @@ pub extern "C" fn rust_eh_personality() {
 pub extern "C" fn _Unwind_Resume() -> ! {
     intrinsics::abort()
 }
-
-#[cfg(target_arch = "arm")]
-#[no_mangle]
-#[doc(hidden)]
-pub unsafe extern "C" fn __aeabi_memclr(dest: *mut base::libc::c_void, size: usize) {
-    base::libc::memzero(dest, size);
-}
-
-#[cfg(target_arch = "arm")]
-#[no_mangle]
-#[doc(hidden)]
-pub unsafe extern "C" fn __aeabi_memclr4(dest: *mut base::libc::c_void, size: usize) {
-    base::libc::memzero(dest, size);
-}

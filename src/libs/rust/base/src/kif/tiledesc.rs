@@ -49,8 +49,6 @@ pub enum TileISA {
     RISCV32,
     /// x86_64 as supported by gem5
     X86,
-    /// ARMv7 as supported by gem5
-    ARM,
     /// Dummy ISA to represent the indirect-chaining fixed-function accelerator
     AccelIndir,
     /// Dummy ISA to represent the COPY fixed-function accelerator
@@ -165,7 +163,7 @@ impl TileDesc {
     pub fn is_programmable(self) -> bool {
         matches!(
             self.isa(),
-            TileISA::X86 | TileISA::ARM | TileISA::RISCV64 | TileISA::RISCV32
+            TileISA::X86 | TileISA::RISCV64 | TileISA::RISCV32
         )
     }
 
@@ -207,7 +205,6 @@ impl TileDesc {
         let mut res = *self;
         for prop in props.split('+') {
             match prop {
-                "arm" => res = TileDesc::new(TileType::Comp, TileISA::ARM, 0),
                 "x86" => res = TileDesc::new(TileType::Comp, TileISA::X86, 0),
                 "riscv32" => res = TileDesc::new(TileType::Comp, TileISA::RISCV32, 0),
                 "riscv64" => res = TileDesc::new(TileType::Comp, TileISA::RISCV64, 0),

@@ -95,14 +95,6 @@ cfg_if! {
         #[cfg(not(feature = "linux"))]
         pub type TMABI = crate::arch::isa::tmabi::X86TMABI;
     }
-    else if #[cfg(target_arch = "arm")] {
-        #[path = "arm/mod.rs"]
-        mod isa;
-
-        pub type CPU = crate::arch::isa::cpu::ARMCPU;
-        #[cfg(not(feature = "linux"))]
-        pub type TMABI = crate::arch::isa::tmabi::ARMTMABI;
-    }
     else {
         #[path = "riscv/mod.rs"]
         mod isa;

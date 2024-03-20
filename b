@@ -16,8 +16,7 @@ fi
 
 # set target
 if [ "$M3_TARGET" = "gem5" ]; then
-    if [ "$M3_ISA" != "arm" ] && [ "$M3_ISA" != "x86_64" ] &&
-        [ "$M3_ISA" != "riscv64" ] && [ "$M3_ISA" != "riscv32" ]; then
+    if [ "$M3_ISA" != "x86_64" ] && [ "$M3_ISA" != "riscv64" ] && [ "$M3_ISA" != "riscv32" ]; then
         echo "ISA $M3_ISA not supported for target gem5." >&2 && exit 1
     fi
 elif [ "$M3_TARGET" = "hw" ] || [ "$M3_TARGET" = "hw22" ] || [ "$M3_TARGET" = "hw23" ]; then
@@ -39,9 +38,7 @@ export M3_BUILD M3_TARGET M3_ISA M3_OUT
 # determine cross compiler and rust ABI based on target and ISA
 root=$(readlink -f .)
 crossdir="./build/cross-$M3_ISA/host"
-if [ "$M3_ISA" = "arm" ]; then
-    crossname="arm-buildroot-linux-musleabi-"
-elif [ "$M3_ISA" = "riscv32" ]; then
+if [ "$M3_ISA" = "riscv32" ]; then
     crossname="riscv32-buildroot-linux-musl-"
 elif [ "$M3_ISA" = "riscv64" ]; then
     crossname="riscv64-buildroot-linux-musl-"
@@ -51,9 +48,7 @@ fi
 crossprefix="$crossdir/bin/$crossname"
 PATH="$root/$crossdir/bin:$PATH"
 export PATH
-if [ "$M3_TARGET" = "gem5" ] && [ "$M3_ISA" = "arm" ]; then
-    rustabi='musleabi'
-elif [ "$M3_BUILD" = "coverage" ]; then
+if [ "$M3_BUILD" = "coverage" ]; then
     rustabi='muslcov'
 else
     rustabi='musl'
@@ -103,7 +98,7 @@ help() {
     echo "This is a convenience script that is responsible for building everything"
     echo "and running the specified command afterwards. The most important environment"
     echo "variables that influence its behaviour are M3_TARGET=(gem5|hw|hw22|hw23),"
-    echo "M3_ISA=(x86_64|arm|riscv32|riscv64) [on gem5 only], and"
+    echo "M3_ISA=(x86_64|riscv32|riscv64) [on gem5 only], and"
     echo "M3_BUILD=(debug|release|bench|coverage)."
     echo ""
     echo "The flag -n skips the build and executes the given command directly. This"
@@ -176,7 +171,7 @@ help() {
     echo "  General:"
     echo "    M3_TARGET:               the target: 'gem5', 'hw', 'hw22', or 'hw23', default"
     echo "                             is 'gem5'."
-    echo "    M3_ISA:                  the ISA to use. On gem5, 'arm', 'riscv32', 'riscv64',"
+    echo "    M3_ISA:                  the ISA to use. On gem5, ''riscv32', 'riscv64',"
     echo "                             and 'x86_64' is supported. On other targets, it is"
     echo "                             ignored."
     echo "    M3_BUILD:                the build type is 'debug', 'release', 'bench' or"

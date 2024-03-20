@@ -32,7 +32,7 @@ fn create_tiles() -> TileManager {
     )));
     mng.add(Rc::new(Tile::new_bind_with(
         TileId::new(0, 2),
-        TileDesc::new_with_attr(TileType::Comp, TileISA::ARM, 32 * 1024, TileAttr::IMEM),
+        TileDesc::new_with_attr(TileType::Comp, TileISA::RISCV32, 32 * 1024, TileAttr::IMEM),
         65,
     )));
     mng.add(Rc::new(Tile::new_bind_with(
@@ -54,14 +54,14 @@ fn find(t: &mut dyn WvTester) {
     let riscv = wv_assert_ok!(mng.find(TileDesc::new(TileType::Comp, TileISA::RISCV64, 0)));
     wv_assert_eq!(t, riscv.tile_id(), TileId::new(0, 1));
     wv_assert_eq!(t, riscv.tile_obj().sel(), 64);
-    let arm = wv_assert_ok!(mng.find(TileDesc::new_with_attr(
+    let rv32 = wv_assert_ok!(mng.find(TileDesc::new_with_attr(
         TileType::Comp,
-        TileISA::ARM,
+        TileISA::RISCV32,
         0,
         TileAttr::IMEM
     )));
-    wv_assert_eq!(t, arm.tile_id(), TileId::new(0, 2));
-    wv_assert_eq!(t, arm.tile_obj().sel(), 65);
+    wv_assert_eq!(t, rv32.tile_id(), TileId::new(0, 2));
+    wv_assert_eq!(t, rv32.tile_obj().sel(), 65);
     wv_assert_err!(
         t,
         mng.find(TileDesc::new(TileType::Comp, TileISA::X86, 0)),
@@ -71,8 +71,8 @@ fn find(t: &mut dyn WvTester) {
     let base = TileDesc::new(TileType::Comp, TileISA::RISCV64, 0);
     let riscv = wv_assert_ok!(mng.find_with_attr(base, "perf|core"));
     wv_assert_eq!(t, riscv.tile_id(), TileId::new(0, 1));
-    let arm = wv_assert_ok!(mng.find_with_attr(base, "arm+imem"));
-    wv_assert_eq!(t, arm.tile_id(), TileId::new(0, 2));
+    let rv32 = wv_assert_ok!(mng.find_with_attr(base, "riscv32+imem"));
+    wv_assert_eq!(t, rv32.tile_id(), TileId::new(0, 2));
 }
 
 fn usage(t: &mut dyn WvTester) {

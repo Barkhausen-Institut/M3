@@ -126,16 +126,6 @@ pub fn init() {
         .map_pages(cfg::TILE_MEM_BASE, base, pages, rw)
         .unwrap();
 
-    // map vectors
-    #[cfg(target_arch = "arm")]
-    map_to_phys(
-        &mut aspace,
-        base,
-        VirtAddr::null(),
-        cfg::PAGE_SIZE,
-        PageFlags::RX,
-    );
-
     // switch to that address space
     aspace.switch_to();
     Paging::enable();

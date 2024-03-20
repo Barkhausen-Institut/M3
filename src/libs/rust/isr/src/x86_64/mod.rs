@@ -64,7 +64,9 @@ pub enum Segment {
 }
 
 #[derive(Default)]
-// see comment in ARM code
+// for some reason, we need to specify the alignment here. actually, this struct needs to be packed,
+// but unfortunately, we cannot specify both packed and align. but without packed seems to be fine,
+// because there are no holes between the fields.
 #[repr(C, align(16))]
 pub struct X86State {
     // general purpose registers

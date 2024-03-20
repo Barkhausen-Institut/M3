@@ -65,11 +65,6 @@ cfg_if! {
         pub use isa::{Segment, DPL};
         pub type ISR = isa::X86ISR;
     }
-    else if #[cfg(target_arch = "arm")] {
-        #[path = "arm/mod.rs"]
-        mod isa;
-        pub type ISR = isa::ARMISR;
-    }
     else {
         #[path = "riscv/mod.rs"]
         mod isa;

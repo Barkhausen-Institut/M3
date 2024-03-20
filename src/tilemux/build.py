@@ -1,6 +1,3 @@
-import os
-
-
 def build(gen, env):
     env = env.clone()
     # tilemux has to use soft-float, because the applications might use the FPU and we have to make
@@ -10,17 +7,12 @@ def build(gen, env):
 
     # use our own start file (Entry.S)
     env['LINKFLAGS'] += ['-nostartfiles']
-    # for some reason, we need to force the linker to not throw away the isr_* functions on ARM
-    if env['ISA'] == 'arm':
-        env['LINKFLAGS'] += ['-Wl,--whole-archive', '-lisrsf', '-Wl,--no-whole-archive']
 
     dir = env['ISA'] if not env['ISA'].startswith('riscv') else 'riscv'
     entry_file = 'src/arch/' + dir + '/Entry.S'
     entry = env.asm(gen, out=entry_file[:-2] + '.o', ins=[entry_file])
 
     libs = ['isrsf']
-    if env['ISA'] == 'arm':
-        libs += ['gcc_eh']
 
     # build tilemux outside of the workspace to use a different target spec that enables soft-float
     lib = env.m3_cargo(gen, out='libtilemux.a')

@@ -1053,10 +1053,6 @@ impl Activity {
             .unwrap();
         }
 
-        // map vectors
-        #[cfg(target_arch = "arm")]
-        self.map(VirtAddr::null(), base, 1, rx).unwrap();
-
         // insert fixed entry for messages into TLB
         let virt = VirtAddr::from(MsgBuf::borrow_def().bytes().as_ptr());
         let (phys, mut flags) = self.translate(virt, kif::PageFlags::R);

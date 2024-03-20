@@ -48,7 +48,7 @@ These preparations are required when gem5 should be used as the M³ target. To u
     $ cd platform/gem5
     $ scons build/RISCV/gem5.opt # change ISA as needed
 
-The build directory (`build/RISCV` in the example above) will be created automatically. You can build gem5 for a different ISA by changing the path to `build/X86/gem5.opt` or `build/ARM/gem5.opt`. Note that you can specify the number of threads to use for building in the last command via, for example, `-j8`.
+The build directory (`build/RISCV` in the example above) will be created automatically. You can build gem5 for a different ISA by changing the path to `build/X86/gem5.opt`. Note that you can specify the number of threads to use for building in the last command via, for example, `-j8`.
 
 ### 3. Preparations for the hardware platform
 
@@ -76,10 +76,10 @@ Note that the source of the hardware platform is [openly available](https://gith
 
 ### 4. Cross compiler
 
-To build M³, you need to first build a cross compiler for the desired ISA. Note that only gem5 supports all three ISAs (arm is currently broken, though); the hardware platform only supports RISC-V. You can build the cross compiler as follows:
+To build M³, you need to first build a cross compiler for the desired ISA. Note that only gem5 supports all three ISAs; the hardware platform only supports RISC-V. You can build the cross compiler as follows:
 
     $ cd cross
-    $ ./build.sh (x86_64|arm|riscv64)
+    $ ./build.sh (x86_64|riscv32|riscv64)
 
 The cross compiler will be installed to ``<m3-root>/build/cross-<ISA>``.
 

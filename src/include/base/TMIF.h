@@ -47,8 +47,6 @@ enum Operation : word_t {
 #else
 #    if defined(__x86_64__)
 #        include "arch/x86_64/TMABI.h"
-#    elif defined(__arm__)
-#        include "arch/arm/TMABI.h"
 #    elif defined(__riscv)
 #        include "arch/riscv/TMABI.h"
 #    else

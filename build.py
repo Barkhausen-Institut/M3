@@ -9,13 +9,7 @@ isa = os.environ.get('M3_ISA', 'x86_64')
 if (target in ['hw', 'hw22', 'hw23']) and isa != 'riscv64':
     exit('Unsupport ISA "' + isa + '" for hw')
 
-if isa == 'arm':
-    rustisa = isa
-    rustabi = 'musleabi'
-    cross = 'arm-buildroot-linux-musleabi-'
-    crts0 = ['crt0.o', 'crtbegin.o']
-    crtsn = ['crtend.o']
-elif isa == 'riscv32':
+if isa == 'riscv32':
     rustisa = 'riscv32'
     rustabi = 'musl'
     cross = 'riscv32-buildroot-linux-musl-'
@@ -406,11 +400,6 @@ if isa == 'x86_64':
     env['CFLAGS'] += ['-mno-red-zone']
     env['CXXFLAGS'] += ['-mno-red-zone']
     env['LINKFLAGS'] += ['-Wl,-z,noexecstack']
-elif isa == 'arm':
-    env['CFLAGS'] += ['-march=armv7-a']
-    env['CXXFLAGS'] += ['-march=armv7-a']
-    env['LINKFLAGS'] += ['-march=armv7-a', '-Wl,-z,noexecstack']
-    env['ASFLAGS'] += ['-march=armv7-a']
 elif isa == 'riscv32':
     env['CFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
     env['CXXFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']

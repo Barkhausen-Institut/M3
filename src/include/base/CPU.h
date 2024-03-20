@@ -55,8 +55,6 @@ public:
 
 #if defined(__x86_64__)
 #    include <base/arch/x86_64/CPU.h>
-#elif defined(__arm__)
-#    include <base/arch/arm/CPU.h>
 #elif defined(__riscv)
 #    include <base/arch/riscv/CPU.h>
 #else
