@@ -50,7 +50,6 @@ bins = {
 rustapps = []
 rustlibs = []
 rustfeatures = []
-ldscripts = {}
 if isa == 'riscv64' or isa == 'riscv32':
     link_addr = 0x11000000
 else:
@@ -121,9 +120,9 @@ class M3Env(Env):
             # that occurs now and why only for this symbol.
             libs = baselibs + m3libs + libs + ['c']
 
-        global ldscripts
-        env['LINKFLAGS'] += ['-Wl,-T,' + ldscripts[ldscript]]
-        deps = [ldscripts[ldscript]] + [env['LIBDIR'] + '/' + crt for crt in crts0 + crtsn]
+        ldconf = env['LDDIR'] + '/ld-' + ldscript + '.conf'
+        env['LINKFLAGS'] += ['-Wl,-T,' + ldconf]
+        deps = [ldconf] + [env['LIBDIR'] + '/' + crt for crt in crts0 + crtsn]
 
         if varAddr:
             global link_addr
@@ -348,6 +347,7 @@ env['LXLIBDIR'] = builddir + '/lxlib'
 env['MEMDIR'] = builddir + '/mem'
 env['TOOLDIR'] = builddir + '/toolsbin'
 env['RUSTLIBS'] = builddir + '/rust/libs'
+env['LDDIR'] = builddir + '/ldscripts'
 
 # for host compilation
 hostenv = env.clone()
@@ -438,22 +438,6 @@ gen.add_rule('elf2hex', Rule(
     cmd=env['TOOLDIR'] + '/elf2hex $in > $out',
     desc='ELF2HEX $out',
 ))
-
-# generate linker scripts
-ldscript = 'src/toolchain/ld.conf'
-ldscripts['default'] = env.cpp(gen, out='ld-default.conf', input=ldscript)
-
-bare_env = env.clone()
-bare_env['CPPFLAGS'] += ['-D__baremetal__=1']
-ldscripts['baremetal'] = bare_env.cpp(gen, out='ld-baremetal.conf', input=ldscript)
-
-isr_env = env.clone()
-isr_env['CPPFLAGS'] += ['-D__baremetal__=1', '-D__isr__=1']
-ldscripts['isr'] = isr_env.cpp(gen, out='ld-isr.conf', input=ldscript)
-
-tilemux_env = env.clone()
-tilemux_env['CPPFLAGS'] += ['-D__isr__=1', '-D__tilemux__=1']
-ldscripts['tilemux'] = tilemux_env.cpp(gen, out='ld-tilemux.conf', input=ldscript)
 
 # generate build edges
 env.sub_build(gen, 'src')

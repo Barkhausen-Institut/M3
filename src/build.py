@@ -1,4 +1,5 @@
 dirs = [
+    "toolchain", # generate linker scripts first
     "apps",
     "kernel",
     "libs",
