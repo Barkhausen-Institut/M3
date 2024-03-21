@@ -38,16 +38,8 @@ export M3_BUILD M3_TARGET M3_ISA M3_OUT
 # determine cross compiler and rust ABI based on target and ISA
 root=$(readlink -f .)
 crossdir="./build/cross-$M3_ISA/host"
-if [ "$M3_ISA" = "riscv32" ]; then
-    crossname="riscv32-buildroot-linux-musl-"
-elif [ "$M3_ISA" = "riscv64" ]; then
-    crossname="riscv64-buildroot-linux-musl-"
-else
-    crossname="x86_64-buildroot-linux-musl-"
-fi
+crossname="$M3_ISA-buildroot-linux-musl-"
 crossprefix="$crossdir/bin/$crossname"
-PATH="$root/$crossdir/bin:$PATH"
-export PATH
 if [ "$M3_BUILD" = "coverage" ]; then
     rustabi='muslcov'
 else
@@ -332,6 +324,25 @@ if [ $skipbuild -eq 0 ]; then
     fi
 fi
 
+get_isa() {
+    file=$(file -b "$1")
+    if [[ "$file" = *x86-64* ]]; then
+        isa="x86_64"
+    elif [[ "$file" = *32-bit*RISC-V* ]]; then
+        isa="riscv32"
+    elif [[ "$file" = *64-bit*RISC-V* ]]; then
+        isa="riscv64"
+    else
+        isa="unknown"
+    fi
+    echo $isa
+}
+
+get_cross_prefix() {
+    isa=$(get_isa "$1")
+    echo "./build/cross-$isa/host/bin/$isa-buildroot-linux-musl-"
+}
+
 run_clippy() {
     target=()
     if [[ "$1" = tools/* ]]; then
@@ -434,7 +445,8 @@ case "$cmd" in
                 echo "display/i \$pc"
                 echo "b main"
             } > "$gdbcmd"
-            RUST_GDB=${crossprefix}gdb rust-gdb --tui "$bindir/${cmd#dbg=}" "--command=$gdbcmd"
+            gdb=$(get_cross_prefix "$bindir/${cmd#dbg=}")gdb
+            RUST_GDB=$gdb rust-gdb --tui "$bindir/${cmd#dbg=}" "--command=$gdbcmd"
 
             killall -9 gem5.opt
             rm "$gdbcmd"
@@ -470,7 +482,8 @@ case "$cmd" in
             } > "$gdbcmd"
 
             # differentiate between baremetal components and others
-            entry=$("${crossprefix}readelf" -h "$bindir/${cmd#dbg=}" | \
+            rdelf=$(get_cross_prefix "$bindir/${cmd#dbg=}")
+            entry=$($rdelf -h "$bindir/${cmd#dbg=}" | \
                 grep "Entry point" | awk '{ print($4) }')
             if [ "$entry" = "0x10000000" ]; then
                 echo "b env_run" >> "$gdbcmd"
@@ -486,12 +499,13 @@ case "$cmd" in
             fi
             echo "display/i \$pc" >> "$gdbcmd"
 
-            RUST_GDB=${crossprefix}gdb rust-gdb --tui "$symbols" "--command=$gdbcmd"
+            gdb=$(get_cross_prefix "$symbols")gdb
+            RUST_GDB=$gdb rust-gdb --tui "$symbols" "--command=$gdbcmd"
         fi
         ;;
 
     bt=*)
-        ./tools/backtrace.py "$crossprefix" "$bindir/${cmd#bt=}"
+        ./tools/backtrace.py "$(get_cross_prefix "$bindir/${cmd#bt=}")" "$bindir/${cmd#bt=}"
         ;;
 
     hwitrace=*)
@@ -500,7 +514,7 @@ case "$cmd" in
         for f in ${names//,/ }; do
             paths=("${paths[@]}" "$build/bin/$f")
         done
-        "$tooldir/hwitrace" "$crossprefix" "${paths[@]}" | less
+        "$tooldir/hwitrace" "$(get_cross_prefix "${paths[@]}")" "${paths[@]}" | less
         ;;
 
     trace=*)
@@ -509,7 +523,7 @@ case "$cmd" in
         for f in ${names//,/ }; do
             paths=("${paths[@]}" "$build/bin/$f")
         done
-        "$tooldir/gem5log" "$M3_ISA" trace "${paths[@]}" | less
+        "$tooldir/gem5log" trace "${paths[@]}" | less
         ;;
 
     tracelx=*)
@@ -518,7 +532,7 @@ case "$cmd" in
         for f in ${names//,/ }; do
             paths=("${paths[@]}" "$build/lxbin/$f+0x2AAAAAA000")
         done
-        "$tooldir/gem5log" "$M3_ISA" trace "${paths[@]}" | less
+        "$tooldir/gem5log" trace "${paths[@]}" | less
         ;;
 
     flamegraph=*)
@@ -528,7 +542,7 @@ case "$cmd" in
             paths=("${paths[@]}" "$build/bin/$f")
         done
         # inferno-flamegraph is available at https://github.com/jonhoo/inferno
-        "$tooldir/gem5log" "$M3_ISA" flamegraph "${paths[@]}" | inferno-flamegraph --countname ns
+        "$tooldir/gem5log" flamegraph "${paths[@]}" | inferno-flamegraph --countname ns
         ;;
 
     snapshot=*)
@@ -537,18 +551,20 @@ case "$cmd" in
         for f in ${names//,/ }; do
             paths=("${paths[@]}" "$build/bin/$f")
         done
-        "$tooldir/gem5log" "$M3_ISA" snapshot "$script" "${paths[@]}"
+        "$tooldir/gem5log" snapshot "$script" "${paths[@]}"
         ;;
 
     # -- program analysis --
 
     ctors=*)
         file=$bindir/${cmd#ctors=}
+        isa=$(get_isa "$file")
+        crossprefix=$(get_cross_prefix "$file")
         section=$("${crossprefix}readelf" -SW "$file" | \
             grep "\.ctors\|\.init_array" | sed -e 's/\[.*\]//g' | xargs)
         off=0x$(echo "$section" | cut -d ' ' -f 4)
         len=0x$(echo "$section" | cut -d ' ' -f 5)
-        if [ "$M3_ISA" = "x86_64" ] || [ "$M3_ISA" = "riscv64" ]; then
+        if [ "$isa" = "x86_64" ] || [ "$isa" = "riscv64" ]; then
             bytes=8
         else
             bytes=4
@@ -563,19 +579,20 @@ case "$cmd" in
         ;;
 
     dis=*)
-        "${crossprefix}objdump" -dC "$bindir/${cmd#dis=}" | less
+        "$(get_cross_prefix "$bindir/${cmd#dis=}")objdump" -dC "$bindir/${cmd#dis=}" | less
         ;;
 
     elf=*)
-        "${crossprefix}readelf" -aW "$bindir/${cmd#elf=}" | c++filt | less
+        "$(get_cross_prefix "$bindir/${cmd#elf=}")readelf" -aW "$bindir/${cmd#elf=}" \
+            | c++filt | less
         ;;
 
     list)
         echo "Start of section .text:"
         while IFS= read -r -d '' l; do
-            "${crossprefix}readelf" -S "$build/bin/$l" | \
+            "$(get_cross_prefix "$build/bin/$l")readelf" -S "$build/bin/$l" | \
                 grep " \.text " | awk "{ printf(\"%20s: %s\n\",\"$l\",\$5) }"
-        done < <(find "$build/bin" -type f \! \( -name "*.o" -o -name "*.a" \) -printf "%f\0") | sort -k 2
+        done < <(find "$build/bin" -maxdepth 1 -type f \! \( -name "*.o" -o -name "*.a" \) -printf "%f\0") | sort -k 2
         ;;
 
     macros=*)
@@ -585,15 +602,16 @@ case "$cmd" in
         ;;
 
     nma=*)
-        "${crossprefix}nm" -SCn "$bindir/${cmd#nma=}" | less
+        "$(get_cross_prefix "$bindir/${cmd#nma=}")nm" -SCn "$bindir/${cmd#nma=}" | less
         ;;
 
     nms=*)
-        "${crossprefix}nm" -SC --size-sort "$bindir/${cmd#nms=}" | less
+        "$(get_cross_prefix "$bindir/${cmd#nms=}")nm" -SC --size-sort "$bindir/${cmd#nms=}" | less
         ;;
 
     straddr=*)
         binary=$bindir/${cmd#straddr=}
+        crossprefix=$(get_cross_prefix "$binary")
         str=$script
         echo "Strings containing '$str' in $binary:"
         # find base address of .rodata

@@ -298,7 +298,7 @@ impl<'n> Thread<'n> {
     }
 }
 
-fn instr_is_sp_assign(isa: &crate::ISA, line: &str) -> bool {
+fn instr_is_sp_assign(isa: crate::ISA, line: &str) -> bool {
     // find the "first" instruction that tells us the stack pointer
     match isa {
         crate::ISA::X86_64 => line.contains("subi   rsp, rsp, 0x8"),
@@ -308,7 +308,7 @@ fn instr_is_sp_assign(isa: &crate::ISA, line: &str) -> bool {
     }
 }
 
-fn instr_is_sp_init(isa: &crate::ISA, line: &str) -> bool {
+fn instr_is_sp_init(isa: crate::ISA, line: &str) -> bool {
     // find the specific line in thread_resume that inits the stack pointer
     match isa {
         crate::ISA::X86_64 => line.contains("ld   rsp, DS:[rdi + 0x8]"),
@@ -317,7 +317,7 @@ fn instr_is_sp_init(isa: &crate::ISA, line: &str) -> bool {
     }
 }
 
-fn is_isr_exit(isa: &crate::ISA, line: &str) -> bool {
+fn is_isr_exit(isa: crate::ISA, line: &str) -> bool {
     match isa {
         crate::ISA::X86_64 => line.contains("IRET_PROT : wrip   , t0, t1"),
         crate::ISA::RISCV32 | crate::ISA::RISCV64 => line.contains("sret"),
@@ -373,7 +373,7 @@ fn handle_return(
 pub fn generate(
     mode: crate::Mode,
     snapshot_time: u64,
-    isa: &crate::ISA,
+    isa: crate::ISA,
     syms: &BTreeMap<usize, symbols::Symbol>,
 ) -> Result<(), Error> {
     let mut last_time = 0;

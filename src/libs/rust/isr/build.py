@@ -1,13 +1,12 @@
 def build(gen, env):
-    dir = env['ISA'] if not env['ISA'].startswith('riscv') else 'riscv'
-    files = ['src/' + dir + '/Entry.S']
+    for isa in env['ALL_ISAS']:
+        for sf in [True, False]:
+            env = env.new(isa, sf)
 
-    lib = env.static_lib(gen, out='isr', ins=files)
-    env.install(gen, env['LIBDIR'], lib)
+            dir = isa if not isa.startswith('riscv') else 'riscv'
+            files = ['src/' + dir + '/Entry.S']
 
-    sf_env = env.clone()
-    sf_env.soft_float()
-    lib = sf_env.static_lib(gen, out='isrsf', ins=files)
-    sf_env.install(gen, sf_env['LIBDIR'], lib)
+            lib = env.static_lib(gen, out='isr-' + isa + '-' + str(sf), ins=files)
+            env.install_as(gen, env['LIBDIR'] + '/libisr.a', lib)
 
     env.m3_rust_lib(gen)

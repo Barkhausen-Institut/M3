@@ -9,40 +9,6 @@ isa = os.environ.get('M3_ISA', 'x86_64')
 if (target in ['hw', 'hw22', 'hw23']) and isa != 'riscv64':
     exit('Unsupport ISA "' + isa + '" for hw')
 
-if isa == 'riscv32':
-    rustisa = 'riscv32'
-    rustabi = 'musl'
-    cross = 'riscv32-buildroot-linux-musl-'
-    crts0 = ['crt0.o', 'crtbegin.o']
-    crtsn = ['crtend.o']
-elif isa == 'riscv64':
-    rustisa = 'riscv64'
-    rustabi = 'musl'
-    cross = 'riscv64-buildroot-linux-musl-'
-    crts0 = ['crt0.o', 'crtbegin.o']
-    crtsn = ['crtend.o']
-else:
-    rustisa = isa
-    rustabi = 'musl'
-    cross = 'x86_64-buildroot-linux-musl-'
-    crts0 = ['crt0.o', 'crt1.o', 'crtbegin.o']
-    crtsn = ['crtend.o', 'crtn.o']
-if os.environ.get('M3_BUILD') == 'coverage':
-    rustabi = 'muslcov'
-crossdir = os.path.abspath('build/cross-' + isa + '/host')
-crossver = '13.2.0'
-
-# ensure that the cross compiler is installed and up to date
-crossgcc = crossdir + '/bin/' + cross + 'g++'
-if not os.path.isfile(crossgcc):
-    sys.exit('Please install the ' + isa + ' cross compiler first '
-             + '(cd cross && ./build.sh ' + isa + ').')
-else:
-    ver = subprocess.check_output([crossgcc, '-dumpversion']).decode().strip()
-    if ver != crossver:
-        sys.exit('Please update the ' + isa + ' cross compiler from '
-                 + ver + ' to ' + crossver + ' (cd cross && ./build.sh ' + isa + ' clean all).')
-
 bins = {
     'bin': [],
     'sbin': [],
@@ -50,6 +16,7 @@ bins = {
 rustapps = []
 rustlibs = []
 rustfeatures = []
+nextenvid = 1
 if isa == 'riscv64' or isa == 'riscv32':
     link_addr = 0x11000000
 else:
@@ -58,9 +25,128 @@ else:
 
 class M3Env(Env):
     def clone(self):
+        global nextenvid
         env = Env.clone(self)
+        env.baseenv = self.baseenv
         if hasattr(self, 'hostenv'):
             env.hostenv = self.hostenv
+        env._id = nextenvid + 1
+        nextenvid += 1
+        return env
+
+    def new(self, isa, soft_float=False, m3=True):
+        env = self.baseenv.clone()
+
+        # ISA-dependent paths
+        fl = 'sf' if soft_float else 'hf'
+        env['LIBDIR'] = env['BUILDDIR'] + '/lib/' + isa + '-' + fl
+        env['LDDIR'] = env['BUILDDIR'] + '/ldscripts/' + isa
+        env['ISA'] = isa
+
+        # cross compiler defines
+        if os.environ.get('M3_BUILD') == 'coverage':
+            rustabi = 'muslcov'
+        else:
+            rustabi = 'musl'
+        cross = isa + '-buildroot-linux-musl-'
+        crossdir = os.path.abspath('build/cross-' + isa + '/host')
+        crossver = '13.2.0'
+        env['CROSS'] = cross
+        env['CROSSDIR'] = crossdir
+        env['CROSSVER'] = crossver
+        # we cannot rely on PATH here, because PATH is defined for M3_ISA, which might be different
+        # from the isa chosen for this environment
+        env['CXX'] = crossdir + '/bin/' + cross + 'g++'
+        env['CPP'] = crossdir + '/bin/' + cross + 'cpp'
+        env['AS'] = crossdir + '/bin/' + cross + 'gcc'
+        env['CC'] = crossdir + '/bin/' + cross + 'gcc'
+        env['AR'] = crossdir + '/bin/' + cross + 'gcc-ar'
+        env['RANLIB'] = crossdir + '/bin/' + cross + 'gcc-ranlib'
+        env['STRIP'] = crossdir + '/bin/' + cross + 'strip'
+        env['SHLINK'] = crossdir + '/bin/' + cross + 'gcc'
+
+        # ensure that the cross compiler is installed and up to date
+        crossgcc = crossdir + '/bin/' + cross + 'g++'
+        if not os.path.isfile(crossgcc):
+            sys.exit('Please install the ' + isa + ' cross compiler first '
+                     + '(cd cross && ./build.sh ' + isa + ').')
+        else:
+            ver = subprocess.check_output([crossgcc, '-dumpversion']).decode().strip()
+            if ver != crossver:
+                sys.exit('Please update the ' + isa + ' cross compiler from '
+                         + ver + ' to ' + crossver + ' (cd cross && ./build.sh ' + isa + ' clean all).')
+
+        # basic flags for target compilation
+        env['CPPFLAGS'] += ['-D__' + target + '__']
+        env['CFLAGS'] += [
+            '-gdwarf-2', '-fno-stack-protector', '-ffunction-sections', '-fdata-sections'
+        ]
+        env['CXXFLAGS'] += [
+            '-std=c++20', '-fno-strict-aliasing', '-gdwarf-2', '-fno-omit-frame-pointer',
+            '-fno-stack-protector', '-Wno-address-of-packed-member',
+            '-ffunction-sections', '-fdata-sections'
+        ]
+        env['LINKFLAGS'] += [
+            '-Wl,--gc-section', '-Wno-lto-type-mismatch', '-fno-stack-protector'
+        ]
+
+        # m3-specific settings
+        if m3:
+            env['CXXFLAGS'] += ['-fno-builtin', '-fno-threadsafe-statics']
+            env['CPPFLAGS'] += ['-D_GNU_SOURCE']
+            env['TRIPLE'] = isa + '-linux-m3-' + rustabi
+            if soft_float:
+                env['TRIPLE'] += 'sf'
+
+            if isa == 'x86_64':
+                # disable red-zone for all applications, because we used the application's stack in
+                # rctmux's IRQ handlers since applications run in privileged mode. TODO can we
+                # enable that now?
+                env['CFLAGS'] += ['-mno-red-zone']
+                env['CXXFLAGS'] += ['-mno-red-zone']
+                env['LINKFLAGS'] += ['-Wl,-z,noexecstack']
+                if soft_float:
+                    env['ASFLAGS'] += ['-msoft-float', '-mno-sse']
+                    env['CFLAGS'] += ['-msoft-float', '-mno-sse']
+                    env['CXXFLAGS'] += ['-msoft-float', '-mno-sse']
+            elif isa.startswith('riscv'):
+                abi = 'ilp32' if isa == 'riscv32' else 'lp64'
+                arch = 'rv32ima' if isa == 'riscv32' else 'rv64ima'
+                harch = arch + 'fdc'
+                sarch = arch + 'c'
+                habi = abi + 'd'
+                # make sure that embedded C-code or similar (minicov with llvm-profile library)
+                # for Rust is built with soft-float as well
+                cflags = os.environ.get('TARGET_CFLAGS')
+                if soft_float and cflags:
+                    cflags = cflags.replace('-march=' + harch, '-march=' + sarch)
+                    cflags = cflags.replace('-mabi=' + habi, '-mabi=' + abi)
+                    self['CRGENV']['TARGET_CFLAGS'] = cflags
+                arch = sarch if soft_float else harch
+                abi = abi if soft_float else habi
+                env['CFLAGS'] += ['-march=' + arch, '-mabi=' + abi]
+                env['CXXFLAGS'] += ['-march=' + arch, '-mabi=' + abi]
+                env['LINKFLAGS'] += ['-march=' + arch, '-mabi=' + abi]
+                # in assembly, we always want to have all instructions available
+                env['ASFLAGS'] += ['-march=' + harch, '-mabi=' + abi]
+
+            env['CPPPATH'] += [
+                # cross directories only to make clangd happy
+                crossdir + '/' + cross[:-1] + '/include/c++/' + crossver,
+                crossdir + '/' + cross[:-1] + '/include/c++/' + crossver + '/' + cross[:-1],
+                'src/libs/musl/arch/' + isa,
+                'src/libs/musl/arch/generic',
+                'src/libs/musl/m3/include/' + isa,
+                'src/libs/musl/include',
+            ]
+            # we install the crt* files to that directory
+            env['SYSGCCLIBPATH'] = crossdir + '/lib/gcc/' + cross[:-1] + '/' + crossver
+            # no build-id because it confuses gem5
+            env['LINKFLAGS'] += ['-static', '-Wl,--build-id=none']
+            # binaries get very large otherwise
+            env['LINKFLAGS'] += ['-Wl,-z,max-page-size=4096', '-Wl,-z,common-page-size=4096']
+            env['LIBPATH'] += [crossdir + '/lib', env['LIBDIR']]
+
         return env
 
     def try_execute(self, cmd):
@@ -76,37 +162,6 @@ class M3Env(Env):
         ))
         return out
 
-    def soft_float(self):
-        if self['ISA'] == 'x86_64':
-            self['ASFLAGS'] += ['-msoft-float', '-mno-sse']
-            self['CFLAGS'] += ['-msoft-float', '-mno-sse']
-            self['CXXFLAGS'] += ['-msoft-float', '-mno-sse']
-        elif self['ISA'] == 'riscv32':
-            self['ASFLAGS'] += ['-mabi=ilp32']
-            self['CFLAGS'] += ['-march=rv32imac', '-mabi=ilp32']
-            self['CXXFLAGS'] += ['-march=rv32imac', '-mabi=ilp32']
-            self['LINKFLAGS'] += ['-march=rv32imac', '-mabi=ilp32']
-            # make sure that embedded C-code or similar (minicov with llvm-profile library)
-            # for Rust is built with soft-float as well
-            cflags = os.environ.get('TARGET_CFLAGS')
-            if cflags:
-                cflags = cflags.replace('-march=rv32imafdc', '-march=rv32imac')
-                cflags = cflags.replace('-mabi=ilp32d', '-mabi=ilp32')
-                self['CRGENV']['TARGET_CFLAGS'] = cflags
-        elif self['ISA'] == 'riscv64':
-            self['ASFLAGS'] += ['-mabi=lp64']
-            self['CFLAGS'] += ['-march=rv64imac', '-mabi=lp64']
-            self['CXXFLAGS'] += ['-march=rv64imac', '-mabi=lp64']
-            # make sure that embedded C-code or similar (minicov with llvm-profile library)
-            # for Rust is built with soft-float as well
-            cflags = os.environ.get('TARGET_CFLAGS')
-            if cflags:
-                cflags = cflags.replace('-march=rv64imafdc', '-march=rv64imac')
-                cflags = cflags.replace('-mabi=lp64d', '-mabi=lp64')
-                self['CRGENV']['TARGET_CFLAGS'] = cflags
-        # use the soft-float target spec for rust
-        self['TRIPLE'] += 'sf'
-
     def m3_exe(self, gen, out, ins, libs=[], dir='bin', NoSup=False,
                ldscript='default', varAddr=True):
         env = self.clone()
@@ -120,6 +175,13 @@ class M3Env(Env):
             # that occurs now and why only for this symbol.
             libs = baselibs + m3libs + libs + ['c']
 
+        if env['ISA'].startswith('riscv'):
+            crts0 = ['crt0.o', 'crtbegin.o']
+            crtsn = ['crtend.o']
+        else:
+            crts0 = ['crt0.o', 'crt1.o', 'crtbegin.o']
+            crtsn = ['crtend.o', 'crtn.o']
+
         ldconf = env['LDDIR'] + '/ld-' + ldscript + '.conf'
         env['LINKFLAGS'] += ['-Wl,-T,' + ldconf]
         deps = [ldconf] + [env['LIBDIR'] + '/' + crt for crt in crts0 + crtsn]
@@ -132,16 +194,14 @@ class M3Env(Env):
         # we provide our own start files, unless no start files are desired by the app
         if '-nostartfiles' not in env['LINKFLAGS']:
             env['LINKFLAGS'] += ['-nostartfiles']
-            crt0_objs = [BuildPath(self['BINDIR'] + '/' + f) for f in crts0]
-            crtn_objs = [BuildPath(self['BINDIR'] + '/' + f) for f in crtsn]
+            crt0_objs = [BuildPath(self['LIBDIR'] + '/' + f) for f in crts0]
+            crtn_objs = [BuildPath(self['LIBDIR'] + '/' + f) for f in crtsn]
             ins = crt0_objs + ins + crtn_objs
 
         # TODO workaround to ensure that our memcpy, etc. is used instead of the one from Rust's
         # compiler-builtins crate (or musl), because those are poor implementations.
-        fileext = 'sf.o' if env['TRIPLE'].endswith('sf') else 'o'
         for cc in ['memcmp', 'memcpy', 'memset', 'memmove', 'memzero']:
-            src = SourcePath('src/libs/memory/' + cc + '.cc')
-            ins.append(BuildPath.with_file_ext(env, src, fileext))
+            ins.append(BuildPath(env['LIBDIR'] + '/' + cc + '.o'))
 
         bin = env.cxx_exe(gen, out, ins, libs, deps)
         if env['TGT'] in ['hw', 'hw22', 'hw23']:
@@ -154,24 +214,21 @@ class M3Env(Env):
             bins[dir].append(stripped)
         return bin
 
-    def m3_rust_exe(self, gen, out, libs=[], dir='bin', startup=None,
-                    ldscript='default', varAddr=True, std=False, features=[]):
+    def m3_rust_exe(self, gen, out, libs=[], dir='bin', startup=None, ldscript='default',
+                    varAddr=True, std=False, features=[], cargo_ws=True):
         global rustapps, rustfeatures
-        if out != 'tilemux':
+        if cargo_ws:
             rustapps += [self.cur_dir]
         rustfeatures += features
 
         env = self.clone()
         env['LINKFLAGS'] += ['-Wl,-z,muldefs']
         env['LIBPATH'] += [env['RUSTLIBS']]
-        ins = [] if startup is None else [startup]
-        if std:
-            libs = ['c', 'gem5', 'gcc', 'gcc_eh', out] + libs
-        elif out == 'tilemux':
-            libs = ['simplecsf', 'gem5sf', out] + libs
-        else:
-            libs = ['simplec', 'gem5', 'gcc', 'gcc_eh', out] + libs
         env['LINKFLAGS'] += ['-nodefaultlibs']
+
+        ins = [] if startup is None else [startup]
+        clib = 'c' if std else 'simplec'
+        libs = [clib, 'gem5', 'gcc', 'gcc_eh', out] + libs
 
         return env.m3_exe(gen, out, ins, libs, dir, True, ldscript, varAddr)
 
@@ -334,6 +391,11 @@ else:
 if btype == 'bench':
     env['CPPFLAGS'] += ['-Dbench']
 
+if target == 'gem5':
+    env['ALL_ISAS'] = ['riscv32', 'riscv64', 'x86_64']
+else:
+    env['ALL_ISAS'] = ['riscv32', 'riscv64']
+
 # add some important paths
 builddir = 'build/' + target + '-' + isa + '-' + btype
 env['TGT'] = target
@@ -342,12 +404,11 @@ env['BUILD'] = btype
 env['BUILDDIR'] = builddir
 env['BINDIR'] = builddir + '/bin'
 env['BINDIRSTRIP'] = builddir + '/bin/stripped'
-env['LIBDIR'] = builddir + '/bin'
 env['LXLIBDIR'] = builddir + '/lxlib'
 env['MEMDIR'] = builddir + '/mem'
 env['TOOLDIR'] = builddir + '/toolsbin'
 env['RUSTLIBS'] = builddir + '/rust/libs'
-env['LDDIR'] = builddir + '/ldscripts'
+env.baseenv = env
 
 # for host compilation
 hostenv = env.clone()
@@ -357,75 +418,10 @@ if btype != 'debug':
     hostenv.remove_flag('CXXFLAGS', '-flto=auto')
     hostenv.remove_flag('CFLAGS', '-flto=auto')
     hostenv.remove_flag('LINKFLAGS', '-flto=auto')
-
-# for target compilation
-env['CROSS'] = cross
-env['CROSSDIR'] = crossdir
-env['CROSSVER'] = crossver
-env['CXX'] = cross + 'g++'
-env['CPP'] = cross + 'cpp'
-env['AS'] = cross + 'gcc'
-env['CC'] = cross + 'gcc'
-env['AR'] = cross + 'gcc-ar'
-env['RANLIB'] = cross + 'gcc-ranlib'
-env['STRIP'] = cross + 'strip'
-env['SHLINK'] = cross + 'gcc'
-
-# basic flags for target compilation
-env['CPPFLAGS'] += ['-D__' + target + '__']
-env['CFLAGS'] += ['-gdwarf-2', '-fno-stack-protector', '-ffunction-sections', '-fdata-sections']
-env['CXXFLAGS'] += [
-    '-std=c++20', '-fno-strict-aliasing', '-gdwarf-2', '-fno-omit-frame-pointer',
-    '-fno-stack-protector', '-Wno-address-of-packed-member',
-    '-ffunction-sections', '-fdata-sections'
-]
-env['LINKFLAGS'] += ['-Wl,--gc-section', '-Wno-lto-type-mismatch', '-fno-stack-protector']
-
-# for linux compilation
-lxenv = env.clone()
-lxenv['CPPFLAGS'] += ['-D__m3lx__']
-lxenv['TRIPLE'] = 'riscv64gc-unknown-linux-gnu'
-lxenv['RUSTOUT'] = 'm3lx'
-lxenv['RUSTBINS'] = builddir + '/lxbin'
-
 env.hostenv = hostenv
 
-# m3-specific settings
-env['CXXFLAGS'] += ['-fno-builtin', '-fno-threadsafe-statics']
-env['CPPFLAGS'] += ['-D_GNU_SOURCE']
-env['TRIPLE'] = rustisa + '-linux-m3-' + rustabi
-if isa == 'x86_64':
-    # disable red-zone for all applications, because we used the application's stack in rctmux's
-    # IRQ handlers since applications run in privileged mode. TODO can we enable that now?
-    env['CFLAGS'] += ['-mno-red-zone']
-    env['CXXFLAGS'] += ['-mno-red-zone']
-    env['LINKFLAGS'] += ['-Wl,-z,noexecstack']
-elif isa == 'riscv32':
-    env['CFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
-    env['CXXFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
-    env['LINKFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
-    env['ASFLAGS'] += ['-march=rv32imafdc', '-mabi=ilp32d']
-elif isa == 'riscv64':
-    env['CFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
-    env['CXXFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
-    env['LINKFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
-    env['ASFLAGS'] += ['-march=rv64imafdc', '-mabi=lp64d']
-env['CPPPATH'] += [
-    # cross directories only to make clangd happy
-    crossdir + '/' + cross[:-1] + '/include/c++/' + crossver,
-    crossdir + '/' + cross[:-1] + '/include/c++/' + crossver + '/' + cross[:-1],
-    'src/libs/musl/arch/' + isa,
-    'src/libs/musl/arch/generic',
-    'src/libs/musl/m3/include/' + isa,
-    'src/libs/musl/include',
-]
-# we install the crt* files to that directory
-env['SYSGCCLIBPATH'] = crossdir + '/lib/gcc/' + cross[:-1] + '/' + crossver
-# no build-id because it confuses gem5
-env['LINKFLAGS'] += ['-static', '-Wl,--build-id=none']
-# binaries get very large otherwise
-env['LINKFLAGS'] += ['-Wl,-z,max-page-size=4096', '-Wl,-z,common-page-size=4096']
-env['LIBPATH'] += [crossdir + '/lib', env['LIBDIR']]
+# load M³ environment with the default ISA
+env = env.new(env['ISA'], False, True)
 
 # start the generation
 gen = Generator()
@@ -442,7 +438,14 @@ gen.add_rule('elf2hex', Rule(
 # generate build edges
 env.sub_build(gen, 'src')
 env.sub_build(gen, 'tools')
+
+# build m3lx
 if isa == 'riscv64' and os.path.exists('src/m3lx/build.py'):
+    lxenv = env.new(env['ISA'], False, False)
+    lxenv['CPPFLAGS'] += ['-D__m3lx__']
+    lxenv['TRIPLE'] = 'riscv64gc-unknown-linux-gnu'
+    lxenv['RUSTOUT'] = 'm3lx'
+    lxenv['RUSTBINS'] = builddir + '/lxbin'
     lxenv.sub_build(gen, 'src/m3lx')
 
 # finally, write it to file

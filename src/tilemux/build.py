@@ -1,9 +1,8 @@
 def build(gen, env):
-    env = env.clone()
     # tilemux has to use soft-float, because the applications might use the FPU and we have to make
     # sure to not overwrite the state (otherwise we would have to save&restore the complete state
     # on every entry and exit).
-    env.soft_float()
+    env = env.new(env['ISA'], True)
 
     # use our own start file (Entry.S)
     env['LINKFLAGS'] += ['-nostartfiles']
@@ -11,8 +10,6 @@ def build(gen, env):
     dir = env['ISA'] if not env['ISA'].startswith('riscv') else 'riscv'
     entry_file = 'src/arch/' + dir + '/Entry.S'
     entry = env.asm(gen, out=entry_file[:-2] + '.o', ins=[entry_file])
-
-    libs = ['isrsf']
 
     # build tilemux outside of the workspace to use a different target spec that enables soft-float
     lib = env.m3_cargo(gen, out='libtilemux.a')
@@ -22,9 +19,10 @@ def build(gen, env):
     env.m3_rust_exe(
         gen,
         out='tilemux',
-        libs=libs,
+        libs=['isr'],
         dir=None,
         ldscript='tilemux',
         startup=entry,
-        varAddr=False
+        varAddr=False,
+        cargo_ws=False,
     )

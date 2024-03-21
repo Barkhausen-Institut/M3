@@ -23,6 +23,7 @@ pub enum Error {
     LogLevel(log::ParseLevelError),
     SetLog(log::SetLoggerError),
     Nm(i32),
+    UnknownISA,
     InvalPath,
     Internal,
 }
@@ -50,6 +51,7 @@ impl fmt::Debug for Error {
             Error::SetLog(e) => write!(fmt, "Setting logger failed: {}", e),
             Error::LogLevel(e) => write!(fmt, "Parsing log level failed: {}", e),
             Error::Nm(c) => write!(fmt, "nm -SC <bin> failed: {}", c),
+            Error::UnknownISA => write!(fmt, "unknown ISA"),
             Error::InvalPath => write!(fmt, "path is invalid"),
             Error::Internal => write!(fmt, "internal error"),
         }
