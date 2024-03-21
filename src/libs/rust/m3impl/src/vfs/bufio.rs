@@ -118,11 +118,9 @@ impl<R: Read + Seek> Seek for BufReader<R> {
             };
         }
 
-        if off != 0 {
-            // invalidate buffer
-            self.pos = 0;
-            self.cap = 0;
-        }
+        // invalidate buffer
+        self.pos = 0;
+        self.cap = 0;
         self.reader.seek(off, whence)
     }
 }
