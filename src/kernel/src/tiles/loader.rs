@@ -13,11 +13,13 @@
  * General Public License version 2 for more details.
  */
 
+use core::mem::size_of_val;
+
 use base::cfg::{ENV_START, MEM_OFFSET, MOD_HEAP_SIZE, PAGE_BITS, PAGE_MASK, PAGE_SIZE};
 use base::elf;
 use base::env;
 use base::errors::{Code, Error};
-use base::io::LogFlags;
+use base::io::{read_object, LogFlags, Read};
 use base::kif::{self, PageFlags};
 use base::log;
 use base::mem::{size_of, GlobAddr, GlobOff, PhysAddr, VirtAddr};
@@ -182,13 +184,29 @@ fn get_mod(name: &str) -> Option<&kif::boot::Mod> {
     None
 }
 
-fn read_from_mod<T: Default>(bm: &kif::boot::Mod, off: GlobOff) -> Result<T, Error> {
-    if off + size_of::<T>() as GlobOff > bm.size {
-        return Err(Error::new(Code::InvalidElf));
-    }
+struct KernelBootMod<'a> {
+    bm: &'a kif::boot::Mod,
+    off: GlobOff,
+}
 
-    let gaddr = GlobAddr::new(bm.addr);
-    Ok(ktcu::read_obj(gaddr.tile(), gaddr.offset() + off))
+impl KernelBootMod<'_> {
+    fn seek(&mut self, pos: GlobOff) {
+        self.off = pos;
+    }
+}
+
+impl<'a> Read for KernelBootMod<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        if self.off + buf.len() as GlobOff > self.bm.size {
+            return Err(Error::new(Code::InvalidElf));
+        }
+
+        let gaddr = GlobAddr::new(self.bm.addr);
+        ktcu::read_slice(gaddr.tile(), gaddr.offset() + self.off, buf);
+        self.off += buf.len() as GlobOff;
+
+        Ok(buf.len())
+    }
 }
 
 fn load_mod_async<L>(loader: &mut L, bm: &kif::boot::Mod) -> Result<VirtAddr, Error>
@@ -196,48 +214,44 @@ where
     L: ELFLoader,
 {
     let mod_addr = GlobAddr::new(bm.addr);
-    let hdr: elf::ElfHeader = read_from_mod(bm, 0)?;
 
-    if hdr.ident[0] != b'\x7F'
-        || hdr.ident[1] != b'E'
-        || hdr.ident[2] != b'L'
-        || hdr.ident[3] != b'F'
-    {
-        return Err(Error::new(Code::InvalidElf));
-    }
+    let mut kbm = KernelBootMod { bm, off: 0 };
+    let hdr: elf::ElfHeaderCommon = read_object(&mut kbm)?;
+    hdr.ident.check_magic()?;
+
+    kbm.seek(0);
+    let hdr = hdr.load_hdr(&mut kbm)?;
 
     // copy load segments to destination tile
     let mut end = VirtAddr::default();
-    let mut off = hdr.ph_off;
-    for _ in 0..hdr.ph_num {
+    let mut off = hdr.ph_off();
+    for _ in 0..hdr.ph_num() {
         // load program header
-        let phdr: elf::ProgramHeader = read_from_mod(bm, off as GlobOff)?;
-        off += hdr.ph_entry_size as usize;
+        kbm.seek(off as GlobOff);
+        let phdr = hdr.load_ph(&mut kbm)?;
+        off += size_of_val(&*phdr);
 
         // we're only interested in non-empty load segments
-        if phdr.ty != elf::PHType::Load.into() || phdr.mem_size == 0 {
+        if phdr.ty() != elf::PHType::Load.into() || phdr.mem_size() == 0 {
             continue;
         }
 
         let flags = PageFlags::from(kif::Perm::from(elf::PHFlags::from_bits_truncate(
-            phdr.flags,
+            phdr.flags(),
         )));
-        let offset = math::round_dn(phdr.offset as usize, PAGE_SIZE);
-        let virt = VirtAddr::from(math::round_dn(phdr.virt_addr, PAGE_SIZE));
+        let offset = math::round_dn(phdr.offset(), PAGE_SIZE);
+        let virt = VirtAddr::from(math::round_dn(phdr.virt_addr(), PAGE_SIZE));
 
         // bss?
-        if phdr.file_size == 0 {
-            let size = math::round_up(
-                (phdr.virt_addr & PAGE_MASK) + phdr.mem_size as usize,
-                PAGE_SIZE,
-            );
+        if phdr.file_size() == 0 {
+            let size = math::round_up((phdr.virt_addr() & PAGE_MASK) + phdr.mem_size(), PAGE_SIZE);
 
             loader.zero_segment_async(virt, size, flags)?;
             end = virt + size;
         }
         else {
-            assert!(phdr.mem_size == phdr.file_size);
-            let size = (phdr.offset as usize & PAGE_MASK) + phdr.file_size as usize;
+            assert!(phdr.mem_size() == phdr.file_size());
+            let size = (phdr.offset() & PAGE_MASK) + phdr.file_size();
             loader.load_segment_async(virt, mod_addr + offset as GlobOff, size, flags, true)?;
             end = virt + size;
         }
@@ -248,7 +262,7 @@ where
     loader.map_heap_async(end)?;
     loader.map_stack_async()?;
 
-    Ok(VirtAddr::from(hdr.entry))
+    Ok(VirtAddr::from(hdr.entry()))
 }
 
 struct MetalELFLoader {

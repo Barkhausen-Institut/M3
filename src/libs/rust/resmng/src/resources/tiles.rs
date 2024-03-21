@@ -20,10 +20,10 @@ use m3::com::{MemCap, MemGate};
 use m3::elf;
 use m3::env;
 use m3::errors::{Code, Error};
-use m3::io::LogFlags;
+use m3::io::{read_object, LogFlags, Read};
 use m3::kif::{Perm, TileDesc, INVALID_SEL};
 use m3::log;
-use m3::mem::{size_of, GlobOff};
+use m3::mem::{size_of, size_of_val, GlobOff};
 use m3::rc::Rc;
 use m3::syscalls;
 use m3::tcu::{EpId, TileId};
@@ -51,6 +51,25 @@ pub struct TileState {
     next_pmp_ep: EpId,
     pmp_regions: Vec<(MemCap, usize)>,
     mux: Option<TileMem>,
+}
+
+struct MuxBootMod<'a> {
+    mgate: &'a MemGate,
+    off: GlobOff,
+}
+
+impl MuxBootMod<'_> {
+    fn seek(&mut self, pos: GlobOff) {
+        self.off = pos;
+    }
+}
+
+impl<'a> Read for MuxBootMod<'a> {
+    fn read(&mut self, buf: &mut [u8]) -> Result<usize, Error> {
+        self.mgate.read(buf, self.off)?;
+        self.off += buf.len() as GlobOff;
+        Ok(buf.len())
+    }
 }
 
 impl TileState {
@@ -162,45 +181,46 @@ impl TileState {
             self.tile.id(),
         );
 
-        let hdr: elf::ElfHeader = mux_elf.read_obj(0)?;
-
-        if hdr.ident[0] != b'\x7F'
-            || hdr.ident[1] != b'E'
-            || hdr.ident[2] != b'L'
-            || hdr.ident[3] != b'F'
-        {
-            return Err(Error::new(Code::InvalidElf));
-        }
+        let mut muxbmod = MuxBootMod {
+            mgate: &mux_elf,
+            off: 0,
+        };
+        let hdr: elf::ElfHeaderCommon = read_object(&mut muxbmod)?;
+        hdr.ident.check_magic()?;
 
         let zeros = m3::vec![0u8; 4096];
         let mut buf = m3::vec![0u8; 4096];
 
-        let mut off = hdr.ph_off;
-        for _ in 0..hdr.ph_num {
+        muxbmod.seek(0);
+        let hdr = hdr.load_hdr(&mut muxbmod)?;
+
+        let mut off = hdr.ph_off() as GlobOff;
+        for _ in 0..hdr.ph_num() {
             // load program header
-            let phdr: elf::ProgramHeader = mux_elf.read_obj(off as GlobOff)?;
-            off += hdr.ph_entry_size as usize;
+            muxbmod.seek(off);
+            let phdr = hdr.load_ph(&mut muxbmod)?;
+            off += size_of_val(&*phdr) as GlobOff;
 
             // we're only interested in non-empty load segments
-            if phdr.ty != elf::PHType::Load.into() || phdr.mem_size == 0 {
+            if phdr.ty() != elf::PHType::Load.into() || phdr.mem_size() == 0 {
                 continue;
             }
 
             // load segment from boot module
-            let phys = phdr.phys_addr - cfg::MEM_OFFSET;
+            let phys = phdr.phys_addr() - cfg::MEM_OFFSET;
             Self::copy_data(
                 &mut buf,
                 &mux_elf,
                 &mux.mem,
-                phdr.offset as usize,
+                phdr.offset(),
                 phys,
-                phdr.file_size as usize,
+                phdr.file_size(),
             )?;
 
             // zero the remaining memory
-            let mut segpos = phdr.file_size as usize;
-            while segpos < phdr.mem_size as usize {
-                let amount = (phdr.mem_size as usize - segpos).min(buf.len());
+            let mut segpos = phdr.file_size();
+            while segpos < phdr.mem_size() {
+                let amount = (phdr.mem_size() - segpos).min(buf.len());
                 mux.mem
                     .write(&zeros[0..amount], (phys + segpos) as GlobOff)?;
                 segpos += amount;

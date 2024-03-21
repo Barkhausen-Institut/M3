@@ -17,12 +17,14 @@
  */
 
 use core::cmp;
+use core::mem::size_of_val;
 
+use crate::boxed::Box;
 use crate::cfg;
 use crate::client::MapFlags;
 use crate::com::MemGate;
 use crate::elf;
-use crate::errors::{Code, Error};
+use crate::errors::Error;
 use crate::io::{read_object, Read};
 use crate::kif;
 use crate::mem::{GlobOff, VirtAddr};
@@ -37,21 +39,17 @@ pub(crate) fn load_program(
     file: &mut BufReader<FileRef<dyn File>>,
 ) -> Result<VirtAddr, Error> {
     let mut buf = vec![0u8; 4096];
-    let hdr: elf::ElfHeader = read_object(file)?;
+    let hdr: elf::ElfHeaderCommon = read_object(file)?;
+    hdr.ident.check_magic()?;
 
-    if hdr.ident[0] != b'\x7F'
-        || hdr.ident[1] != b'E'
-        || hdr.ident[2] != b'L'
-        || hdr.ident[3] != b'F'
-    {
-        return Err(Error::new(Code::InvalidElf));
-    }
+    file.seek(0, SeekMode::Set)?;
+    let hdr = hdr.load_hdr(file)?;
 
     let heap_begin = load_segments(act, mapper, file, &hdr, &mut buf)?;
     create_heap(act, mapper, heap_begin)?;
     create_stack(act, mapper)?;
 
-    Ok(VirtAddr::from(hdr.entry))
+    Ok(VirtAddr::from(hdr.entry()))
 }
 
 fn create_stack(act: &Activity, mapper: &mut dyn Mapper) -> Result<(), Error> {
@@ -89,25 +87,25 @@ fn load_segments(
     act: &Activity,
     mapper: &mut dyn Mapper,
     file: &mut BufReader<FileRef<dyn File>>,
-    hdr: &elf::ElfHeader,
+    hdr: &Box<dyn elf::ElfHeader>,
     buf: &mut [u8],
 ) -> Result<VirtAddr, Error> {
     let mut end = 0;
-    let mut off = hdr.ph_off;
-    for _ in 0..hdr.ph_num {
+    let mut off = hdr.ph_off();
+    for _ in 0..hdr.ph_num() {
         // load program header
         file.seek(off, SeekMode::Set)?;
-        let phdr: elf::ProgramHeader = read_object(file)?;
-        off += hdr.ph_entry_size as usize;
+        let phdr = hdr.load_ph(file)?;
+        off += size_of_val(&*phdr);
 
         // we're only interested in non-empty load segments
-        if phdr.ty != elf::PHType::Load.into() || phdr.mem_size == 0 {
+        if phdr.ty() != elf::PHType::Load.into() || phdr.mem_size() == 0 {
             continue;
         }
 
         load_segment(act, mapper, file, &phdr, buf)?;
 
-        end = phdr.virt_addr + phdr.mem_size as usize;
+        end = phdr.virt_addr() + phdr.mem_size();
     }
 
     Ok(VirtAddr::from(math::round_up(end, cfg::PAGE_SIZE)))
@@ -117,28 +115,28 @@ fn load_segment(
     act: &Activity,
     mapper: &mut dyn Mapper,
     file: &mut BufReader<FileRef<dyn File>>,
-    phdr: &elf::ProgramHeader,
+    phdr: &Box<dyn elf::ProgramHeader>,
     buf: &mut [u8],
 ) -> Result<(), Error> {
-    let prot = kif::Perm::from(elf::PHFlags::from_bits_truncate(phdr.flags));
-    let size = math::round_up(phdr.mem_size as usize, cfg::PAGE_SIZE);
+    let prot = kif::Perm::from(elf::PHFlags::from_bits_truncate(phdr.flags()));
+    let size = math::round_up(phdr.mem_size(), cfg::PAGE_SIZE);
 
-    let needs_init = if phdr.mem_size == phdr.file_size {
+    let needs_init = if phdr.mem_size() == phdr.file_size() {
         mapper.map_file(
             act.pager(),
             file,
-            phdr.offset as usize,
-            VirtAddr::from(phdr.virt_addr),
+            phdr.offset(),
+            VirtAddr::from(phdr.virt_addr()),
             size,
             prot,
             MapFlags::PRIVATE,
         )
     }
     else {
-        assert!(phdr.file_size == 0);
+        assert!(phdr.file_size() == 0);
         mapper.map_anon(
             act.pager(),
-            VirtAddr::from(phdr.virt_addr),
+            VirtAddr::from(phdr.virt_addr()),
             size,
             prot,
             MapFlags::PRIVATE,
@@ -147,7 +145,7 @@ fn load_segment(
 
     if needs_init {
         let mem = act.get_mem(
-            VirtAddr::from(phdr.virt_addr),
+            VirtAddr::from(phdr.virt_addr()),
             math::round_up(size, cfg::PAGE_SIZE) as GlobOff,
             kif::Perm::RW,
         )?;
@@ -155,9 +153,9 @@ fn load_segment(
             buf,
             &mem,
             file,
-            phdr.offset as usize,
-            phdr.file_size as usize,
-            phdr.mem_size as usize,
+            phdr.offset(),
+            phdr.file_size(),
+            phdr.mem_size(),
         )
     }
     else {
