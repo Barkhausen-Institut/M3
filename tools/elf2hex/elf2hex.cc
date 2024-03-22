@@ -38,25 +38,15 @@ static void dumpSection(FILE *f, uint64_t paddr, Elf64_Off offset, uint64_t size
     }
 }
 
-int main(int argc, char **argv) {
-    if(argc != 2)
-        err(1, "Usage: %s <elf-binary>", argv[0]);
-
-    FILE *f = fopen(argv[1], "r");
-    if(!f)
-        err(1, "Unable to open ELF file '%s'", argv[1]);
-
-    Elf64_Ehdr hdr;
+template<typename EH, typename PH>
+void parse_elf(FILE *f) {
+    EH hdr;
     if(fread(&hdr, sizeof(hdr), 1, f) != 1)
         err(1, "Unable to read ELF header");
 
-    if(hdr.e_ident[0] != '\x7F' || hdr.e_ident[1] != 'E' || hdr.e_ident[2] != 'L' ||
-       hdr.e_ident[3] != 'F')
-        err(1, "Invalid ELF file: invalid magic number");
-
     off_t off = static_cast<off_t>(hdr.e_phoff);
     for(unsigned i = 0; i < hdr.e_phnum; ++i, off += hdr.e_phentsize) {
-        Elf64_Phdr phdr;
+        PH phdr;
         fseek(f, off, SEEK_SET);
         if(fread(&phdr, sizeof(phdr), 1, f) != 1)
             err(1, "Unable to read program header %u", i);
@@ -71,6 +61,30 @@ int main(int argc, char **argv) {
                    (phdr.p_paddr + phdr.p_filesz) / BYTES_PER_LINE,
                    (phdr.p_memsz - phdr.p_filesz + BYTES_PER_LINE - 1) / BYTES_PER_LINE);
     }
+}
+
+int main(int argc, char **argv) {
+    if(argc != 2)
+        err(1, "Usage: %s <elf-binary>", argv[0]);
+
+    FILE *f = fopen(argv[1], "r");
+    if(!f)
+        err(1, "Unable to open ELF file '%s'", argv[1]);
+
+    Elf32_Ehdr hdr;
+    if(fread(&hdr, sizeof(hdr), 1, f) != 1)
+        err(1, "Unable to read ELF header");
+
+    if(hdr.e_ident[0] != '\x7F' || hdr.e_ident[1] != 'E' || hdr.e_ident[2] != 'L' ||
+       hdr.e_ident[3] != 'F')
+        err(1, "Invalid ELF file: invalid magic number");
+
+    if(fseek(f, 0, SEEK_SET) != 0)
+        err(1, "Unable to seek to file beginning");
+    if(hdr.e_ident[4] == 1)
+        parse_elf<Elf32_Ehdr, Elf32_Phdr>(f);
+    else
+        parse_elf<Elf64_Ehdr, Elf64_Phdr>(f);
 
     fclose(f);
     return 0;
