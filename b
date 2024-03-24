@@ -596,7 +596,9 @@ case "$cmd" in
         while IFS= read -r -d '' l; do
             "$(get_cross_prefix "$build/bin/$l")readelf" -S "$build/bin/$l" | \
                 grep " \.text " | awk "{ printf(\"%20s: %s\n\",\"$l\",\$5) }"
-        done < <(find "$build/bin" -maxdepth 1 -type f \! \( -name "*.o" -o -name "*.a" \) -printf "%f\0") | sort -k 2
+        done < <(
+            find "$build/bin" -maxdepth 1 -type f \! \( -name "*.o" -o -name "*.a" \) -printf "%f\0"
+        ) | sort -k 2
         ;;
 
     macros=*)
