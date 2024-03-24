@@ -421,12 +421,16 @@ case "$cmd" in
 
             # wait until we know the port
             port=""
+            pid=""
             attemps=0
-            while [ "$port" = "" ]; do
+            while [ "$port" = "" ] || [ "$pid" = "" ]; do
                 if [[ $M3_GEM5_PAUSE =~ C.*T.* ]]; then
                     tile="$M3_GEM5_PAUSE"
                 else
                     tile=$(printf "C0T%02d" "$M3_GEM5_PAUSE")
+                fi
+                if [ "$pid" = "" ]; then
+                    pid=$(grep --text "gem5 executing.*, pid" "$M3_OUT/log.txt" | cut -d ' ' -f 6)
                 fi
                 port=$(grep --text "$tile.remote_gdb" "$M3_OUT/log.txt" | cut -d ' ' -f 7)
                 if [ "$port" = "" ]; then
@@ -448,7 +452,7 @@ case "$cmd" in
             gdb=$(get_cross_prefix "$bindir/${cmd#dbg=}")gdb
             RUST_GDB=$gdb rust-gdb --tui "$bindir/${cmd#dbg=}" "--command=$gdbcmd"
 
-            killall -9 gem5.opt
+            kill -9 "$pid"
             rm "$gdbcmd"
         else
             if [ "$M3_HW_PAUSE" = "" ]; then
