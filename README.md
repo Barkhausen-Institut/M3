@@ -38,13 +38,13 @@ Note: If you have `pyenv` installed and therefore `/usr/bin/python` does not exi
 
 Afterwards, pull in the submodules:
 
-    $ git submodule update --init tools/ninjapie cross/buildroot src/apps/bsdutils src/libs/musl src/libs/flac src/libs/leveldb
+    $ git submodule update --init tools/ninjapie cross/buildroot src/apps/bsdutils src/libs/musl src/libs/flac src/libs/leveldb src/libs/crypto/kecacc-xkcp
 
 ### 2. Preparations for gem5
 
 These preparations are required when gem5 should be used as the M³ target. To use gem5, pull in the submodule `platform/gem5` and build it:
 
-    $ git submodule update --init platform/gem5
+    $ git submodule update --init --recursive platform/gem5
     $ cd platform/gem5
     $ scons build/RISCV/gem5.opt # change ISA as needed
 
