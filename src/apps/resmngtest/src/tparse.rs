@@ -324,12 +324,21 @@ fn app_tiles(t: &mut dyn WvTester) {
         <tiles type=\"core\"/>
         <tiles type=\"core|perf\" count=\"4\"/>
         <tiles type=\"net\" count=\"1\" optional=\"true\"/>
+        <tiles type=\"boom\" mux=\"mymux\"/>
+        <tiles type=\"rocket\" mux=\"-\"/>
     </app>";
     let cfg = wv_assert_ok!(AppConfig::parse(cfg_str));
     wv_assert_eq!(t, cfg.tiles(), &[
-        TileDesc::new("core".to_string(), 1, false),
-        TileDesc::new("core|perf".to_string(), 4, false),
-        TileDesc::new("net".to_string(), 1, true),
+        TileDesc::new("core".to_string(), 1, Some("tilemux".to_string()), false),
+        TileDesc::new(
+            "core|perf".to_string(),
+            4,
+            Some("tilemux".to_string()),
+            false
+        ),
+        TileDesc::new("net".to_string(), 1, Some("tilemux".to_string()), true),
+        TileDesc::new("boom".to_string(), 1, Some("mymux".to_string()), false),
+        TileDesc::new("rocket".to_string(), 1, None, false),
     ]);
 }
 

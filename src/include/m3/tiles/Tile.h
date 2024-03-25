@@ -52,11 +52,11 @@ public:
      * Allocate a new processing element
      *
      * @param desc the tile description
-     * @param init whether the tile should be initialized with TileMux and PMP EPs should be
-     *  inherited from our tile
+     * @param init whether the tile should be initialized with the appropriate multiplexer
+     * @param inherit_pmp whether PMP EPs should be inherited from our tile
      * @return the tile object
      */
-    static Reference<Tile> alloc(const TileDesc &desc, bool init = true);
+    static Reference<Tile> alloc(const TileDesc &desc, bool init = true, bool inherit_pmp = true);
 
     /**
      * Gets a tile with given description.

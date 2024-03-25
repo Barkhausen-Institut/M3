@@ -76,9 +76,9 @@ Tile::~Tile() {
     }
 }
 
-Reference<Tile> Tile::alloc(const TileDesc &desc, bool init) {
+Reference<Tile> Tile::alloc(const TileDesc &desc, bool init, bool inherit_pmp) {
     capsel_t sel = SelSpace::get().alloc_sel();
-    TileDesc res = Activity::own().resmng()->alloc_tile(sel, desc, init);
+    TileDesc res = Activity::own().resmng()->alloc_tile(sel, desc, init, inherit_pmp);
     return Reference<Tile>(new Tile(sel, res, KEEP_CAP, true));
 }
 

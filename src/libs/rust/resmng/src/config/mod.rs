@@ -307,14 +307,16 @@ impl TileType {
 pub struct TileDesc {
     ty: TileType,
     count: Cell<u32>,
+    mux: Option<String>,
     optional: bool,
 }
 
 impl TileDesc {
-    pub fn new(ty: String, count: u32, optional: bool) -> Self {
+    pub fn new(ty: String, count: u32, mux: Option<String>, optional: bool) -> Self {
         Self {
             ty: TileType(ty),
             count: Cell::new(count),
+            mux,
             optional,
         }
     }
@@ -329,6 +331,10 @@ impl TileDesc {
 
     pub fn count(&self) -> u32 {
         self.count.get()
+    }
+
+    pub fn mux(&self) -> Option<&String> {
+        self.mux.as_ref()
     }
 
     pub fn alloc(&self) {
@@ -600,6 +606,10 @@ impl AppConfig {
             },
             None => false,
         }
+    }
+
+    pub fn tile_mux(&self, idx: usize) -> Option<&String> {
+        self.tiles[idx].mux()
     }
 
     pub fn alloc_tile(&self, idx: usize) {

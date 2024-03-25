@@ -461,6 +461,7 @@ fn parse_session(p: &mut ConfigParser) -> Result<config::SessionDesc, Error> {
 fn parse_tile(p: &mut ConfigParser) -> Result<config::TileDesc, Error> {
     let mut ty = String::new();
     let mut count = 1;
+    let mut mux = Some(String::from("tilemux"));
     let mut optional = false;
 
     loop {
@@ -469,6 +470,7 @@ fn parse_tile(p: &mut ConfigParser) -> Result<config::TileDesc, Error> {
             Some((n, v)) => match n.as_ref() {
                 "type" => ty = v,
                 "count" => count = parse::int(&v)? as u32,
+                "mux" => mux = if v == "-" { None } else { Some(v) },
                 "optional" => optional = parse::bool(&v)?,
                 _ => return Err(Error::new(Code::InvArgs)),
             },
@@ -479,7 +481,7 @@ fn parse_tile(p: &mut ConfigParser) -> Result<config::TileDesc, Error> {
         Err(Error::new(Code::InvArgs))
     }
     else {
-        Ok(config::TileDesc::new(ty, count, optional))
+        Ok(config::TileDesc::new(ty, count, mux, optional))
     }
 }
 

@@ -537,23 +537,30 @@ pub trait Child {
         sel: Selector,
         desc: kif::TileDesc,
         init: bool,
+        inherit_pmp: bool,
     ) -> Result<(tcu::TileId, kif::TileDesc), Error> {
         log!(
             LogFlags::ResMngTiles,
-            "{}: alloc_tile(sel={}, desc={:?}, init={})",
+            "{}: alloc_tile(sel={}, desc={:?}, init={}, inherit_pmp={})",
             self.name(),
             sel,
             desc,
-            init
+            init,
+            inherit_pmp,
         );
 
         let cfg = self.cfg();
         let idx = cfg.get_tile_idx(desc)?;
+        let mux = cfg.tile_mux(idx);
         let mut tile_usage = res.tiles().find(desc)?;
 
         if init {
+            if mux.is_none() {
+                return Err(Error::new(Code::InvArgs));
+            }
+
             tile_usage.state_mut().load_mux(
-                "tilemux",
+                mux.unwrap(),
                 cfg::FIXED_TILEMUX_MEM,
                 // TODO make that customizable
                 cfg::DEF_EP_COUNT,
@@ -583,7 +590,9 @@ pub trait Child {
                     },
                 },
             )?;
+        }
 
+        if inherit_pmp {
             // give this tile access to the same memory regions the child's tile has access to
             // TODO later we could allow childs to customize that
             tile_usage

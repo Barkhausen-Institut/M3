@@ -70,6 +70,7 @@ pub struct AllocTileReq {
     pub dst: Selector,
     pub desc: kif::TileDesc,
     pub init: bool,
+    pub inherit_pmp: bool,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -241,19 +242,22 @@ impl ResMng {
 
     /// Allocates a new processing element of given type and assigns it to selector `dst`.
     ///
-    /// If `init` is set, the tile is initialized with TileMux and all PMP EPs for the this tile are
-    /// inherited to the allocated tile.
+    /// If `init` is set, the tile is initialized with the corresponding multiplexer (depends on
+    /// the tile type). If `inherit_pmp` is set, all PMP EPs for the this tile are inherited to the
+    /// allocated tile.
     pub fn alloc_tile(
         &self,
         dst: Selector,
         desc: kif::TileDesc,
         init: bool,
+        inherit_pmp: bool,
     ) -> Result<(TileId, kif::TileDesc), Error> {
         let mut reply =
             Self::send_receive(&self.sgate, opcodes::ResMng::AllocTile, AllocTileReq {
                 dst,
                 desc,
                 init,
+                inherit_pmp,
             })?;
         let reply: AllocTileReply = reply.pop()?;
         Ok((reply.id, reply.desc))

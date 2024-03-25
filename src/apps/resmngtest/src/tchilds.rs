@@ -126,11 +126,12 @@ fn tiles(t: &mut dyn WvTester, child: &mut dyn Child, res: &mut Resources) {
             starter,
             123,
             TileDesc::new(TileType::Mem, TileISA::None, 0),
-            false
+            false,
+            false,
         ),
         Code::InvArgs
     );
-    wv_assert_ok!(child.alloc_tile(res, starter, 123, Activity::own().tile_desc(), false));
+    wv_assert_ok!(child.alloc_tile(res, starter, 123, Activity::own().tile_desc(), false, false));
 
     wv_assert_eq!(t, child.res().tiles().len(), 1);
 

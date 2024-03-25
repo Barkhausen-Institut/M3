@@ -342,10 +342,13 @@ impl Subsystem {
             else {
                 // don't initialize the tile here, because we want to load the multiplexer ourself
                 // and also define all PMP EPs
-                let child_tile = Tile::get_with(&dom.tile.0, TileArgs::default().init(false))
-                    .map_err(|e| {
-                        VerboseError::new(e.code(), format!("Unable to get tile {}", dom.tile.0))
-                    })?;
+                let child_tile = Tile::get_with(
+                    &dom.tile.0,
+                    TileArgs::default().init(false).inherit_pmp(false),
+                )
+                .map_err(|e| {
+                    VerboseError::new(e.code(), format!("Unable to get tile {}", dom.tile.0))
+                })?;
                 tiles::TileUsage::new_obj(child_tile)
             };
 

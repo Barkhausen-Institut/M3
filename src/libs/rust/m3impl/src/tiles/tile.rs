@@ -102,19 +102,28 @@ impl fmt::Debug for TileQuota {
 #[derive(Copy, Clone)]
 pub struct TileArgs {
     init: bool,
+    inherit_pmp: bool,
 }
 
 impl Default for TileArgs {
     fn default() -> Self {
-        Self { init: true }
+        Self {
+            init: true,
+            inherit_pmp: true,
+        }
     }
 }
 
 impl TileArgs {
-    /// Sets whether the tile should be initialized with TileMux and PMP EPs should be inherited
-    /// from our tile
+    /// Sets whether the tile should be initialized with the corresponding multiplexer
     pub fn init(mut self, init: bool) -> Self {
         self.init = init;
+        self
+    }
+
+    /// Sets whether the PMP EPs should be inherited from our tile
+    pub fn inherit_pmp(mut self, inherit: bool) -> Self {
+        self.inherit_pmp = inherit;
         self
     }
 }
@@ -128,10 +137,11 @@ impl Tile {
     /// Allocates a new tile from the resource manager with given description
     pub fn new_with(desc: TileDesc, args: TileArgs) -> Result<Rc<Self>, Error> {
         let sel = SelSpace::get().alloc_sel();
-        let (id, ndesc) = Activity::own()
-            .resmng()
-            .unwrap()
-            .alloc_tile(sel, desc, args.init)?;
+        let (id, ndesc) =
+            Activity::own()
+                .resmng()
+                .unwrap()
+                .alloc_tile(sel, desc, args.init, args.inherit_pmp)?;
         Ok(Rc::new(Tile {
             cap: Capability::new(sel, CapFlags::KEEP_CAP),
             id,
