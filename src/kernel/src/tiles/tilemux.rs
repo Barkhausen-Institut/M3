@@ -141,6 +141,7 @@ pub struct TileMux {
     acts: Vec<ActId>,
     queue: base::boxed::Box<crate::com::SendQueue>,
     state: Option<TileState>,
+    mux_type: kif::syscalls::MuxType,
     shutdown: bool,
 }
 
@@ -160,6 +161,7 @@ impl TileMux {
             acts: Vec::new(),
             queue: crate::com::SendQueue::new(crate::com::QueueId::TileMux(tile_id), tile_id),
             state: None,
+            mux_type: kif::syscalls::MuxType::None,
             shutdown: false,
         }
     }
@@ -242,12 +244,14 @@ impl TileMux {
         }
 
         self.state = None;
+        self.mux_type = kif::syscalls::MuxType::None;
     }
 
     pub fn reset_async(
         tile: TileId,
         mux_mem: Option<GateObject>,
         ep_count: Option<usize>,
+        root: bool,
     ) -> Result<(), Error> {
         let start = mux_mem.is_some();
 
@@ -304,8 +308,21 @@ impl TileMux {
         // reset the tile; start it if mux_mem is some; stop it otherwise
         ktcu::reset_tile(tile, start)?;
 
-        if !start {
-            let mut tilemux = tilemng::tilemux(tile);
+        let mut tilemux = tilemng::tilemux(tile);
+        if start {
+            // for root, it has to be TileMux and we don't support async calls yet, because there
+            // are no other threads yet to switch to.
+            if root {
+                tilemux.mux_type = kif::syscalls::MuxType::TileMux;
+            }
+            else if !platform::tile_desc(tile).supports_tilemux() {
+                tilemux.mux_type = kif::syscalls::MuxType::None;
+            }
+            else {
+                tilemng::tilemux(tile).mux_type = Self::info_async(tilemux)?;
+            }
+        }
+        else {
             tilemux.deinit_state();
         }
 
@@ -318,6 +335,10 @@ impl TileMux {
 
     pub fn tile_id(&self) -> TileId {
         self.tile.tile()
+    }
+
+    pub fn mux_type(&self) -> kif::syscalls::MuxType {
+        self.mux_type
     }
 
     pub fn ep_count(&self) -> Option<usize> {
@@ -563,7 +584,7 @@ impl TileMux {
         Ok(())
     }
 
-    pub fn info_async(tilemux: RefMut<'_, Self>) -> Result<kif::syscalls::MuxType, Error> {
+    fn info_async(tilemux: RefMut<'_, Self>) -> Result<kif::syscalls::MuxType, Error> {
         let mut buf = MsgBuf::borrow_def();
         let msg = kif::tilemux::Info {};
         build_vmsg!(buf, kif::tilemux::Sidecalls::Info, &msg);

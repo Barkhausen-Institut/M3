@@ -61,7 +61,7 @@ pub fn deinit_async() {
 
     for tile in platform::user_tiles() {
         // ignore the tiles that are already shut down
-        TileMux::reset_async(tile, None, None).ok();
+        TileMux::reset_async(tile, None, None, false).ok();
     }
 
     STATE.set(State::SHUTDOWN);

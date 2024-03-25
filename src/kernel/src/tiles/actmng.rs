@@ -191,7 +191,7 @@ impl ActivityMng {
         // note that we provide access to the entire ROOT memory pool via PMP down below and
         // therefore provide access to parts of this pool twice. that's currently required, because
         // TileMux reads PMP EP0 to discover the available memory.
-        TileMux::reset_async(tile_id, Some(mux_mgate), ep_count).expect("Tile reset failed");
+        TileMux::reset_async(tile_id, Some(mux_mgate), ep_count, true).expect("Tile reset failed");
 
         // create root activity
         let kmem = KMemObject::new(args::get().kmem - cfg::FIXED_KMEM);

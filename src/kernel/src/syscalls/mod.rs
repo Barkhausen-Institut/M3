@@ -145,7 +145,7 @@ pub fn handle_async(msg: &'static tcu::Message) {
         o if o == Operation::TileSetQuota.into() => tile::tile_set_quota_async(&act, msg),
         o if o == Operation::TileSetPMP.into() => tile::tile_set_pmp(&act, msg),
         o if o == Operation::TileReset.into() => tile::tile_reset_async(&act, msg),
-        o if o == Operation::TileInfo.into() => tile::tile_info_async(&act, msg),
+        o if o == Operation::TileInfo.into() => tile::tile_info(&act, msg),
         o if o == Operation::TileMem.into() => tile::tile_mem(&act, msg),
         o if o == Operation::GetSess.into() => misc::get_sess(&act, msg),
         o if o == Operation::SemCtrl.into() => misc::sem_ctrl_async(&act, msg),

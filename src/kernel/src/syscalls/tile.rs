@@ -241,14 +241,14 @@ pub fn tile_reset_async(
     };
     drop(act_caps);
 
-    TileMux::reset_async(tile_id, mux_mem, r.ep_count)?;
+    TileMux::reset_async(tile_id, mux_mem, r.ep_count, false)?;
 
     reply_success(msg);
     Ok(())
 }
 
 #[inline(never)]
-pub fn tile_info_async(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), VerboseError> {
+pub fn tile_info(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), VerboseError> {
     let r: syscalls::TileInfo = get_request(msg)?;
     sysc_log!(act, "tile_info(tile={})", r.tile);
 
@@ -256,13 +256,7 @@ pub fn tile_info_async(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result
     let tile = get_kobj_ref!(act_caps, r.tile, Tile);
 
     let tilemux = tilemng::tilemux(tile.tile());
-
-    let ty = if platform::tile_desc(tile.tile()).is_programmable() && tilemux.is_initialized() {
-        TileMux::info_async(tilemux)?
-    }
-    else {
-        kif::syscalls::MuxType::None
-    };
+    let ty = tilemux.mux_type();
 
     let mut kreply = MsgBuf::borrow_def();
     build_vmsg!(kreply, Code::Success, kif::syscalls::TileInfoReply {
