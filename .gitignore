@@ -3,6 +3,8 @@
 *.sublime-project
 *.sublime-workspace
 .nvim.lua
+.envrc
+.direnv
 *.ninja_deps
 *.ninja_log
 /.cache
