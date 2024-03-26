@@ -631,6 +631,24 @@ impl TileMux {
         .map(|_| ())
     }
 
+    pub fn request_ep_async(
+        tilemux: RefMut<'_, Self>,
+        act: ActId,
+        ep_id: EpId,
+        replies: usize,
+    ) -> Result<EpId, Error> {
+        let mut buf = MsgBuf::borrow_def();
+        let msg = kif::tilemux::ReqEP {
+            act_id: act as u64,
+            ep_id,
+            replies,
+        };
+        build_vmsg!(buf, kif::tilemux::Sidecalls::ReqEP, &msg);
+
+        Self::send_receive_sidecall_async::<kif::tilemux::ReqEP>(tilemux, None, buf, &msg, true)
+            .map(|r| r.val1 as EpId)
+    }
+
     pub fn derive_quota_async(
         tilemux: RefMut<'_, Self>,
         parent_time: quota::Id,

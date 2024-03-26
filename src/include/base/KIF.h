@@ -414,6 +414,7 @@ struct KIF {
             NONE,
             TILE_MUX,
             LINUX,
+            ACCEL,
         };
 
         struct TileInfo : public DefaultRequest {

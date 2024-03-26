@@ -136,7 +136,7 @@ pub fn handle_async(msg: &'static tcu::Message) {
         o if o == Operation::ExchangeSess.into() => exchange::exchange_over_sess_async(&act, msg),
         o if o == Operation::Revoke.into() => exchange::revoke_async(&act, msg),
 
-        o if o == Operation::AllocEP.into() => misc::alloc_ep(&act, msg),
+        o if o == Operation::AllocEP.into() => misc::alloc_ep_async(&act, msg),
         o if o == Operation::Activate.into() => misc::activate_async(&act, msg),
         o if o == Operation::MGateRegion.into() => misc::mgate_region(&act, msg),
         o if o == Operation::RGateBuffer.into() => misc::rgate_buffer(&act, msg),

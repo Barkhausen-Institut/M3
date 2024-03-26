@@ -306,6 +306,7 @@ pub enum MuxType {
     None,
     TileMux,
     Linux,
+    Accel,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

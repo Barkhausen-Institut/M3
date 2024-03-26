@@ -46,6 +46,7 @@ pub enum Sidecalls {
     ActCtrl,
     Map,
     Translate,
+    ReqEP,
     RemMsgs,
     EPInval,
     DeriveQuota,
@@ -85,6 +86,15 @@ pub struct ActInit {
 pub struct ActivityCtrl {
     pub act_id: u64,
     pub act_op: ActivityOp,
+}
+
+/// The request-ep sidecall
+#[derive(Debug, Serialize, Deserialize)]
+#[repr(C)]
+pub struct ReqEP {
+    pub act_id: u64,
+    pub ep_id: EpId,
+    pub replies: usize,
 }
 
 /// The map sidecall

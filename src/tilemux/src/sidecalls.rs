@@ -308,6 +308,7 @@ fn handle_sidecall(msg: &'static tcu::Message) {
         kif::tilemux::Sidecalls::ActCtrl => activity_ctrl(msg),
         kif::tilemux::Sidecalls::Map => map(msg),
         kif::tilemux::Sidecalls::Translate => translate(msg).map(|pte| val1 = pte),
+        kif::tilemux::Sidecalls::ReqEP => Err(Error::new(Code::NotSup)),
         kif::tilemux::Sidecalls::RemMsgs => rem_msgs(msg),
         kif::tilemux::Sidecalls::EPInval => ep_inval(msg),
         kif::tilemux::Sidecalls::DeriveQuota => derive_quota(msg).map(|(time, pts)| {

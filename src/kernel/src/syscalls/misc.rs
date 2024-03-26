@@ -27,10 +27,11 @@ use crate::cap::{EPCategory, EPObject, SemObject};
 use crate::ktcu;
 use crate::platform;
 use crate::syscalls::{get_request, reply_success, send_reply};
+use crate::tiles::TileMux;
 use crate::tiles::{tilemng, Activity};
 
 #[inline(never)]
-pub fn alloc_ep(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), VerboseError> {
+pub fn alloc_ep_async(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), VerboseError> {
     let r: syscalls::AllocEP = get_request(msg)?;
     sysc_log!(
         act,
@@ -60,7 +61,13 @@ pub fn alloc_ep(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<(), Ve
     }
 
     let mut tilemux = tilemng::tilemux(dst_act.tile_id());
-    let epid = if r.epid == tcu::INVALID_EP {
+
+    let epid = if tilemux.mux_type() == kif::syscalls::MuxType::Accel {
+        let epid = TileMux::request_ep_async(tilemux, dst_act.id(), r.epid, r.replies)?;
+        tilemux = tilemng::tilemux(dst_act.tile_id());
+        epid
+    }
+    else if r.epid == tcu::INVALID_EP {
         match tilemux.find_eps(ep_count) {
             Ok(epid) => epid,
             Err(e) => sysc_err!(e.code(), "No free EP range for {} EPs", ep_count),
