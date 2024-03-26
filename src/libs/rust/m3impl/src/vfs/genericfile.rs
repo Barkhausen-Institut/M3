@@ -22,6 +22,7 @@ use core::fmt;
 
 use crate::boxed::Box;
 use crate::cap::Selector;
+use crate::cell::RefCell;
 use crate::client::{ClientSession, HashInput, HashOutput, HashSession, MapFlags, Pager};
 use crate::col::{String, ToString};
 use crate::com::recv_result;
@@ -47,6 +48,36 @@ struct NonBlocking {
     _notify_sgate: Box<SendCap>,
     notify_received: FileEvent,
     notify_requested: FileEvent,
+}
+
+enum LazySGate {
+    Own(Selector),
+    OwnAct(SendGate),
+    Session(Rc<SendGate>),
+}
+
+impl LazySGate {
+    fn activate_on(&mut self, sep: EP) -> Result<(), Error> {
+        match self {
+            Self::Own(sel) => {
+                *self = Self::OwnAct(SendCap::new_bind(*sel).activate_on(sep)?);
+                Ok(())
+            },
+            _ => Err(Error::new(Code::InvState)),
+        }
+    }
+
+    fn get(&mut self) -> Result<&SendGate, Error> {
+        if let Self::Own(src) = *self {
+            *self = Self::OwnAct(SendGate::new_bind(src)?);
+        }
+
+        match self {
+            Self::OwnAct(ref sg) => Ok(sg),
+            Self::Session(sg) => Ok(&*sg),
+            _ => unreachable!(),
+        }
+    }
 }
 
 /// A file implementation based on the *file protocol*
@@ -112,7 +143,7 @@ pub struct GenericFile {
     fd: Fd,
     flags: OpenFlags,
     sess: ClientSession,
-    sgate: Rc<SendGate>,
+    sgate: RefCell<LazySGate>,
     memep: Option<EP>,
     delegated_ep: Selector,
     blocking: bool,
@@ -132,7 +163,7 @@ impl GenericFile {
             fd: filetable::INV_FD,
             flags,
             sess: ClientSession::new_owned_bind(sel),
-            sgate: Rc::new(SendGate::new_bind(sel + 1).unwrap()),
+            sgate: RefCell::new(LazySGate::Own(sel + 1)),
             memep: None,
             delegated_ep: INVALID_SEL,
             blocking: true,
@@ -159,7 +190,7 @@ impl GenericFile {
             fd: filetable::INV_FD,
             flags,
             sess: ClientSession::new_bind(sel),
-            sgate,
+            sgate: RefCell::new(LazySGate::Session(sgate)),
             memep: Some(EP::new_bind(mep, INVALID_SEL)),
             delegated_ep: INVALID_SEL,
             blocking: true,
@@ -198,7 +229,7 @@ impl GenericFile {
             );
 
             send_recv_res!(
-                &self.sgate,
+                self.sgate.borrow_mut().get()?,
                 RecvGate::def(),
                 opcodes::File::Commit,
                 self.file_id(),
@@ -250,7 +281,7 @@ impl GenericFile {
             }
 
             let mut reply = send_recv_res!(
-                &self.sgate,
+                self.sgate.borrow_mut().get()?,
                 RecvGate::def(),
                 opcodes::File::NextIn,
                 self.file_id()
@@ -275,7 +306,7 @@ impl GenericFile {
             }
 
             let mut reply = send_recv_res!(
-                &self.sgate,
+                self.sgate.borrow_mut().get()?,
                 RecvGate::def(),
                 opcodes::File::NextOut,
                 self.file_id()
@@ -339,7 +370,7 @@ impl GenericFile {
 
         if !nb.notify_requested.contains(events) {
             send_recv_res!(
-                &self.sgate,
+                self.sgate.borrow_mut().get()?,
                 RecvGate::def(),
                 opcodes::File::ReqNotify,
                 fid,
@@ -459,18 +490,18 @@ impl File for GenericFile {
         log!(LogFlags::LibFS, "GenFile[{}]::stat()", self.fd);
 
         send_vmsg!(
-            &self.sgate,
+            self.sgate.borrow_mut().get()?,
             RecvGate::def(),
             opcodes::File::FStat,
             self.file_id()
         )?;
-        let mut reply = recv_result(RecvGate::def(), Some(&self.sgate))?;
+        let mut reply = recv_result(RecvGate::def(), Some(self.sgate.borrow_mut().get()?))?;
         reply.pop()
     }
 
     fn path(&self) -> Result<String, Error> {
         let mut reply = send_recv_res!(
-            &self.sgate,
+            self.sgate.borrow_mut().get()?,
             RecvGate::def(),
             opcodes::File::GetPath,
             self.file_id()
@@ -488,7 +519,7 @@ impl File for GenericFile {
         self.submit(false)?;
 
         let mut reply = send_recv_res!(
-            &self.sgate,
+            self.sgate.borrow_mut().get()?,
             RecvGate::def(),
             opcodes::File::Truncate,
             self.file_id(),
@@ -505,7 +536,7 @@ impl File for GenericFile {
 
     fn get_tmode(&self) -> Result<TMode, Error> {
         let mut reply = send_recv_res!(
-            &self.sgate,
+            self.sgate.borrow_mut().get()?,
             RecvGate::def(),
             opcodes::File::GetTMode,
             self.file_id()
@@ -560,6 +591,11 @@ impl File for GenericFile {
             self.receive_notify(events, false).unwrap()
         }
     }
+
+    fn attach(&mut self, sep: EP, mep: &EP) -> Result<(), Error> {
+        self.sgate.borrow_mut().activate_on(sep)?;
+        self.delegate_ep(mep.sel(), mep.id())
+    }
 }
 
 impl Seek for GenericFile {
@@ -589,7 +625,7 @@ impl Seek for GenericFile {
         }
 
         let mut reply = send_recv_res!(
-            &self.sgate,
+            self.sgate.borrow_mut().get()?,
             RecvGate::def(),
             opcodes::File::Seek,
             self.file_id(),
@@ -642,7 +678,7 @@ impl Write for GenericFile {
 
         self.flush().and_then(|_| {
             send_recv_res!(
-                &self.sgate,
+                self.sgate.borrow_mut().get()?,
                 RecvGate::def(),
                 opcodes::File::Sync,
                 self.file_id()

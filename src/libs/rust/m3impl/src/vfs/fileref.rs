@@ -24,6 +24,7 @@ use crate::cap::Selector;
 use crate::cell::RefMut;
 use crate::client::{HashInput, HashOutput, HashSession, MapFlags, Pager};
 use crate::col::String;
+use crate::com::EP;
 use crate::errors::Error;
 use crate::io::{Read, Write};
 use crate::kif;
@@ -177,6 +178,10 @@ impl<T: ?Sized + 'static> File for FileRef<T> {
 
     fn check_events(&mut self, events: FileEvent) -> bool {
         self.borrow().check_events(events)
+    }
+
+    fn attach(&mut self, sep: EP, mep: &EP) -> Result<(), Error> {
+        self.borrow().attach(sep, mep)
     }
 }
 

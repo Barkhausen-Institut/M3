@@ -24,7 +24,7 @@ use crate::cap::{CapFlags, SelSpace, Selector};
 use crate::cell::{Cell, LazyReadOnlyCell};
 use crate::cfg;
 use crate::com::rbufs::{alloc_rbuf, free_rbuf};
-use crate::com::{gate::Gate, GateCap, RecvBuf, SendGate, EP};
+use crate::com::{gate::Gate, EpMng, GateCap, RecvBuf, SendGate, EP};
 use crate::env;
 use crate::errors::{Code, Error};
 use crate::kif::INVALID_SEL;
@@ -181,12 +181,20 @@ impl RecvCap {
         mem: Option<Selector>,
         off: GlobOff,
         addr: VirtAddr,
+        ep: Option<EP>,
     ) -> Result<RecvGate, Error> {
         self.fetch_buffer_size()?;
 
         let (order, msg_order) = (self.order.get().unwrap(), self.msg_order.get().unwrap());
-        let replies = 1 << (order - msg_order);
-        let gate = Gate::new_rgate(self.sel(), self.cap.flags(), mem, off, replies)?;
+        let ep = match ep {
+            Some(ep) => ep,
+            None => {
+                let replies = 1 << (order - msg_order);
+                EpMng::get().acquire(replies)?
+            },
+        };
+
+        let gate = Gate::new_rgate(self.sel(), self.cap.flags(), mem, off, ep)?;
 
         // prevent that we revoke the cap
         self.cap.set_flags(CapFlags::KEEP_CAP);
@@ -215,7 +223,8 @@ impl GateCap for RecvCap {
 
         let (order, msg_order) = (self.order.get().unwrap(), self.msg_order.get().unwrap());
         let replies = 1 << (order - msg_order);
-        let gate = Gate::new_rgate(self.sel(), self.cap.flags(), buf.mem(), buf.off(), replies)?;
+        let ep = EpMng::get().acquire(replies)?;
+        let gate = Gate::new_rgate(self.sel(), self.cap.flags(), buf.mem(), buf.off(), ep)?;
 
         // prevent that we revoke the cap
         self.cap.set_flags(CapFlags::KEEP_CAP);

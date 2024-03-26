@@ -151,6 +151,23 @@ impl MemCap {
             resmng: false,
         })
     }
+
+    /// Activates this capability on given endpoint and returns the resulting [`SendGate`]
+    pub fn activate_on(self, ep: EP) -> Result<MemGate, Error> {
+        self.do_activate_on(Some(ep))
+    }
+
+    fn do_activate_on(mut self, ep: Option<EP>) -> Result<MemGate, Error> {
+        let gate = Gate::new(self.sel(), self.cap.flags(), ep)?;
+
+        // prevent that we revoke the cap
+        self.cap.set_flags(CapFlags::KEEP_CAP);
+
+        Ok(MemGate {
+            gate,
+            resmng: self.resmng,
+        })
+    }
 }
 
 impl GateCap for MemCap {
@@ -164,16 +181,8 @@ impl GateCap for MemCap {
         }
     }
 
-    fn activate(mut self) -> Result<Self::Target, Error> {
-        let gate = Gate::new(self.sel(), self.cap.flags())?;
-
-        // prevent that we revoke the cap
-        self.cap.set_flags(CapFlags::KEEP_CAP);
-
-        Ok(Self::Target {
-            gate,
-            resmng: self.resmng,
-        })
+    fn activate(self) -> Result<Self::Target, Error> {
+        self.do_activate_on(None)
     }
 }
 

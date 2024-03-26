@@ -91,20 +91,27 @@ pub struct Gate {
 
 impl Gate {
     /// Creates a new gate with given capability selector and flags
-    pub fn new(sel: Selector, flags: CapFlags) -> Result<Self, Error> {
-        let ep = EpMng::get().activate(sel)?;
+    ///
+    /// If ep is `None`, a new endpoint will be allocated, otherwise the given endpoint will be
+    /// used. In either case, the gate will be activated on the endpoint.
+    pub fn new(sel: Selector, flags: CapFlags, ep: Option<EP>) -> Result<Self, Error> {
+        let ep = match ep {
+            Some(ep) => ep,
+            None => EpMng::get().activate(sel)?,
+        };
+        syscalls::activate(ep.sel(), sel, kif::INVALID_SEL, 0)?;
         Ok(Self::new_with_ep(sel, flags, ep))
     }
 
-    /// Creates a new receive gate with given capability selector and flags
+    /// Creates a new receive gate with given capability selector and flags and activates it on
+    /// given EP
     pub fn new_rgate(
         sel: Selector,
         flags: CapFlags,
         mem: Option<Selector>,
         addr: GlobOff,
-        replies: usize,
+        ep: EP,
     ) -> Result<Self, Error> {
-        let ep = EpMng::get().acquire(replies)?;
         syscalls::activate(ep.sel(), sel, mem.unwrap_or(kif::INVALID_SEL), addr)?;
         Ok(Self::new_with_ep(sel, flags, ep))
     }

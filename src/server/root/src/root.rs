@@ -254,7 +254,7 @@ fn create_rgate(
             .order(math::next_log2(buf_size))
             .msg_order(math::next_log2(msg_size)),
     )?;
-    rgate.activate_with(rbuf_mem, rbuf_off, rbuf_addr)
+    rgate.activate_with(rbuf_mem, rbuf_off, rbuf_addr, None)
 }
 
 #[allow(clippy::vec_box)]

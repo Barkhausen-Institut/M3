@@ -26,6 +26,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use crate::cap::Selector;
 use crate::client::{HashInput, HashOutput, MapFlags, Pager};
 use crate::col::String;
+use crate::com::EP;
 use crate::errors::{Code, Error};
 use crate::io::{Read, Write};
 use crate::kif;
@@ -279,6 +280,13 @@ pub trait File: Read + Write + Seek + Map + Debug + HashInput + HashOutput {
     fn check_events(&mut self, _events: FileEvent) -> bool {
         // by default, files are in blocking mode and therefore we always want to try read/write.
         true
+    }
+
+    /// Attaches this file to given send endpoint and memory endpoint.
+    ///
+    /// This method is intended to provide accelerators access to this file.
+    fn attach(&mut self, _sep: EP, _mep: &EP) -> Result<(), Error> {
+        Err(Error::new(Code::NotSup))
     }
 }
 
