@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "apps/acceltest",
     "apps/bench/facever",
     "apps/bench/fs",
     "apps/bench/hashmuxbenchs",
@@ -40,7 +41,8 @@ members = [
     "server/vterm",
 ]
 exclude = [
-    "tilemux"
+    "apps/straccmux",
+    "tilemux",
 ]
 resolver = "2"
 

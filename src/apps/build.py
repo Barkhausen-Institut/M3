@@ -1,4 +1,5 @@
 dirs = [
+    'acceltest',
     'allocator',
     'bench',
     'bsdutils',
@@ -29,6 +30,7 @@ dirs = [
     'shell',
     'spammer',
     'standalone',
+    'straccmux',
     'timertest',
     'unittests',
 ]

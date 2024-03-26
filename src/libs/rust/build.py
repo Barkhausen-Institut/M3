@@ -1,4 +1,5 @@
 dirs = [
+    'accel',
     'base',
     'heap',
     'isr',

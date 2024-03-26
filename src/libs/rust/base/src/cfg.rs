@@ -39,8 +39,7 @@ pub const RBUF_STD_ADDR: VirtAddr = VirtAddr::new(0xD000_0000);
 pub const RBUF_STD_SIZE: usize = PAGE_SIZE;
 pub const RBUF_ADDR: VirtAddr =
     VirtAddr::new(RBUF_STD_ADDR.as_raw() + RBUF_STD_SIZE as VirtAddrRaw);
-pub const RBUF_SIZE: usize = 0x1000_0000 - RBUF_STD_SIZE;
-pub const RBUF_SIZE_SPM: usize = 0xE000;
+
 #[cfg(any(feature = "hw22", feature = "hw23"))]
 pub const MAX_RB_SIZE: usize = 32;
 #[cfg(not(any(feature = "hw22", feature = "hw23")))]

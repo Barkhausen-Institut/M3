@@ -84,6 +84,8 @@ bitflags! {
         const IEPS          = 1 << 5;
         /// Contains a Keccak Accelerator (KecAcc)
         const KECACC        = 1 << 6;
+        /// Contains an accelerator with co-processor
+        const COREACC       = 1 << 7;
     }
 }
 
@@ -325,11 +327,19 @@ impl TileDesc {
 
     /// Returns the starting address and size of the standard receive buffer space
     pub fn rbuf_std_space(self) -> (VirtAddr, usize) {
-        (self.rbuf_base(), cfg::RBUF_STD_SIZE)
+        (self.rbuf_space_base().0, cfg::RBUF_STD_SIZE)
     }
 
     /// Returns the starting address and size of the receive buffer space for the multiplexer
     pub fn rbuf_mux_space(self) -> (VirtAddr, usize) {
+        if self.isa() == TileISA::RISCV32 {
+            #[cfg(not(feature = "gem5"))]
+            {
+                let std = self.rbuf_std_space();
+                return (VirtAddr::new(std.0.as_raw() + 0x400), std.1 - 0x400);
+            }
+        }
+
         let (env_start, env_size) = self.env_space();
         (
             VirtAddr::new(env_start.as_raw() + env_size as VirtAddrRaw),
@@ -339,13 +349,8 @@ impl TileDesc {
 
     /// Returns the starting address and size of the receive buffer space
     pub fn rbuf_space(self) -> (VirtAddr, usize) {
-        let size = if self.has_virtmem() {
-            cfg::RBUF_SIZE
-        }
-        else {
-            cfg::RBUF_SIZE_SPM
-        };
-        (self.rbuf_base() + cfg::RBUF_STD_SIZE, size)
+        let base = self.rbuf_space_base();
+        (base.0 + cfg::RBUF_STD_SIZE, base.1 - cfg::RBUF_STD_SIZE)
     }
 
     /// Returns the highest address of the stack
@@ -356,17 +361,35 @@ impl TileDesc {
 
     /// Returns the starting address and size of the stack
     pub fn stack_space(self) -> (VirtAddr, usize) {
-        (self.rbuf_base() - cfg::STACK_SIZE, cfg::STACK_SIZE)
+        (self.rbuf_space_base().0 - cfg::STACK_SIZE, cfg::STACK_SIZE)
     }
 
-    fn rbuf_base(self) -> VirtAddr {
-        if self.has_virtmem() {
+    fn rbuf_space_base(self) -> (VirtAddr, usize) {
+        let size = if self.has_virtmem() {
+            0x1000_0000 - cfg::RBUF_STD_SIZE
+        }
+        else if self.isa() == TileISA::RISCV32 {
+            #[cfg(feature = "gem5")]
+            {
+                cfg::RBUF_STD_SIZE + 0xD000
+            }
+            #[cfg(not(feature = "gem5"))]
+            {
+                cfg::RBUF_STD_SIZE + 0x400
+            }
+        }
+        else {
+            cfg::RBUF_STD_SIZE + 0xD000
+        };
+
+        let addr = if self.has_virtmem() {
             cfg::RBUF_STD_ADDR
         }
         else {
-            let rbufs = cfg::RBUF_SIZE_SPM + cfg::RBUF_STD_SIZE;
-            VirtAddr::from(self.mem_offset() + self.mem_size() - rbufs)
-        }
+            VirtAddr::from(self.mem_offset() + self.mem_size() - size)
+        };
+
+        (addr, size)
     }
 }
 

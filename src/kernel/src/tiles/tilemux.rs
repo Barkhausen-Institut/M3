@@ -20,7 +20,7 @@ use base::col::{BitArray, Vec};
 use base::env;
 use base::errors::{Code, Error};
 use base::io::LogFlags;
-use base::kif::{self, TileISA};
+use base::kif::{self, TileAttr, TileISA};
 use base::log;
 use base::mem::{size_of, GlobAddr, GlobOff, MsgBuf, VirtAddr};
 use base::quota;
@@ -299,7 +299,11 @@ impl TileMux {
                             ktcu::write_slice(mgate.tile_id(), mgate.offset(), &[trampoline]);
                         }
                     }
-                    else if platform::tile_desc(tile).isa() == TileISA::RISCV32 {
+                    // accelerators with co-processors run straccmux and don't do the jump, because
+                    // everything is tightly packed at the beginning of the SPM
+                    else if platform::tile_desc(tile).isa() == TileISA::RISCV32
+                        && !platform::tile_desc(tile).attr().contains(TileAttr::COREACC)
+                    {
                         let trampoline: [u32; 2] = [
                             0x0001_22b7, // lui t0, 0x12 = 0x12000
                             0x0000_8282, // jr  t0

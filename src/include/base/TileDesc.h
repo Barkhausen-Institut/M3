@@ -59,6 +59,7 @@ enum TileAttr {
     IMEM = 1 << 4,
     IEPS = 1 << 5,
     KECACC = 1 << 6,
+    COREACC = 1 << 7,
 };
 
 /**
@@ -183,15 +184,15 @@ struct TileDesc {
      * @return the starting address and size of the standard receive buffer space
      */
     std::pair<uintptr_t, size_t> rbuf_std_space() const {
-        return std::make_pair(rbuf_base(), RBUF_STD_SIZE);
+        return std::make_pair(rbuf_space_base().first, RBUF_STD_SIZE);
     }
 
     /**
      * @return the starting address and size of the receive buffer space
      */
     std::pair<uintptr_t, size_t> rbuf_space() const {
-        size_t size = has_virtmem() ? RBUF_SIZE : RBUF_SIZE_SPM;
-        return std::make_pair(rbuf_base() + RBUF_STD_SIZE, size);
+        auto base = rbuf_space_base();
+        return std::make_pair(base.first + RBUF_STD_SIZE, base.second - RBUF_STD_SIZE);
     }
 
     /**
@@ -206,15 +207,33 @@ struct TileDesc {
      * @return the starting address and size of the stack
      */
     std::pair<uintptr_t, size_t> stack_space() const {
-        return std::make_pair(rbuf_base() - STACK_SIZE, STACK_SIZE);
+        return std::make_pair(rbuf_space_base().first - STACK_SIZE, STACK_SIZE);
     }
 
 private:
-    uintptr_t rbuf_base() const {
+    std::pair<uintptr_t, size_t> rbuf_space_base() const {
+        uintptr_t addr;
+        size_t size;
+
         if(has_virtmem())
-            return RBUF_STD_ADDR;
-        size_t rbufs = RBUF_SIZE_SPM + RBUF_STD_SIZE;
-        return mem_offset() + mem_size() - rbufs;
+            size = 0x1000'0000 - RBUF_STD_SIZE;
+        else if(isa() == TileISA::RISCV32) {
+#if defined(__gem5__)
+            size = RBUF_STD_SIZE + 0xD000;
+#else
+            size = RBUF_STD_SIZE + 0x400;
+#endif
+        }
+        else
+            size = RBUF_STD_SIZE + 0xD000;
+
+        if(has_virtmem())
+            addr = RBUF_STD_ADDR;
+        else {
+            addr = mem_offset() + mem_size() - size;
+        }
+
+        return std::make_pair(addr, size);
     }
 
     value_t _value;

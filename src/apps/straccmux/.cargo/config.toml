@@ -1,0 +1,2 @@
+[build]
+target = "../../toolchain/rust/riscv32-linux-m3-musl.json"

@@ -1,0 +1,32 @@
+<config>
+    <mods>
+        <mod name="straccmux" file="bin/straccmux" />
+        <mod name="fs" file="default.img" />
+    </mods>
+    <kernel args="kernel" />
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="m3fs mem" daemon="1">
+                    <serv name="m3fs" />
+                    <mod name="fs" />
+                </app>
+            </dom>
+            <dom>
+                <app args="pager">
+                    <sess name="m3fs" />
+                    <mod name="fs" perm="r" />
+                    <mod name="tilemux" perm="r" />
+                    <mod name="straccmux" perm="r" />
+                    <tiles type="perf|core" count="1" />
+                    <dom tile="perf|core">
+                        <app args="/bin/acceltest /zeros.bin /output.txt">
+                            <mount fs="m3fs" path="/" />
+                            <tiles type="riscv32" mux="straccmux" />
+                        </app>
+                    </dom>
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

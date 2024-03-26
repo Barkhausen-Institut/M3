@@ -1,0 +1,20 @@
+[package]
+name = "straccmux"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/straccmux.rs"
+crate-type = ["staticlib"]
+
+[dependencies]
+base = { path = "../../libs/rust/base" }
+lang = { path = "../../libs/rust/lang" }
+
+[profile.release]
+opt-level = 'z'
+lto = true
+panic = 'abort'
+
+[profile.dev]
+panic = 'abort'
