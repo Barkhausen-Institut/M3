@@ -1175,7 +1175,7 @@ impl TCU {
         #[cfg(feature = "hw22")]
         {
             let data = Self::read_unpriv_reg(UnprivReg::Data);
-            ((data & 0xFFFF_FFFF) as usize, data as usize >> 32)
+            ((data & 0xFFFF_FFFF) as usize, (data >> 32) as usize)
         }
         #[cfg(not(feature = "hw22"))]
         {
