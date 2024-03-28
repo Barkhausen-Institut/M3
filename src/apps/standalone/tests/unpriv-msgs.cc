@@ -174,24 +174,31 @@ static void test_msg_errors() {
         ASSERT_EQ(kernel::TCU::credits(SEP), 1);
     }
 
-    logln("Receive EP should not change on failed REPLYs"_cf);
+    // the behavior of all other platforms still differs
+#if defined(__gem5__)
+    logln("Receive EP should be invalid on failed REPLYs"_cf);
     {
-        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP, 0x1, 0x1);
+        char buffer2[64];
+        uintptr_t buf2 = reinterpret_cast<uintptr_t>(&buffer2);
+
+        kernel::TCU::config_recv(REP, buf1, 6 /* 64 */, 6 /* 64 */, RPLEP);
+        kernel::TCU::config_recv(REP2, buf2, 6 /* 64 */, 6 /* 64 */, TCU::INVALID_EP);
         kernel::TCU::config_send(SEP, 0x5678, own_tile, REP, 6 /* 64 */, 1);
-        // install reply EP
-        kernel::TCU::config_send(RPLEP, 0x5678, own_tile, REP2, 6 /* 64 */, 1, true, 2);
+        ASSERT_EQ(kernel::TCU::send(SEP, empty_msg, 0x1111, REP2), Errors::SUCCESS);
+        // invalidate receive EP for replies
         kernel::TCU::config_invalid(REP2);
         // now try reply to invalid receive EP
         auto rmsg = reinterpret_cast<const m3::TCU::Message *>(buffer);
         ASSERT_EQ(kernel::TCU::reply(REP, empty_msg, buf1, rmsg), Errors::RECV_GONE);
 
-        // now we should still have credits and the msg should still be unread
-        ASSERT_EQ(kernel::TCU::credits(RPLEP), 1);
+        // the reply EP is now invalid and the slot is free
+        ASSERT_EQ(kernel::TCU::is_valid(RPLEP), false);
         TCU::rep_bitmask_t unread, occupied;
         kernel::TCU::recv_masks(REP, &unread, &occupied);
-        ASSERT_EQ(unread, 0x1);
-        ASSERT_EQ(occupied, 0x1);
+        ASSERT_EQ(unread, 0x0);
+        ASSERT_EQ(occupied, 0x0);
     }
+#endif
 }
 
 static void test_msg_send_empty() {

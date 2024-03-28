@@ -30,6 +30,10 @@ public:
         return m3::TCU::endpoints_size() / (m3::TCU::EP_REGS * sizeof(m3::TCU::reg_t));
     }
 
+    static uint is_valid(epid_t ep) {
+        return m3::TCU::get().is_valid(ep);
+    }
+
     static uint credits(epid_t ep) {
         return m3::TCU::get().credits(ep);
     }
