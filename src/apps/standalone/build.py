@@ -21,10 +21,21 @@ def build(gen, env):
         env.m3_exe(
             gen,
             out='standalone-' + s,
-            ins=[env_obj, s + '/' + s + '.cc'],
+            ins=[env_obj, hw_sim_obj, s + '/' + s + '.cc'],
             dir=None,
             NoSup=True,
             ldscript='baremetal',
             varAddr=False,
             libs=libs
         )
+
+    env.m3_exe(
+        gen,
+        out='uarttest',
+        ins=[env_obj, 'uart/uarttest.cc'],
+        libs=libs,
+        dir=None,
+        ldscript='baremetal',
+        varAddr=False,
+        NoSup=True
+    )
