@@ -26,7 +26,7 @@ let
     m3Inputs = [ rustup ninja llvmPackages_15.clang-unwrapped libxml2 python311Packages.autopep8 ];
 
     # building M³Linux
-    m3lxInputs = [ flex bison dtc ];
+    m3lxInputs = [ flex bison dtc ncurses ];
 
     # build system support on Darwin
     darwinInputs = lib.attrValues {
