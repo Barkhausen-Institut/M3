@@ -657,9 +657,18 @@ impl TileObject {
         // however, we cannot turn on the core until we have properly initialized the memory. thus,
         // we need to write it to the DRAM location that emulates local SPM on the hw platform.
         if env::boot().platform == env::Platform::Hw {
-            let (mem_tile, mem_off, mem_size, _perm) =
-                ktcu::unpack_mem_ep_remote(self.tile(), 0).expect("Unable to read PMPEP0");
-            mem::Allocation::new(GlobAddr::new_with(mem_tile, mem_off), mem_size)
+            match ktcu::unpack_mem_ep_remote(self.tile(), 0) {
+                // if we have a valid memory EP in EP0, we have emulated SPM
+                Ok((mem_tile, mem_off, mem_size, _perm)) => {
+                    mem::Allocation::new(GlobAddr::new_with(mem_tile, mem_off), mem_size)
+                },
+                // otherwise we have real SPM
+                Err(e) if e.code() == Code::NoMEP => mem::Allocation::new(
+                    GlobAddr::new_with(self.tile(), cfg::MEM_OFFSET as GlobOff),
+                    platform::tile_desc(self.tile()).mem_size() as GlobOff,
+                ),
+                Err(e) => panic!("Unable to read PMPEP0: {}", e),
+            }
         }
         else {
             mem::Allocation::new(
