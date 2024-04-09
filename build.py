@@ -95,7 +95,8 @@ class M3Env(Env):
             env['CXXFLAGS'] += ['-fno-builtin', '-fno-threadsafe-statics']
             env['CPPFLAGS'] += ['-D_GNU_SOURCE']
             env['TRIPLE'] = isa + '-linux-m3-' + rustabi
-            if soft_float:
+            # riscv32 uses always soft-float
+            if soft_float and isa != 'riscv32':
                 env['TRIPLE'] += 'sf'
 
             if isa == 'x86_64':
@@ -111,10 +112,15 @@ class M3Env(Env):
                     env['CXXFLAGS'] += ['-msoft-float', '-mno-sse']
             elif isa.startswith('riscv'):
                 abi = 'ilp32' if isa == 'riscv32' else 'lp64'
-                arch = 'rv32ima' if isa == 'riscv32' else 'rv64ima'
-                harch = arch + 'fdc'
-                sarch = arch + 'c'
-                habi = abi + 'd'
+                arch = 'rv32i' if isa == 'riscv32' else 'rv64ima'
+                fullarch = 'rv32imafdc' if isa == 'riscv32' else 'rv64imafdc'
+                if isa == 'riscv64':
+                    harch = arch + 'fdc'
+                    sarch = arch + 'c'
+                    habi = abi + 'd'
+                else:
+                    harch = sarch = arch
+                    habi = abi
                 # make sure that embedded C-code or similar (minicov with llvm-profile library)
                 # for Rust is built with soft-float as well
                 cflags = os.environ.get('TARGET_CFLAGS')
@@ -128,7 +134,7 @@ class M3Env(Env):
                 env['CXXFLAGS'] += ['-march=' + arch, '-mabi=' + abi]
                 env['LINKFLAGS'] += ['-march=' + arch, '-mabi=' + abi]
                 # in assembly, we always want to have all instructions available
-                env['ASFLAGS'] += ['-march=' + harch, '-mabi=' + abi]
+                env['ASFLAGS'] += ['-march=' + fullarch, '-mabi=' + abi]
 
             env['CPPPATH'] += [
                 # cross directories only to make clangd happy
