@@ -205,17 +205,18 @@ class Loader:
             # mem size | TileAttr::IMEM | TileType::MEM
             return (DRAM_SIZE >> 12) << 28 | ((1 << 4) << 11) | 1
 
-        tile_desc = 1 << 6  # RISCV64
-        if not self.vm:
+        tile = tiles[tile_idx]
+        desc = tile.mem[tile.tcu.ext_reg_addr(TCUExtReg.TILE_DESC)]
+
+        if not self.vm and (desc & ((1 << 4) << 11)) == 0:
             # mem size | TileAttr::IMEM
-            tile_desc |= ((self.pmp_size >> 12) << 28) | ((1 << 4) << 11)
-        if tile_idx < 5:
-            tile_desc |= (1 << 1) << 11  # Rocket core
-        else:
-            tile_desc |= (1 << 0) << 11  # PERF core
-        if tile_idx == 6:
-            tile_desc |= (1 << 2) << 11  # NIC
-            tile_desc |= (1 << 3) << 11  # Serial
+            desc |= ((self.pmp_size >> 12) << 28) | ((1 << 4) << 11)
         if self.tcu_version < 3:
-            tile_desc |= (1 << 5) << 11  # IEPS
-        return tile_desc
+            desc |= (1 << 5) << 11  # IEPS
+
+        # TODO manually set RV32 until the HW reports that correctly
+        if tile_idx == 3 or tile_idx == 4:
+            desc &= ~(0x1FF << 6)
+            desc |= 2 << 6
+
+        return desc
