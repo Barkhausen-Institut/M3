@@ -1,8 +1,8 @@
 dirs = [
     "toolchain", # generate linker scripts first
-    "apps",
+    "libs",      # libs afterwards
     "kernel",
-    "libs",
+    "apps",
     "tilemux",
     "server",
     "fs", # generate the file systems last
