@@ -5,7 +5,6 @@ def build(gen, env):
         ["default", []],
         ["baremetal", ["baremetal"]],
         ["isr", ["baremetal", "isr"]],
-        ["tilemux", ["tilemux", "isr"]],
     ]
 
     for isa in env['ALL_ISAS']:

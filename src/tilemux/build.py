@@ -21,7 +21,7 @@ def build(gen, env):
         out='tilemux',
         libs=['isr'],
         dir=None,
-        ldscript='tilemux',
+        ldscript='isr',
         startup=entry,
         varAddr=False,
         cargo_ws=False,
