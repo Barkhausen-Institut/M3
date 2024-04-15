@@ -145,8 +145,7 @@ help() {
     echo "    M3_GEM5_FSNUM:           The number of times to load the FS image."
     echo "    M3_GEM5_PAUSE:           Pause the tile with given number until GDB connects"
     echo "                             (only on gem5 and with command dbg=)."
-    echo "    M3_HW_FPGA_HOST:         The SSH alias for the FPGA PC."
-    echo "    M3_HW_FPGA_DIR:          The directory on the FPGA PC to use for temporary"
+    echo "    M3_HW_FPGA_DIR:          The directory to use for temporary"
     echo "                             files. The directory will be created automatically."
     echo "    M3_HW_FPGA_NO:           The FPGA number. Every FPGA has an IP of"
     echo "                             192.168.42.240 + \$M3_HW_FPGA_NO."
@@ -209,8 +208,8 @@ case "$cmd" in
     # these commands require on hw that the M3_HW_FPGA_* vars are defined
     run|dbg=*|loadfpga=*)
         if [ "$M3_TARGET" = "hw" ] || [ "$M3_TARGET" = "hw22" ]; then
-            if [ -z "$M3_HW_FPGA_HOST" ] || [ -z "$M3_HW_FPGA_DIR" ]; then
-                echo "Please define M3_HW_FPGA_HOST and M3_HW_FPGA_DIR." >&2 && exit 1
+            if [ -z "$M3_HW_FPGA_DIR" ]; then
+                echo "Please define M3_HW_FPGA_DIR." >&2 && exit 1
             fi
             if [ -z "$M3_HW_FPGA_NO" ]; then
                 echo "Please define M3_HW_FPGA_NO." >&2 && exit 1
@@ -261,12 +260,11 @@ case "$cmd" in
         rsync -z \
             "$fpgatools/bitfiles/$bitfile" \
             "$fpgatools/scripts/program_fpga.tcl" \
-            "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR"
+            "$M3_HW_FPGA_DIR"
 
-        ssh "$M3_HW_FPGA_HOST" \
-            "$M3_HW_VIVADO"' -mode batch \
-                             -source '"$M3_HW_FPGA_DIR"'/program_fpga.tcl \
-                             -tclargs '"$M3_HW_FPGA_DIR"'/'"$bitfile"
+        "$M3_HW_VIVADO" -mode batch \
+                        -source "$M3_HW_FPGA_DIR"/program_fpga.tcl \
+                        -tclargs "$M3_HW_FPGA_DIR"/"$bitfile"
         ;;
 
     clippy)

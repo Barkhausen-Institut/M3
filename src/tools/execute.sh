@@ -198,7 +198,7 @@ build_params_hw() {
 
     {
         echo "#!/bin/sh"
-        echo "export PYTHONPATH=\$HOME/$M3_HW_FPGA_DIR/python:\$PYTHONPATH"
+        echo "export PYTHONPATH=$M3_HW_FPGA_DIR/python:\$PYTHONPATH"
         # echo "export RUST_FILE_LOG=debug"
         echo ""
         if [ "$debug" != "" ]; then
@@ -228,10 +228,10 @@ build_params_hw() {
 
     rsync -rz \
         src/tools/fpga.py platform/hw/fpga_tools/python "${files[@]}" "$M3_OUT/run.sh" \
-        "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR"
+        "$M3_HW_FPGA_DIR"
 
-    ssh -t "$M3_HW_FPGA_HOST" "cd $M3_HW_FPGA_DIR && sh run.sh"
-    scp "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR/log.txt" "$M3_HW_FPGA_HOST:$M3_HW_FPGA_DIR/log/pm*" "$M3_OUT"
+    ( cd "$M3_HW_FPGA_DIR" && sh run.sh )
+    cp "$M3_HW_FPGA_DIR/log.txt" "$M3_HW_FPGA_DIR"/log/pm* "$M3_OUT"
 }
 
 if [ "$M3_TARGET" = "gem5" ] || [ "$M3_RUN_GEM5" = "1" ]; then
