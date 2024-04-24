@@ -17,7 +17,7 @@ rustapps = []
 rustlibs = []
 rustfeatures = []
 nextenvid = 1
-if isa == 'riscv64' or isa == 'riscv32':
+if isa == 'riscv64':
     link_addr = 0x11000000
 else:
     link_addr = 0x1000000

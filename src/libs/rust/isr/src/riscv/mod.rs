@@ -126,6 +126,11 @@ impl fmt::Debug for RISCVState {
     }
 }
 
+#[cfg(feature = "gem5")]
+const CLINT_MSIP: *mut u64 = 0x0800_0000 as *mut u64;
+#[cfg(not(feature = "gem5"))]
+const CLINT_MSIP: *mut u64 = 0x0200_0000 as *mut u64;
+
 mod plic {
     pub const TCU_ID: u32 = 1;
     pub const TIMER_ID: u32 = 2;
@@ -213,7 +218,6 @@ impl crate::ISRArch for RISCVISR {
         }
 
         // disable timer interrupt
-        const CLINT_MSIP: *mut u64 = 0x0200_0000 as *mut u64;
         unsafe {
             CLINT_MSIP.write_volatile(0);
         }

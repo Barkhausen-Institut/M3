@@ -20,7 +20,7 @@ use base::col::{BitArray, Vec};
 use base::env;
 use base::errors::{Code, Error};
 use base::io::LogFlags;
-use base::kif;
+use base::kif::{self, TileISA};
 use base::log;
 use base::mem::{size_of, GlobAddr, GlobOff, MsgBuf, VirtAddr};
 use base::quota;
@@ -295,6 +295,13 @@ impl TileMux {
                         let trampoline: u64 = 0x0000_0000_0000_306f; // j _start (+0x3000)
                         ktcu::write_slice(mgate.tile_id(), mgate.offset(), &[trampoline]);
                     }
+                }
+                else if platform::tile_desc(tile).isa() == TileISA::RISCV32 {
+                    let trampoline: [u32; 2] = [
+                        0x0001_22b7, // lui t0, 0x12 = 0x12000
+                        0x0000_8282, // jr  t0
+                    ];
+                    ktcu::write_slice(mgate.tile_id(), mgate.offset(), &trampoline);
                 }
             }
             else {
