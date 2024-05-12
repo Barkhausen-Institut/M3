@@ -33,9 +33,9 @@ use m3::{kif, syscalls};
 
 use common::{ChildReply, ChildReq, Value};
 
-const SENSOR: &str = "sensor";
-const DISPLAY_LEFT: &str = "display-left";
-const DISPLAY_RIGHT: &str = "display-right";
+const GAME: &str = "game";
+const BOT_LEFT: &str = "bot-left";
+const BOT_RIGHT: &str = "bot-right";
 
 macro_rules! log {
     ($fmt:expr, $($arg:tt)*) => {
@@ -66,15 +66,8 @@ impl Drop for Child {
     }
 }
 
-#[derive(Default)]
-struct Logger {
-    vals: [Value; 8],
-    idx: usize,
-}
-
 struct State {
     running: Vec<Child>,
-    logger: Option<Logger>,
     good_tile: Rc<Tile>,
     bad_tile: Rc<Tile>,
 }
@@ -94,23 +87,16 @@ impl State {
 
 #[derive(Debug)]
 enum Command {
-    StartSensor,
-    StopSensor,
-    StartLogger,
-    StopLogger,
-    StartDisplayLeft,
-    StopDisplayLeft,
-    StartDisplayRight,
-    StopDisplayRight,
+    StartGame,
+    StopGame,
+    StartBotLeft,
+    StopBotLeft,
+    StartBotRight,
+    StopBotRight,
 
-    SensorStore(Value),
-    LoggerLog,
+    GamePlay(Value),
 
-    DisplayLeftDisplay,
-    DisplayRightDisplay,
-
-    DisplayLeftTrojan(Value),
-    DisplayRightTrojan(Value),
+    BotTrojan(Value),
 
     DemoStatus,
 
@@ -129,23 +115,18 @@ fn parse_cmd(line: &str) -> Result<Command, Error> {
     };
 
     let cmd = match first {
-        "start_sensor" => Command::StartSensor,
-        "stop_sensor" => Command::StopSensor,
-        "start_logger" => Command::StartLogger,
-        "stop_logger" => Command::StopLogger,
-        "start_displayLeft" => Command::StartDisplayLeft,
-        "stop_displayLeft" => Command::StopDisplayLeft,
-        "start_displayRight" => Command::StartDisplayRight,
-        "stop_displayRight" => Command::StopDisplayRight,
+        "start_game" => Command::StartGame,
+        "stop_game" => Command::StopGame,
+        "start_botLeft" => Command::StartBotLeft,
+        "stop_botLeft" => Command::StopBotLeft,
+        "start_botRight" => Command::StartBotRight,
+        "stop_botRight" => Command::StopBotRight,
 
-        "sensor_store" => Command::SensorStore(parse_int()?),
-        "logger_log" => Command::LoggerLog,
+        "game_play" => Command::GamePlay(parse_int()?),
+        "human_play" => Command::GamePlay(parse_int()? * 10 + 1),
+        "bot_play" => Command::GamePlay(parse_int()? * 10 + 3),
 
-        "displayLeft_display" => Command::DisplayLeftDisplay,
-        "displayRight_display" => Command::DisplayRightDisplay,
-
-        "displayLeft_trojan" => Command::DisplayLeftTrojan(parse_int()?),
-        "displayRight_trojan" => Command::DisplayRightTrojan(parse_int()?),
+        "bot_trojan" => Command::BotTrojan(parse_int()? * 10 + 3),
 
         "demo_status" => Command::DemoStatus,
 
@@ -169,8 +150,8 @@ fn cmd_start(state: &State, name: &str, tile: Rc<Tile>) -> Result<Child, Error> 
 
     let req_sel_str = format!("{}", req_rgate.sel());
     let args = match name {
-        DISPLAY_LEFT | DISPLAY_RIGHT => ["/bin/isodemoattacker", &req_sel_str],
-        SENSOR => ["/bin/isodemovictim", &req_sel_str],
+        BOT_LEFT | BOT_RIGHT => ["/bin/isodemoattacker", &req_sel_str],
+        GAME => ["/bin/isodemovictim", &req_sel_str],
         &_ => return Err(Error::new(Code::NotFound)),
     };
     log!(
@@ -218,124 +199,113 @@ fn perform_request(state: &State, name: &str, req: &ChildReq) -> Result<Value, E
     }
 }
 
-fn weather(val: Value) -> &'static str {
-    match val {
-        -128..=0 => "icy",
-        1..=5 => "sleet",
-        6..=15 => "mixed",
-        16..=25 => "sunny",
-        26..=40 => "hot",
-        _ => "hellfire",
-    }
-}
-
 fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) -> bool {
     match cmd {
-        // start/stop sensor
-        Ok(Command::StartSensor) => match cmd_start(state, SENSOR, state.bad_tile.clone()) {
+        // start/stop game
+        Ok(Command::StartGame) => match cmd_start(state, GAME, state.bad_tile.clone()) {
             Ok(child) => state.running.push(child),
             Err(e) => log!("unable to start victim: {}", e),
         },
-        Ok(Command::StopSensor) => cmd_stop(state, SENSOR),
+        Ok(Command::StopGame) => cmd_stop(state, GAME),
 
-        // start/stop display left
-        Ok(Command::StartDisplayLeft) => {
-            match cmd_start(state, DISPLAY_LEFT, state.bad_tile.clone()) {
+        // start/stop bot left
+        Ok(Command::StartBotLeft) => {
+            match cmd_start(state, BOT_LEFT, state.bad_tile.clone()) {
                 Ok(child) => state.running.push(child),
                 Err(e) => log!("unable to start victim: {}", e),
             }
         },
-        Ok(Command::StopDisplayLeft) => cmd_stop(state, DISPLAY_LEFT),
+        Ok(Command::StopBotLeft) => cmd_stop(state, BOT_LEFT),
 
-        // start/stop display left
-        Ok(Command::StartDisplayRight) => {
-            match cmd_start(state, DISPLAY_RIGHT, state.good_tile.clone()) {
+        // start/stop bot right
+        Ok(Command::StartBotRight) => {
+            match cmd_start(state, BOT_RIGHT, state.good_tile.clone()) {
                 Ok(child) => state.running.push(child),
                 Err(e) => log!("unable to start victim: {}", e),
             }
         },
-        Ok(Command::StopDisplayRight) => cmd_stop(state, DISPLAY_RIGHT),
+        Ok(Command::StopBotRight) => cmd_stop(state, BOT_RIGHT),
 
         // child requests
-        Ok(Command::SensorStore(val)) => {
-            child_request(state, SENSOR, ChildReq::Set(val));
-        },
-        Ok(Command::DisplayLeftDisplay) => {
-            let val = if state.child_exists(DISPLAY_LEFT) {
-                child_request(state, SENSOR, ChildReq::Get)
-            }
-            else {
-                0
-            };
-            response!("displayLeft: {{ \"display\": \"{}\" }}", weather(val));
-        },
-        Ok(Command::DisplayRightDisplay) => {
-            let val = if state.child_exists(DISPLAY_RIGHT) {
-                child_request(state, SENSOR, ChildReq::Get)
-            }
-            else {
-                0
-            };
-            response!("displayRight: {{ \"display\": \"{}\" }}", weather(val));
-        },
-        Ok(Command::DisplayLeftTrojan(val)) => {
-            child_request(state, DISPLAY_LEFT, ChildReq::Attack(val));
-        },
-        Ok(Command::DisplayRightTrojan(val)) => {
-            child_request(state, DISPLAY_RIGHT, ChildReq::Attack(val));
-        },
-
-        // start/stop logger
-        Ok(Command::StartLogger) => {
-            if state.logger.is_some() {
-                log!("unable to start logger: {}", Error::new(Code::Exists));
-            }
-            else {
-                state.logger = Some(Logger::default());
-            }
-        },
-        Ok(Command::StopLogger) => {
-            if let Some(ref mut log) = state.logger.as_mut() {
-                for n in 0..(log.vals.len() - 1) {
-                    log.vals[n] = 0;
+        Ok(Command::GamePlay(val)) => {
+            if (val % 10) == 1 {
+                log!("human is playing{}", "");
+                child_request(state, GAME, ChildReq::Play(val));
+            } else {
+                if state.child_exists(BOT_LEFT) {
+                    log!("botLeft is playing{}", "");
+                    child_request(state, GAME, ChildReq::Play(val / 10 * 10 + 2));
                 }
-                log.idx = 0;
+                if state.child_exists(BOT_RIGHT) {
+                    log!("botRight is playing{}", "");
+                    child_request(state, GAME, ChildReq::Play(val / 10 * 10 + 3));
+                }
+                if (!state.child_exists(BOT_LEFT)) & (!state.child_exists(BOT_RIGHT)) {
+                    log!("cannot play without running bot{}", "");
+                }
             }
-            state.logger = None;
         },
-
-        Ok(Command::LoggerLog) => {
-            let val = child_request(state, SENSOR, ChildReq::Get);
-            if let Some(ref mut log) = state.logger.as_mut() {
-                log.vals[log.idx] = val;
-                log.idx = (log.idx + 1) % log.vals.len();
+        Ok(Command::BotTrojan(val)) => {
+            if state.child_exists(BOT_LEFT) {
+                child_request(state, BOT_LEFT, ChildReq::Trojan(val / 10 * 10 + 2));
+            }
+            if state.child_exists(BOT_RIGHT) {
+                child_request(state, BOT_RIGHT, ChildReq::Trojan(val / 10 * 10 + 3));
+            }
+            if (!state.child_exists(BOT_LEFT)) & (!state.child_exists(BOT_RIGHT)) {
+                log!("cannot trojan without running bot{}", "");
             }
         },
 
         Ok(Command::DemoStatus) => {
-            let sensor_value = child_request(state, SENSOR, ChildReq::Get);
-            let sensor_running = state.child_exists(SENSOR);
-            let display_left_running = state.child_exists(DISPLAY_LEFT);
-            let display_right_running = state.child_exists(DISPLAY_RIGHT);
-            let logger_running = state.logger.is_some();
-            let logger_values = match state.logger.as_ref() {
-                Some(log) => log.vals,
-                None => [0; 8],
-            };
+            let game_running = state.child_exists(GAME);
+            let bot_left_running = state.child_exists(BOT_LEFT);
+            let bot_right_running = state.child_exists(BOT_RIGHT);
+            let mut game_board = 0;
+            let mut game_log_0 = 0;
+            let mut game_log_1 = 0;
+            let mut game_log_2 = 0;
+            let mut game_log_3 = 0;
+            let mut game_log_4 = 0;
+            let mut game_log_5 = 0;
+            let mut game_log_6 = 0;
+            let mut game_log_7 = 0;
+            let mut game_log_8 = 0;
+            if state.child_exists(GAME) {
+                game_board = child_request(state, GAME, ChildReq::GetBoard);
+                game_log_0 = child_request(state, GAME, ChildReq::GetLog(0));
+                game_log_1 = child_request(state, GAME, ChildReq::GetLog(1));
+                game_log_2 = child_request(state, GAME, ChildReq::GetLog(2));
+                game_log_3 = child_request(state, GAME, ChildReq::GetLog(3));
+                game_log_4 = child_request(state, GAME, ChildReq::GetLog(4));
+                game_log_5 = child_request(state, GAME, ChildReq::GetLog(5));
+                game_log_6 = child_request(state, GAME, ChildReq::GetLog(6));
+                game_log_7 = child_request(state, GAME, ChildReq::GetLog(7));
+                game_log_8 = child_request(state, GAME, ChildReq::GetLog(8));
+            }
             response!(
                 concat!(
                     "status: {{ ",
-                    "\"sensorValue\": {}, \"loggerValues\": {:?}, ",
-                    "\"sensorRunning\": {}, \"loggerRunning\": {}, ",
-                    "\"displayLeftRunning\": {}, \"displayRightRunning\": {} ",
+                    "\"gameBoard\": {}, ",
+                    "\"gameRunning\": {}, ",
+                    "\"botLeftRunning\": {}, ",
+                    "\"botRightRunning\": {}, ",
+                    "\"gameLog\": [{}, {}, {}, {}, {}, {}, {}, {}, {}]",
                     "}}"
                 ),
-                sensor_value,
-                logger_values,
-                sensor_running,
-                logger_running,
-                display_left_running,
-                display_right_running,
+                game_board,
+                game_running,
+                bot_left_running,
+                bot_right_running,
+                game_log_0,
+                game_log_1,
+                game_log_2,
+                game_log_3,
+                game_log_4,
+                game_log_5,
+                game_log_6,
+                game_log_7,
+                game_log_8,
             );
         },
 
@@ -396,7 +366,6 @@ pub fn main() -> Result<(), Error> {
 
     let mut state = State {
         running: Vec::new(),
-        logger: None,
         good_tile: Tile::get("rocket|core").expect("Unable to get good tile"),
         bad_tile: Tile::get("boom+nic|core").expect("Unable to get bad tile"),
     };

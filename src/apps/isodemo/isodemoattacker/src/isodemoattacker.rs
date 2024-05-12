@@ -20,6 +20,7 @@ mod common;
 
 use core::mem::size_of;
 use core::ptr::write_volatile;
+use core::ptr::read_volatile;
 
 use m3::cap::Selector;
 use m3::client::MapFlags;
@@ -40,6 +41,12 @@ macro_rules! log {
     };
 }
 
+macro_rules! response {
+    ($fmt:expr, $($arg:tt)*) => {
+        m3::println!($fmt, $($arg)*)
+    };
+}
+
 fn perform_attack(virt: VirtAddr, val: Value) {
     tmif::act_info(virt, virt).unwrap();
 
@@ -52,6 +59,15 @@ fn perform_attack(virt: VirtAddr, val: Value) {
 
         // start with fourth page, because the pager faults in 4 pages at once
         let start_page = 4;
+
+        let mut row: Value = val / 100 % 10;
+        let mut col: Value = val / 10 % 10;
+        if (row < 0) | (row > 2) {
+            row = 0;
+        }
+        if (col < 0) | (col > 2) {
+            col = 0;
+        }
 
         for i in 0..count {
             let pte = *virt.as_ptr::<u64>().offset(2 + i);
@@ -66,10 +82,34 @@ fn perform_attack(virt: VirtAddr, val: Value) {
 
             // overwrite beginning of victim page
             let page_addr = virt + (start_page + i) as usize * cfg::PAGE_SIZE;
-            let vals: [Value; 1] = [val];
+            let previous_board: Value = read_volatile(page_addr.as_mut_ptr::<Value>());
+            let attack_board: Value = previous_board | (0x3 << (2 * (col + 3 * row)));
+            let vals: [Value; 1] = [attack_board];
             core::ptr::copy_nonoverlapping(vals.as_ptr(), page_addr.as_mut_ptr(), vals.len());
             log!("done with victim {}!", i);
+
         }
+        let mut step_player = "";
+        let mut step_success = false;
+        if val % 10 == 2 {
+            step_player = "botLeft";
+            step_success = true;
+        }
+        if val % 10 == 3 {
+            step_player = "botRight";
+        }
+        response!(
+            concat!(
+                "step: {{ ",
+                "\"player\": \"{}\", ",
+                "\"success\": {}, ",
+                "\"cheat\": {}",
+                "}}"
+            ),
+            step_player,
+            step_success,
+            true
+        );
     }
 }
 
@@ -94,7 +134,7 @@ pub fn main() -> Result<(), Error> {
     while let Ok(mut msg) = recv_msg(&req_rgate) {
         let cmd: ChildReq = msg.pop().unwrap();
         let reply = match cmd {
-            ChildReq::Attack(val) => {
+            ChildReq::Trojan(val) => {
                 perform_attack(virt, val);
                 ChildReply::new(Code::Success)
             },

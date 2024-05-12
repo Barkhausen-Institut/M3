@@ -1,15 +1,16 @@
 use m3::errors::Code;
 use m3::serialize::{Deserialize, Serialize};
 
-pub type Value = i8;
+pub type Value = i32;
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(crate = "m3::serde")]
 #[repr(C)]
 pub enum ChildReq {
-    Get,
-    Set(Value),
-    Attack(Value),
+    GetBoard,
+    GetLog(Value),
+    Play(Value),
+    Trojan(Value),
 }
 
 #[derive(Debug, Serialize, Deserialize)]
