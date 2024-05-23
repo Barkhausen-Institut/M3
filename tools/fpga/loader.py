@@ -62,6 +62,8 @@ class Loader:
         # enable instruction trace for all Rocket tiles (doesn't cost anything)
         if tile.type == TileType.ROCKET:
             tile.inst.rocket_enableTrace()
+        elif tile.type == TileType.ACC:
+            tile.inst.asm_enableTrace()
 
         # set features: privileged, vm, ctxsw
         tile.tcu_set_features(1, self.vm, 1)

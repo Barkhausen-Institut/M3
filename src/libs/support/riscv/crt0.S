@@ -22,6 +22,10 @@
 .weak baremetal_stack
 
 BEGIN_FUNC(_start)
+    # start with a jump to allow instruction decoding from the start on RV32 core
+    j       1f
+1:
+
     # stack pointer already set?
     li      t0, 0xDEADBEEF
     beq     t0, a0, 1f

@@ -121,20 +121,31 @@ def extract_tcu_log(tile, no: int):
 
 
 def extract_instr_trace(tile, no: int):
-    if tile.type != TileType.ROCKET:
-        return
-
-    try:
-        tile.inst.rocket_printTrace('log/pm' + str(no) + '-instrs.log')
-    except Exception as e:
-        print("PM{}: unable to read instruction trace: {}".format(no, e))
-        print("PM{}: resetting TCU and reading all logs...".format(no))
-        sys.stdout.flush()
-        tile.tcu_reset()
+    if tile.type == TileType.ROCKET:
         try:
-            tile.inst.rocket_printTrace('log/pm' + str(no) + '-instrs.log', all=True)
-        except Exception:
-            pass
+            tile.inst.rocket_printTrace('log/pm' + str(no) + '-instrs.log')
+        except Exception as e:
+            print("PM{}: unable to read instruction trace: {}".format(no, e))
+            print("PM{}: resetting TCU and reading all logs...".format(no))
+            sys.stdout.flush()
+            tile.tcu_reset()
+            try:
+                tile.inst.rocket_printTrace('log/pm' + str(no) + '-instrs.log', all=True)
+            except Exception:
+                pass
+    elif tile.type == TileType.ACC:
+        try:
+            tile.inst.asm_printTrace('log/pm' + str(no) + '-instrs.log')
+        except Exception as e:
+            print("PM{}: unable to read instruction trace: {}".format(no, e))
+            print("PM{}: resetting TCU and reading all logs...".format(no))
+            sys.stdout.flush()
+            tile.tcu_reset()
+            try:
+                tile.inst.asm_printTrace('log/pm' + str(no) + '-instrs.log', all=True)
+            except Exception:
+                pass
+        tile.inst.asm_disable()
 
 
 def stop_tiles(fpga_inst, timed_out):
