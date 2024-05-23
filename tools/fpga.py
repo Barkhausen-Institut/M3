@@ -151,6 +151,8 @@ def init_tile(dram, tile, i, loaded, vm):
     # enable instruction trace for all Rocket tiles (doesn't cost anything)
     if tile.type == TileType.ROCKET:
         tile.inst.rocket_enableTrace()
+    elif tile.type == TileType.ACC:
+        tile.inst.asm_enableTrace()
 
     # set features: privileged, vm, ctxsw
     tile.tcu_set_features(1, vm, 1)
@@ -531,6 +533,20 @@ def main():
 
             tile.inst.stop()
 
+        elif tile.type == TileType.ACC:
+            try:
+                tile.inst.asm_printTrace('log/pm' + str(i) + '-instrs.log')
+            except Exception as e:
+                print("PM{}: unable to read instruction trace: {}".format(i, e))
+                print("PM{}: resetting TCU and reading all logs...".format(i))
+                sys.stdout.flush()
+                tile.tcu_reset()
+                try:
+                    tile.inst.asm_printTrace('log/pm' + str(i) + '-instrs.log', all=True)
+                except:
+                    pass
+
+            tile.inst.asm_disable()
 
 try:
     main()
