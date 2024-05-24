@@ -208,6 +208,12 @@ impl TileState {
 
             // load segment from boot module
             let phys = phdr.phys_addr() - self.tile.desc().mem_offset();
+            log!(
+                LogFlags::ResMngTiles,
+                "Load segment @ {:#x} with {}b",
+                phys,
+                phdr.file_size()
+            );
             Self::copy_data(
                 &mut buf,
                 &mux_elf,
@@ -216,6 +222,13 @@ impl TileState {
                 phys,
                 phdr.file_size(),
             )?;
+
+            log!(
+                LogFlags::ResMngTiles,
+                "Zero segment @ {:#x} with {}b",
+                phys + phdr.file_size(),
+                phdr.mem_size() - phdr.file_size()
+            );
 
             // zero the remaining memory
             let mut segpos = phdr.file_size();
