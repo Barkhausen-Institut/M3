@@ -25,7 +25,7 @@
 namespace m3 {
 
 static inline Env *env() {
-    return reinterpret_cast<Env *>(ENV_START);
+    return reinterpret_cast<Env *>(bootenv());
 }
 
 }

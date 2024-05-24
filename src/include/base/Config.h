@@ -40,12 +40,6 @@
 #    define MAX_ACTS 64
 #endif
 
-#if defined(__riscv)
-#    define MEM_OFFSET 0x10000000
-#else
-#    define MEM_OFFSET 0
-#endif
-
 // (RISC-V) physical memory layout:
 // +----------------------------+ 0x0
 // |         devices etc.       |
@@ -102,10 +96,12 @@
 #define RBUF_SIZE     (0x10000000 - RBUF_STD_SIZE)
 #define RBUF_SIZE_SPM 0xE000
 
-#if defined(__riscv)
-#    define ENV_START (MEM_OFFSET + 0x1000)
-#else
-#    define ENV_START (MEM_OFFSET + 0x1FE000)
+#if defined(__riscv) && __riscv_xlen == 32
+#    define ENV_START 0x10000
+#elif defined(__riscv) && __riscv_xlen == 64
+#    define ENV_START 0x10001000
+#elif defined(__x86_64__)
+#    define ENV_START 0x1FE000
 #endif
 #define ENV_SIZE           0x1000
 

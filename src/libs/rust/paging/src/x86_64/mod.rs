@@ -14,7 +14,7 @@
  */
 
 use base::cfg;
-use base::kif::PageFlags;
+use base::kif::{PageFlags, TileDesc};
 use base::mem::{PhysAddr, PhysAddrRaw, VirtAddr};
 use base::write_csr;
 
@@ -84,8 +84,11 @@ impl crate::ArchPaging for X86Paging {
         }
     }
 
-    fn pte_to_phys(pte: MMUPTE) -> PhysAddr {
-        PhysAddr::new_raw((pte & !Self::MMUFlags::FLAGS.bits()) as PhysAddrRaw)
+    fn pte_to_phys(tile_desc: TileDesc, pte: MMUPTE) -> PhysAddr {
+        PhysAddr::new_raw(
+            tile_desc,
+            (pte & !Self::MMUFlags::FLAGS.bits()) as PhysAddrRaw,
+        )
     }
 
     fn needs_invalidate(new_flags: Self::MMUFlags, old_flags: Self::MMUFlags) -> bool {

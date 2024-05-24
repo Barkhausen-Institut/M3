@@ -309,7 +309,8 @@ pub fn activate_async(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<
                 }
 
                 // determine receive buffer address
-                let rbuf_addr = if platform::tile_desc(dst_tile).has_virtmem()
+                let dst_desc = platform::tile_desc(dst_tile);
+                let rbuf_addr = if dst_desc.has_virtmem()
                     && epid == ep_act.eps_start() + tcu::PG_REP_OFF
                 {
                     // special case for activating the pager reply rgate: there is no way to get a
@@ -320,7 +321,7 @@ pub fn activate_async(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<
                         + cfg::UPCALL_RBUF_SIZE as PhysAddrRaw
                         + cfg::DEF_RBUF_SIZE as PhysAddrRaw
                 }
-                else if platform::tile_desc(dst_tile).has_virtmem() {
+                else if dst_desc.has_virtmem() {
                     let rbuf = get_kobj!(act, r.rbuf_mem, MGate);
                     if r.rbuf_off >= rbuf.size() || r.rbuf_off + rg.size() as GlobOff > rbuf.size()
                     {
@@ -346,7 +347,7 @@ pub fn activate_async(act: &Rc<Activity>, msg: &'static tcu::Message) -> Result<
                     if r.rbuf_mem != kif::INVALID_SEL {
                         sysc_err!(Code::InvArgs, "rbuffer mem cap given for SPM tile");
                     }
-                    PhysAddr::new_raw(r.rbuf_off as PhysAddrRaw)
+                    PhysAddr::new_raw(dst_desc, r.rbuf_off as PhysAddrRaw)
                 };
 
                 let replies = if ep.replies() > 0 {

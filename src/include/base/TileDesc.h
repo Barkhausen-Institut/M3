@@ -138,6 +138,13 @@ struct TileDesc {
     }
 
     /**
+     * @return the memory offset within the physical address space of the tile
+     */
+    size_t mem_offset() const {
+        return isa() == TileISA::RISCV64 ? 0x1000'0000 : 0;
+    }
+
+    /**
      * @return the memory size (if has_memory() == true)
      */
     size_t mem_size() const {
@@ -161,6 +168,15 @@ struct TileDesc {
      */
     bool has_internal_eps() const {
         return (attr() & TileAttr::IEPS) != 0;
+    }
+
+    /**
+     * @return the starting address and size of the environment
+     */
+    std::pair<uintptr_t, size_t> env_space() const {
+        auto offset = isa() == TileISA::RISCV64 ? PAGE_SIZE : 0x1F'E000;
+        auto start = isa() == TileISA::RISCV32 ? 0x1'0000 : mem_offset() + offset;
+        return std::make_pair(start, PAGE_SIZE);
     }
 
     /**
@@ -198,7 +214,7 @@ private:
         if(has_virtmem())
             return RBUF_STD_ADDR;
         size_t rbufs = RBUF_SIZE_SPM + RBUF_STD_SIZE;
-        return MEM_OFFSET + mem_size() - rbufs;
+        return mem_offset() + mem_size() - rbufs;
     }
 
     value_t _value;

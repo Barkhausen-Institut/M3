@@ -42,9 +42,9 @@ int tcu_fd() {
 }
 
 LinuxInit::LinuxInit() : fd(init_dev()) {
-    init_env(fd);
     mmap_tcu(fd, reinterpret_cast<void *>(m3::TCU::MMIO_ADDR), m3::TCU::MMIO_SIZE, MemType::TCU,
              m3::KIF::Perm::RW);
+    init_env(fd);
 #if defined(__hw__) || defined(__gem5__)
     mmap_tcu(fd, reinterpret_cast<void *>(m3::TCU::MMIO_EPS_ADDR), m3::TCU::endpoints_size(),
              MemType::TCUEps, m3::KIF::Perm::R);
@@ -62,7 +62,7 @@ int LinuxInit::init_dev() {
 }
 
 void LinuxInit::init_env(int tcu_fd) {
-    mmap_tcu(tcu_fd, reinterpret_cast<void *>(ENV_START), ENV_SIZE, MemType::Environment,
+    mmap_tcu(tcu_fd, reinterpret_cast<void *>(m3::bootenv()), ENV_SIZE, MemType::Environment,
              m3::KIF::Perm::RW);
 }
 

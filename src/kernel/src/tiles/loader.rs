@@ -15,7 +15,7 @@
 
 use core::mem::size_of_val;
 
-use base::cfg::{ENV_START, MEM_OFFSET, MOD_HEAP_SIZE, PAGE_BITS, PAGE_MASK, PAGE_SIZE};
+use base::cfg::{MOD_HEAP_SIZE, PAGE_BITS, PAGE_MASK, PAGE_SIZE};
 use base::elf;
 use base::env;
 use base::errors::{Code, Error};
@@ -66,22 +66,24 @@ trait ELFLoader {
 pub fn init_activity_async(act: &Activity) -> Result<i32, Error> {
     let mut loader = ActivityELFLoader(act);
 
+    let desc = platform::tile_desc(act.tile_id());
+
     // put mapping for env into cap table (so that we can access it in create_mgate later)
-    let env_phys = if platform::tile_desc(act.tile_id()).has_virtmem() {
+    let env_phys = if desc.has_virtmem() {
         let env_addr = TileMux::translate_async(
             tilemng::tilemux(act.tile_id()),
             act.id(),
-            ENV_START,
+            desc.env_space().0,
             kif::PageFlags::RW,
         )?;
 
         let flags = PageFlags::from(kif::Perm::RW);
-        loader.load_segment_async(ENV_START, env_addr, PAGE_SIZE, flags, false)?;
+        loader.load_segment_async(desc.env_space().0, env_addr, PAGE_SIZE, flags, false)?;
 
         ktcu::glob_to_phys_remote(act.tile_id(), env_addr, flags)?
     }
     else {
-        ENV_START.as_phys()
+        desc.env_space().0.as_phys(desc)
     };
 
     if act.is_root() {
@@ -91,6 +93,8 @@ pub fn init_activity_async(act: &Activity) -> Result<i32, Error> {
 }
 
 pub fn load_mux_async(tile: tcu::TileId, mem: &mem::Allocation) -> Result<(), Error> {
+    let desc = platform::tile_desc(tile);
+
     let app = get_mod("tilemux").ok_or_else(|| Error::new(Code::NoSuchFile))?;
     log!(
         LogFlags::KernActs,
@@ -100,14 +104,16 @@ pub fn load_mux_async(tile: tcu::TileId, mem: &mem::Allocation) -> Result<(), Er
     );
 
     // load multiplexer into memory
-    let mut loader = MetalELFLoader::new(mem.global(), MEM_OFFSET as GlobOff);
+    let mut loader = MetalELFLoader::new(mem.global(), desc.mem_offset() as GlobOff);
     load_mod_async(&mut loader, app)?;
 
     // write env vars
-    let env_mem_off = mem.global().offset() + ENV_START.as_goff() - MEM_OFFSET as GlobOff;
+    let env_mem_off =
+        mem.global().offset() + desc.env_space().0.as_goff() - desc.mem_offset() as GlobOff;
     let mut env_off = size_of::<env::BaseEnv>();
     let envp_addr = write_arguments(
         &env::vars_raw(),
+        tile,
         mem.global().tile(),
         env_mem_off,
         &mut env_off,
@@ -118,7 +124,7 @@ pub fn load_mux_async(tile: tcu::TileId, mem: &mem::Allocation) -> Result<(), Er
         platform: env::boot().platform,
         envp: envp_addr.as_raw(),
         tile_id: tile.raw() as u64,
-        tile_desc: platform::tile_desc(tile).value(),
+        tile_desc: desc.value(),
         raw_tile_count: env::boot().raw_tile_count,
         raw_tile_ids: env::boot().raw_tile_ids,
         ..Default::default()
@@ -137,9 +143,16 @@ fn load_root_async(mut loader: ActivityELFLoader<'_>, env_phys: PhysAddr) -> Res
 
     let act = loader.0;
     let mut env_off = size_of::<env::BaseEnv>();
-    let argv_addr = write_arguments(&["root"], act.tile_id(), env_phys.as_goff(), &mut env_off);
+    let argv_addr = write_arguments(
+        &["root"],
+        act.tile_id(),
+        act.tile_id(),
+        env_phys.as_goff(),
+        &mut env_off,
+    );
     let envp_addr = write_arguments(
         &env::vars_raw(),
+        act.tile_id(),
         act.tile_id(),
         env_phys.as_goff(),
         &mut env_off,
@@ -367,7 +380,7 @@ impl ELFLoader for ActivityELFLoader<'_> {
             ktcu::glob_to_phys_remote(self.0.tile_id(), mem.global(), flags)?
         }
         else {
-            virt.as_phys()
+            virt.as_phys(self.0.tile_desc())
         };
 
         ktcu::clear(self.0.tile_id(), phys.as_goff(), size)
@@ -405,32 +418,35 @@ impl ELFLoader for ActivityELFLoader<'_> {
 
 fn write_arguments<S>(
     args: &[S],
-    tile: tcu::TileId,
+    dst_tile: tcu::TileId,
+    mem_tile: tcu::TileId,
     env_mem_off: GlobOff,
     env_off: &mut usize,
 ) -> VirtAddr
 where
     S: AsRef<str>,
 {
-    let (arg_buf, arg_ptr, arg_end) = env::collect_args(args, ENV_START + *env_off);
+    let env_start = platform::tile_desc(dst_tile).env_space().0;
+
+    let (arg_buf, arg_ptr, arg_end) = env::collect_args(args, env_start + *env_off);
 
     // write actual arguments to memory
     ktcu::write_mem(
-        tile,
+        mem_tile,
         env_mem_off + *env_off as GlobOff,
         arg_buf.as_ptr(),
         arg_buf.len(),
     );
 
     // write argument pointers to memory
-    let arg_ptr_off = math::round_up(arg_end - ENV_START, VirtAddr::from(size_of::<u64>()));
+    let arg_ptr_off = math::round_up(arg_end - env_start, VirtAddr::from(size_of::<u64>()));
     ktcu::write_mem(
-        tile,
+        mem_tile,
         env_mem_off + arg_ptr_off.as_goff(),
         arg_ptr.as_ptr() as *const _,
         arg_ptr.len() * size_of::<u64>(),
     );
 
     *env_off = arg_ptr_off.as_local() + arg_ptr.len() * size_of::<u64>();
-    ENV_START + arg_ptr_off
+    env_start + arg_ptr_off
 }

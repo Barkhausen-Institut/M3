@@ -51,19 +51,16 @@ pub const RESMNG_EPS: usize = 16;
 #[cfg(not(any(feature = "hw22", feature = "hw23")))]
 pub const RESMNG_EPS: usize = 64;
 
-#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
-pub const MEM_OFFSET: usize = 0x1000_0000;
-#[cfg(not(any(target_arch = "riscv64", target_arch = "riscv32")))]
-pub const MEM_OFFSET: usize = 0;
-
 pub const TILE_MEM_BASE: VirtAddr = VirtAddr::new(0xE000_0000);
 
 pub const MEM_CAP_END: VirtAddr = RBUF_STD_ADDR;
 
-#[cfg(any(target_arch = "riscv64", target_arch = "riscv32"))]
-pub const ENV_START: VirtAddr = VirtAddr::new((MEM_OFFSET + PAGE_SIZE) as VirtAddrRaw);
-#[cfg(not(any(target_arch = "riscv64", target_arch = "riscv32")))]
-pub const ENV_START: VirtAddr = VirtAddr::new((MEM_OFFSET + 0x1F_E000) as VirtAddrRaw);
+#[cfg(target_arch = "riscv32")]
+pub const ENV_START: VirtAddr = VirtAddr::new(0x1_0000);
+#[cfg(target_arch = "riscv64")]
+pub const ENV_START: VirtAddr = VirtAddr::new(0x1000_1000);
+#[cfg(target_arch = "x86_64")]
+pub const ENV_START: VirtAddr = VirtAddr::new(0x1F_E000);
 pub const ENV_SIZE: usize = PAGE_SIZE;
 
 pub const STACK_SIZE: usize = 0x20000;
@@ -72,8 +69,6 @@ pub const FIXED_KMEM: usize = 2 * 1024 * 1024;
 pub const FIXED_ROOT_MEM: usize = MOD_HEAP_SIZE + FIXED_TILEMUX_MEM + 2 * 1024 * 1024;
 pub const FIXED_TILEMUX_MEM: usize = 5 * 1024 * 1024;
 
-pub const TILEMUX_RBUF_SPACE: VirtAddr =
-    VirtAddr::new(ENV_START.as_raw() + ENV_SIZE as VirtAddrRaw);
 pub const TILEMUX_RBUF_SIZE: usize = 1 * PAGE_SIZE;
 
 pub const APP_HEAP_SIZE: usize = 64 * 1024 * 1024;

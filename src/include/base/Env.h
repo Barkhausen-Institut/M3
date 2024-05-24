@@ -102,9 +102,8 @@ public:
     }
 } PACKED;
 
-#define ENV_SPACE_SIZE  (ENV_SIZE - (sizeof(word_t) * 2 + sizeof(m3::Env)))
-#define ENV_SPACE_START (ENV_START + sizeof(m3::Env))
-#define ENV_SPACE_END   (ENV_SPACE_START + ENV_SPACE_SIZE)
+#define ENV_SPACE_SIZE             (ENV_SIZE - (sizeof(word_t) * 2 + sizeof(m3::Env)))
+#define ENV_SPACE_START(tile_desc) (tile_desc.env_space().first + sizeof(m3::Env))
 
 static inline BootEnv *bootenv() {
 #if defined(__m3lx__)

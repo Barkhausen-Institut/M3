@@ -41,9 +41,12 @@ struct PTAllocator {
 
 impl Allocator for PTAllocator {
     fn allocate_pt(&mut self) -> Result<PhysAddr, Error> {
-        assert!(self.cur + cfg::PAGE_SIZE as PhysAddrRaw <= self.max);
+        assert!(self.cur.as_raw() + cfg::PAGE_SIZE as PhysAddrRaw <= self.max.as_raw());
         self.cur += cfg::PAGE_SIZE as PhysAddrRaw;
-        Ok(self.cur - PhysAddr::new_raw(cfg::PAGE_SIZE as PhysAddrRaw))
+        Ok(PhysAddr::new_raw(
+            env::boot().tile_desc(),
+            self.cur.as_raw() - cfg::PAGE_SIZE as PhysAddrRaw,
+        ))
     }
 
     fn translate_pt(&self, phys: PhysAddr) -> VirtAddr {
@@ -63,18 +66,19 @@ impl Allocator for PTAllocator {
 static ASPACE: LazyStaticRefCell<AddrSpace<PTAllocator>> = LazyStaticRefCell::default();
 
 pub fn init() {
-    assert!(env::boot().tile_desc().has_virtmem());
+    let desc = env::boot().tile_desc();
+    assert!(desc.has_virtmem());
 
     let (mem_tile, mem_base, mem_size, _) = tcu::TCU::unpack_mem_ep(0).unwrap();
 
     let base = GlobAddr::new_with(mem_tile, mem_base);
     let mut alloc = PTAllocator {
         pts_mapped: false,
-        cur: PhysAddr::new(0, (mem_size / 2) as PhysAddrRaw),
-        max: PhysAddr::new(0, mem_size as PhysAddrRaw),
+        cur: PhysAddr::new(desc, 0, (mem_size / 2) as PhysAddrRaw),
+        max: PhysAddr::new(desc, 0, mem_size as PhysAddrRaw),
     };
     let root = base + alloc.allocate_pt().unwrap().offset() as GlobOff;
-    let aspace = AddrSpace::new(0, root, alloc);
+    let aspace = AddrSpace::new(0, root, desc, alloc);
     aspace.init();
     ASPACE.set(aspace);
 
@@ -101,7 +105,8 @@ pub fn init() {
     }
 
     // map env
-    map_ident(cfg::ENV_START, cfg::ENV_SIZE, rw);
+    let (env_start, env_size) = desc.env_space();
+    map_ident(env_start, env_size, rw);
 
     // map PTs
     let pages = mem_size as usize / cfg::PAGE_SIZE;

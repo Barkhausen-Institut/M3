@@ -14,7 +14,7 @@
  */
 
 use base::cfg;
-use base::kif::PageFlags;
+use base::kif::{PageFlags, TileDesc};
 use base::mem::{PhysAddr, VirtAddr};
 use base::{set_csr_bits, write_csr};
 
@@ -65,7 +65,7 @@ impl crate::ArchPaging for RISCV32Paging {
         0
     }
 
-    fn pte_to_phys(_pte: MMUPTE) -> PhysAddr {
+    fn pte_to_phys(_tile_desc: TileDesc, _pte: MMUPTE) -> PhysAddr {
         PhysAddr::default()
     }
 

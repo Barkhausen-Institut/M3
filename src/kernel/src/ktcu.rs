@@ -145,15 +145,19 @@ pub fn config_mem(
 }
 
 fn rbuf_addrs(virt: VirtAddr) -> (VirtAddr, PhysAddr) {
-    if platform::tile_desc(platform::kernel_tile()).has_virtmem() {
+    let desc = platform::tile_desc(platform::kernel_tile());
+    if desc.has_virtmem() {
         let (phys, _perm) = paging::translate(virt, kif::PageFlags::R);
         (
             virt,
-            phys | (virt.as_phys() & PhysAddr::new_raw(cfg::PAGE_MASK as PhysAddrRaw)),
+            PhysAddr::new_raw(
+                desc,
+                phys.as_raw() | (virt.as_local() & cfg::PAGE_MASK) as PhysAddrRaw,
+            ),
         )
     }
     else {
-        (virt, virt.as_phys())
+        (virt, virt.as_phys(desc))
     }
 }
 
@@ -397,7 +401,7 @@ pub fn glob_to_phys_remote(
     glob: GlobAddr,
     flags: kif::PageFlags,
 ) -> Result<PhysAddr, Error> {
-    glob.to_phys_with(flags, |ep| {
+    glob.to_phys_with(platform::tile_desc(tile), flags, |ep| {
         let mut regs = [0; EP_REGS];
         if read_ep_remote(tile, ep, &mut regs).is_ok() {
             TCU::unpack_mem_regs(&regs)

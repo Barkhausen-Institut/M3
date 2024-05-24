@@ -207,7 +207,7 @@ impl TileState {
             }
 
             // load segment from boot module
-            let phys = phdr.phys_addr() - cfg::MEM_OFFSET;
+            let phys = phdr.phys_addr() - self.tile.desc().mem_offset();
             Self::copy_data(
                 &mut buf,
                 &mux_elf,
@@ -238,7 +238,7 @@ impl TileState {
                 "Loading initrd '{}' with {}b to {:#x}",
                 initrd,
                 rd_size,
-                cfg::MEM_OFFSET + rd_start
+                self.tile.desc().mem_offset() + rd_start
             );
 
             Self::copy_data(&mut buf, &rd_mod, &mux.mem, 0, rd_start, rd_size)?;
@@ -256,19 +256,19 @@ impl TileState {
                 "Loading dtb '{}' with {}b to {:#x}",
                 dtb,
                 dtb_size,
-                cfg::MEM_OFFSET + DTB_OFFSET
+                self.tile.desc().mem_offset() + DTB_OFFSET
             );
 
             Self::copy_data(&mut buf, &dtb_mod, &mux.mem, 0, DTB_OFFSET, dtb_size)?;
         }
 
         // pass env vars to multiplexer
-        let mut off = cfg::ENV_START + size_of::<env::BaseEnv>();
+        let mut off = self.tile.desc().env_space().0 + size_of::<env::BaseEnv>();
         let envp = env::write_args(
             &env::vars_raw(),
             &mux.mem,
             &mut off,
-            cfg::MEM_OFFSET as GlobOff,
+            self.tile.desc().mem_offset() as GlobOff,
         )?;
 
         // init environment
@@ -281,8 +281,10 @@ impl TileState {
             raw_tile_ids: env::boot().raw_tile_ids,
             ..Default::default()
         };
-        mux.mem
-            .write_obj(&env, (cfg::ENV_START - cfg::MEM_OFFSET).as_goff())?;
+        mux.mem.write_obj(
+            &env,
+            (self.tile.desc().env_space().0 - self.tile.desc().mem_offset()).as_goff(),
+        )?;
 
         syscalls::tile_reset(self.tile.sel(), mux.mem.sel(), desired_eps)?;
 

@@ -21,7 +21,6 @@ use core::intrinsics;
 use core::ptr;
 
 use crate::cap::Selector;
-
 use crate::cfg;
 use crate::client::{Pager, ResMng};
 use crate::col::Vec;

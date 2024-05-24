@@ -16,8 +16,7 @@
 use core::fmt;
 use core::ops;
 
-use crate::cfg;
-use crate::impl_prim_int;
+use crate::kif::TileDesc;
 use crate::mem::GlobOff;
 use crate::serialize::{Deserialize, Serialize};
 use crate::tcu::EpId;
@@ -31,38 +30,47 @@ pub type PhysAddrRaw = u32;
 /// memory protection (PMP) to obtain the final address in memory. For that reason, physical
 /// addresses consist of an endpoint id and an offset to refer to a specific offset in a memory
 /// region accessed via a specific PMP endpoint.
-#[derive(Default, Copy, Clone, Eq, PartialEq, PartialOrd, Ord, Serialize, Deserialize)]
-pub struct PhysAddr(PhysAddrRaw);
+#[derive(Default, Copy, Clone, Eq, PartialEq, Serialize, Deserialize)]
+pub struct PhysAddr {
+    tile_desc: TileDesc,
+    raw: PhysAddrRaw,
+}
 
 impl PhysAddr {
     /// Creates a new physical address for given endpoint and offset
-    pub const fn new(ep: EpId, off: PhysAddrRaw) -> Self {
-        Self((ep as PhysAddrRaw) << 30 | ((cfg::MEM_OFFSET as PhysAddrRaw) + off))
+    pub fn new(tile_desc: TileDesc, ep: EpId, off: PhysAddrRaw) -> Self {
+        Self {
+            tile_desc,
+            raw: (ep as PhysAddrRaw) << 30 | ((tile_desc.mem_offset() as PhysAddrRaw) + off),
+        }
     }
 
     /// Creates a new physical address from given raw address
-    pub const fn new_raw(addr: PhysAddrRaw) -> Self {
-        Self(addr)
+    pub const fn new_raw(tile_desc: TileDesc, addr: PhysAddrRaw) -> Self {
+        Self {
+            tile_desc,
+            raw: addr,
+        }
     }
 
     /// Returns the underlying raw address
-    pub const fn as_raw(&self) -> PhysAddrRaw {
-        self.0
+    pub fn as_raw(&self) -> PhysAddrRaw {
+        self.raw
     }
 
     /// Returns this address as a global offset
-    pub const fn as_goff(&self) -> GlobOff {
-        self.0 as GlobOff
+    pub fn as_goff(&self) -> GlobOff {
+        self.raw as GlobOff
     }
 
     /// Returns the endpoint of this physical address
-    pub const fn ep(&self) -> EpId {
-        ((self.0 - cfg::MEM_OFFSET as PhysAddrRaw) >> 30) as EpId
+    pub fn ep(&self) -> EpId {
+        ((self.raw - self.tile_desc.mem_offset() as PhysAddrRaw) >> 30) as EpId
     }
 
     /// Returns the offset of this physical address
-    pub const fn offset(&self) -> PhysAddrRaw {
-        (self.0 - cfg::MEM_OFFSET as PhysAddrRaw) & 0x3FFF_FFFF
+    pub fn offset(&self) -> PhysAddrRaw {
+        (self.raw - self.tile_desc.mem_offset() as PhysAddrRaw) & 0x3FFF_FFFF
     }
 }
 
@@ -82,14 +90,15 @@ impl ops::Add<PhysAddrRaw> for PhysAddr {
     type Output = Self;
 
     fn add(self, rhs: PhysAddrRaw) -> Self::Output {
-        Self(self.0 + (rhs as PhysAddrRaw))
+        Self {
+            tile_desc: self.tile_desc,
+            raw: self.raw + (rhs as PhysAddrRaw),
+        }
     }
 }
 
 impl ops::AddAssign<PhysAddrRaw> for PhysAddr {
     fn add_assign(&mut self, rhs: PhysAddrRaw) {
-        self.0 += rhs as PhysAddrRaw;
+        self.raw += rhs as PhysAddrRaw;
     }
 }
-
-impl_prim_int!(PhysAddr, PhysAddrRaw);

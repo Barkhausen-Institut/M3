@@ -147,10 +147,12 @@ impl Activity {
         use base::kif::PageFlags;
 
         loader::init_activity_async(self)?;
-        if !platform::tile_desc(self.tile_id()).is_device() {
+
+        let desc = platform::tile_desc(self.tile_id());
+        if !desc.is_device() {
             // get physical address of receive buffer
-            let rbuf_virt = platform::tile_desc(self.tile_id()).rbuf_std_space().0;
-            let rbuf_phys = if platform::tile_desc(self.tile_id()).has_virtmem() {
+            let rbuf_virt = desc.rbuf_std_space().0;
+            let rbuf_phys = if desc.has_virtmem() {
                 let glob = crate::tiles::TileMux::translate_async(
                     tilemng::tilemux(self.tile_id()),
                     self.id(),
@@ -160,7 +162,7 @@ impl Activity {
                 ktcu::glob_to_phys_remote(self.tile_id(), glob, base::kif::PageFlags::RW).unwrap()
             }
             else {
-                rbuf_virt.as_phys()
+                rbuf_virt.as_phys(desc)
             };
 
             self.init_eps(rbuf_phys)
@@ -192,7 +194,7 @@ impl Activity {
             rgate.activate(
                 platform::kernel_tile(),
                 ktcu::KSYS_EP,
-                PhysAddr::new_raw(0xDEADBEEF),
+                PhysAddr::new_raw(platform::tile_desc(self.tile_id()), 0xDEADBEEF),
             );
             let sgate = SGateObject::new(&rgate, self.id() as tcu::Label, 1);
             tilemux.config_snd_ep(self.eps_start + tcu::SYSC_SEP_OFF, act, &sgate)?;

@@ -35,8 +35,8 @@ public:
     static const size_t EP_OUT = 16;
     static const size_t EP_RECV = 17;
 
-    static const size_t BUF_ADDR = MEM_OFFSET + 0x8000;
-    static const size_t RECV_ADDR = MEM_OFFSET + 0x3F'FF00;
+    static const size_t BUF_ADDR = 0x8000;
+    static const size_t RECV_ADDR = 0x3F'FF00;
     static const size_t MAX_BUF_SIZE = 32768;
 
     enum Operation {
@@ -56,25 +56,26 @@ public:
           _act(act),
           _rep(EP::alloc_for(act->sel(), EP_RECV, 1)),
           _mep(EP::alloc_for(act->sel(), EP_OUT)),
-          _rcap(create_rcap(_rep)),
+          _rcap(create_rcap(act, _rep)),
           _sgate(SendGate::create(&_rcap, SendGateArgs().credits(1).reply_gate(&reply_gate))),
-          _mem(_act->get_mem(MEM_OFFSET, act->tile_desc().mem_size(), MemGate::RW).activate()) {
+          _mem(_act->get_mem(_act->tile_desc().mem_offset(), act->tile_desc().mem_size(),
+                             MemGate::RW)
+                   .activate()) {
     }
 
     void connect_output(InDirAccel *accel) {
-        _mcap =
-            std::make_unique<MemCap>(accel->_mem.derive_cap(BUF_ADDR - MEM_OFFSET, MAX_BUF_SIZE));
+        _mcap = std::make_unique<MemCap>(accel->_mem.derive_cap(BUF_ADDR, MAX_BUF_SIZE));
         _mcap->activate_on(_mep);
     }
 
     void read(void *data, size_t size) {
         assert(size <= MAX_BUF_SIZE);
-        _mem.read(data, size, BUF_ADDR - MEM_OFFSET);
+        _mem.read(data, size, BUF_ADDR);
     }
 
     void write(const void *data, size_t size) {
         assert(size <= MAX_BUF_SIZE);
-        _mem.write(data, size, BUF_ADDR - MEM_OFFSET);
+        _mem.write(data, size, BUF_ADDR);
     }
 
     void start(Operation op, size_t dataSize, CycleDuration compTime, label_t reply_label) {
@@ -87,10 +88,10 @@ public:
     }
 
 private:
-    static RecvCap create_rcap(EP &rep) {
+    static RecvCap create_rcap(std::unique_ptr<ChildActivity> &act, EP &rep) {
         auto rgate = RecvCap::create(getnextlog2(MSG_SIZE), getnextlog2(MSG_SIZE));
         // activate EP
-        rgate.activate_on(rep, nullptr, RECV_ADDR);
+        rgate.activate_on(rep, nullptr, act->tile_desc().mem_offset() + RECV_ADDR);
         return rgate;
     }
 

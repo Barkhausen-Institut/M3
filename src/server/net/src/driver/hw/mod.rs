@@ -23,7 +23,7 @@ use m3::errors::{Code, Error};
 use m3::kif::{PageFlags, Perm};
 use m3::mem::{GlobOff, PhysAddrRaw, VirtAddr};
 use m3::tiles::Activity;
-use m3::vec;
+use m3::{env, vec};
 
 use smoltcp::time::Instant;
 
@@ -54,7 +54,10 @@ impl AXIEthDevice {
             ALL_BUF_SIZE,
             Perm::RW,
         )?;
-        let phys = bufs.region()?.0.to_phys(PageFlags::RW)?;
+        let phys = bufs
+            .region()?
+            .0
+            .to_phys(env::boot().tile_desc(), PageFlags::RW)?;
 
         let res = unsafe { axieth_init(BUF_VIRT_ADDR.as_local(), phys.as_raw(), RX_BUF_SIZE) };
         if res < 0 {

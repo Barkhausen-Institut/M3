@@ -22,7 +22,7 @@ use core::fmt;
 use num_enum::{FromPrimitive, IntoPrimitive};
 
 use crate::cfg;
-use crate::mem::VirtAddr;
+use crate::mem::{VirtAddr, VirtAddrRaw};
 use crate::serialize::{Deserialize, Serialize};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, IntoPrimitive, FromPrimitive)]
@@ -103,7 +103,7 @@ pub type TileDescRaw = u64;
 ///
 /// [`create_activity`]: ../../m3/syscalls/fn.create_activity.html
 #[repr(C)]
-#[derive(Clone, Copy, Default, Serialize, Deserialize)]
+#[derive(Clone, Copy, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct TileDesc {
     val: TileDescRaw,
@@ -152,6 +152,14 @@ impl TileDesc {
 
     pub fn attr(self) -> TileAttr {
         TileAttr::from_bits_truncate((self.val >> 11) & 0x1FFFF)
+    }
+
+    /// Returns the memory offset within the physical address space of the tile
+    pub fn mem_offset(self) -> usize {
+        match self.isa() {
+            TileISA::RISCV64 => 0x1000_0000,
+            _ => 0,
+        }
     }
 
     /// Returns the size of the internal memory (0 if none is present)
@@ -305,9 +313,28 @@ impl TileDesc {
         res
     }
 
+    /// Returns the starting address and size of the environment
+    pub fn env_space(self) -> (VirtAddr, usize) {
+        let start = match self.isa() {
+            TileISA::RISCV32 => VirtAddr::new(0x1_0000),
+            TileISA::RISCV64 => VirtAddr::new((self.mem_offset() + cfg::PAGE_SIZE) as VirtAddrRaw),
+            _ => VirtAddr::new((self.mem_offset() + 0x1F_E000) as VirtAddrRaw),
+        };
+        (start, cfg::PAGE_SIZE)
+    }
+
     /// Returns the starting address and size of the standard receive buffer space
     pub fn rbuf_std_space(self) -> (VirtAddr, usize) {
         (self.rbuf_base(), cfg::RBUF_STD_SIZE)
+    }
+
+    /// Returns the starting address and size of the receive buffer space for the multiplexer
+    pub fn rbuf_mux_space(self) -> (VirtAddr, usize) {
+        let (env_start, env_size) = self.env_space();
+        (
+            VirtAddr::new(env_start.as_raw() + env_size as VirtAddrRaw),
+            cfg::TILEMUX_RBUF_SIZE,
+        )
     }
 
     /// Returns the starting address and size of the receive buffer space
@@ -338,7 +365,7 @@ impl TileDesc {
         }
         else {
             let rbufs = cfg::RBUF_SIZE_SPM + cfg::RBUF_STD_SIZE;
-            VirtAddr::from(cfg::MEM_OFFSET + self.mem_size() - rbufs)
+            VirtAddr::from(self.mem_offset() + self.mem_size() - rbufs)
         }
     }
 }

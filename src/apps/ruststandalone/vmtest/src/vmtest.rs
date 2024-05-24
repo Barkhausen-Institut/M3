@@ -23,6 +23,7 @@ mod paging;
 
 use base::cell::StaticCell;
 use base::cfg;
+use base::env;
 use base::errors::{Code, Error};
 use base::io::LogFlags;
 use base::kif::{PageFlags, Perm};
@@ -463,7 +464,11 @@ fn test_pmp_failures() {
         });
 
         EXPECTED_CU_REQ.set(Some(tcu::CUReq::PMPFailure {
-            phys: global.to_phys(PageFlags::R).unwrap().as_raw() + cfg::PAGE_SIZE as u32,
+            phys: global
+                .to_phys(env::boot().tile_desc(), PageFlags::R)
+                .unwrap()
+                .as_raw()
+                + cfg::PAGE_SIZE as u32,
             write: false,
             error: Code::OutOfBounds,
         }));
@@ -474,7 +479,10 @@ fn test_pmp_failures() {
         assert_eq!(CU_REQS.get(), 1);
 
         EXPECTED_CU_REQ.set(Some(tcu::CUReq::PMPFailure {
-            phys: global.to_phys(PageFlags::R).unwrap().as_raw(),
+            phys: global
+                .to_phys(env::boot().tile_desc(), PageFlags::R)
+                .unwrap()
+                .as_raw(),
             write: true,
             error: Code::NoPerm,
         }));
@@ -502,7 +510,7 @@ fn test_tlb() {
 
         // fill with lots of entries (beyond capacity)
         let mut virt = VirtAddr::from(0x2000_0000);
-        let mut phys = PhysAddr::new(0, 0);
+        let mut phys = PhysAddr::new(env::boot().tile_desc(), 0, 0);
         for _ in 0..TLB_SIZE * 2 {
             TCU::insert_tlb(ASID, virt, phys, PageFlags::RW).unwrap();
             virt += cfg::PAGE_SIZE;
@@ -525,7 +533,7 @@ fn test_tlb() {
 
         // fill with lots of fixed entries
         let mut virt = VirtAddr::from(0x2000_0000);
-        let mut phys = PhysAddr::new(0, 0);
+        let mut phys = PhysAddr::new(env::boot().tile_desc(), 0, 0);
         for _ in 0..TLB_SIZE {
             TCU::insert_tlb(ASID, virt, phys, PageFlags::RW | PageFlags::FIXED).unwrap();
             virt += cfg::PAGE_SIZE;
@@ -564,7 +572,7 @@ fn test_tlb() {
 
         // insert entries with different flags
         let virt = VirtAddr::from(0x2000_0000);
-        let phys = PhysAddr::new(0, 0);
+        let phys = PhysAddr::new(env::boot().tile_desc(), 0, 0);
         let pgsz = cfg::PAGE_SIZE;
         TCU::insert_tlb(ASID, virt, phys, PageFlags::R).unwrap();
         TCU::insert_tlb(ASID, virt + pgsz * 1, phys, PageFlags::W).unwrap();
@@ -614,7 +622,7 @@ pub extern "C" fn env_run() {
 
     helper::init("vmtest");
 
-    let virt = cfg::ENV_START;
+    let virt = env::boot().tile_desc().env_space().0;
     let (phys, flags) = paging::translate(virt, PageFlags::R);
     log!(
         LogFlags::Info,

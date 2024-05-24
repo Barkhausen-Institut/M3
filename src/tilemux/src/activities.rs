@@ -230,13 +230,15 @@ pub fn init() {
         // use the memory behind ourself for page tables
         let bss_end = math::round_up(unsafe { &_bss_end as *const _ as usize }, cfg::PAGE_SIZE);
         let first_pt = bss_end / cfg::PAGE_SIZE;
-        let first_pt =
-            1 + first_pt as PhysAddrRaw - (cfg::MEM_OFFSET / cfg::PAGE_SIZE) as PhysAddrRaw;
+        let first_pt = 1 + first_pt as PhysAddrRaw
+            - (crate::pex_env().tile_desc.mem_offset() / cfg::PAGE_SIZE) as PhysAddrRaw;
         // we don't need that many PTs here; 512 are enough for now
         let pt_count = cmp::min(
             512,
             // -1 to not use the rbuf itself for page tables
-            ((cfg::MEM_OFFSET + mem_size as usize - bss_end) / cfg::PAGE_SIZE - 1) as PhysAddrRaw,
+            ((crate::pex_env().tile_desc.mem_offset() + mem_size as usize - bss_end)
+                / cfg::PAGE_SIZE
+                - 1) as PhysAddrRaw,
         );
         {
             let mut pts = PTS.borrow_mut();
@@ -244,12 +246,24 @@ pub fn init() {
             log!(
                 LogFlags::MuxPTs,
                 "Using {} .. {} for page tables ({} in total)",
-                PhysAddr::new(0, first_pt * cfg::PAGE_SIZE as PhysAddrRaw),
-                PhysAddr::new(0, (first_pt + pt_count) * cfg::PAGE_SIZE as PhysAddrRaw - 1),
+                PhysAddr::new(
+                    pex_env().tile_desc,
+                    0,
+                    first_pt * cfg::PAGE_SIZE as PhysAddrRaw
+                ),
+                PhysAddr::new(
+                    pex_env().tile_desc,
+                    0,
+                    (first_pt + pt_count) * cfg::PAGE_SIZE as PhysAddrRaw - 1
+                ),
                 pt_count,
             );
             for i in first_pt..first_pt + pt_count {
-                pts.push(PhysAddr::new(0, i * cfg::PAGE_SIZE as PhysAddrRaw));
+                pts.push(PhysAddr::new(
+                    pex_env().tile_desc,
+                    0,
+                    i * cfg::PAGE_SIZE as PhysAddrRaw,
+                ));
             }
         }
 
@@ -648,7 +662,7 @@ impl Activity {
         root_pt: Option<GlobAddr>,
     ) -> Self {
         let aspace = root_pt.map(|r| {
-            paging::AddrSpace::new(id, r, PTAllocator {
+            paging::AddrSpace::new(id, r, pex_env().tile_desc, PTAllocator {
                 act: id,
                 quota: pt_quota,
             })
@@ -998,9 +1012,10 @@ impl Activity {
         }
 
         // map own receive buffer
-        let own_rbuf = base + (cfg::TILEMUX_RBUF_SPACE - cfg::MEM_OFFSET).as_goff();
-        assert!(cfg::TILEMUX_RBUF_SIZE == cfg::PAGE_SIZE);
-        self.map(cfg::TILEMUX_RBUF_SPACE, own_rbuf, 1, kif::PageFlags::R)
+        let rbuf_space = crate::pex_env().tile_desc.rbuf_mux_space();
+        let own_rbuf = base + (rbuf_space.0 - crate::pex_env().tile_desc.mem_offset()).as_goff();
+        assert!(rbuf_space.1 == cfg::PAGE_SIZE);
+        self.map(rbuf_space.0, own_rbuf, 1, kif::PageFlags::R)
             .unwrap();
 
         if self.id() == kif::tilemux::ACT_ID {
@@ -1016,7 +1031,8 @@ impl Activity {
         }
 
         // map runtime environment
-        self.map_new_mem(base, cfg::ENV_START, cfg::ENV_SIZE, rw | kif::PageFlags::U);
+        let (env_start, env_size) = pex_env().tile_desc.env_space();
+        self.map_new_mem(base, env_start, env_size, rw | kif::PageFlags::U);
 
         // map PTs
         self.map(
@@ -1092,7 +1108,8 @@ impl Activity {
         let end = math::round_up(end as usize, cfg::PAGE_SIZE);
         let pages = (end - start) / cfg::PAGE_SIZE;
         // the segments are identity mapped and we know that the physical memory is at `base`.
-        let glob = base + PhysAddr::new_raw(start as PhysAddrRaw).offset() as GlobOff;
+        let glob =
+            base + PhysAddr::new_raw(pex_env().tile_desc, start as PhysAddrRaw).offset() as GlobOff;
         self.map(VirtAddr::from(start), glob, pages, perm).unwrap();
     }
 }

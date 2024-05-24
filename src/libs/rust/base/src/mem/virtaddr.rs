@@ -17,8 +17,8 @@ use core::fmt;
 use core::ops;
 
 use crate::impl_prim_int;
-use crate::mem::GlobOff;
-use crate::mem::{PhysAddr, PhysAddrRaw};
+use crate::kif::TileDesc;
+use crate::mem::{GlobOff, PhysAddr, PhysAddrRaw};
 use crate::serialize::{Deserialize, Serialize};
 
 /// The underlying type for [`VirtAddr`]
@@ -65,8 +65,8 @@ impl VirtAddr {
     }
 
     /// Returns this address as a [`PhysAddr`] and therefore assumes an identity mapping
-    pub const fn as_phys(&self) -> PhysAddr {
-        PhysAddr::new_raw(self.0 as PhysAddrRaw)
+    pub const fn as_phys(&self, tile_desc: TileDesc) -> PhysAddr {
+        PhysAddr::new_raw(tile_desc, self.0 as PhysAddrRaw)
     }
 
     /// Returns this address as a locally valid virtual address (`usize`)

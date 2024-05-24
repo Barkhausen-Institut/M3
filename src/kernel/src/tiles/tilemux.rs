@@ -187,7 +187,8 @@ impl TileMux {
         assert!(self.state.is_none());
         self.state = Some(TileState::new(&self.tile, ep_count).unwrap());
 
-        if platform::tile_desc(self.tile_id()).supports_tilemux() {
+        let desc = platform::tile_desc(self.tile_id());
+        if desc.supports_tilemux() {
             // configure send EP
             ktcu::config_remote_ep(self.tile_id(), tcu::KPEX_SEP, |regs, tgtep| {
                 ktcu::config_send(
@@ -204,7 +205,7 @@ impl TileMux {
             .unwrap();
 
             // configure receive EP
-            let mut rbuf = cfg::TILEMUX_RBUF_SPACE.as_phys();
+            let mut rbuf = desc.rbuf_mux_space().0.as_phys(desc);
             ktcu::config_remote_ep(self.tile_id(), tcu::KPEX_REP, |regs, tgtep| {
                 ktcu::config_recv(
                     regs,

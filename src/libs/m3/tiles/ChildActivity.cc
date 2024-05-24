@@ -175,7 +175,7 @@ void ChildActivity::do_exec(int argc, const char *const *argv, const char *const
     if(var_count > 0) {
         size = Math::round_up(size, sizeof(uint64_t));
         char *env_buf = cur_buf + size;
-        senv.envp = ENV_SPACE_START + static_cast<size_t>(env_buf - cur_buf);
+        senv.envp = ENV_SPACE_START(tile_desc()) + static_cast<size_t>(env_buf - cur_buf);
         size += store_arguments(cur_buf, env_buf, var_count, envvars);
     }
     else
@@ -185,7 +185,7 @@ void ChildActivity::do_exec(int argc, const char *const *argv, const char *const
     senv.tile_id = 0;
     senv.tile_desc = _tile->desc().value();
     senv.argc = static_cast<uint32_t>(argc);
-    senv.argv = ENV_SPACE_START;
+    senv.argv = ENV_SPACE_START(tile_desc());
     senv.heap_size = _pager ? APP_HEAP_SIZE : 0;
 
     senv.sp = _tile->desc().stack_top();
@@ -209,7 +209,8 @@ void ChildActivity::do_exec(int argc, const char *const *argv, const char *const
     size_t env_size = Math::round_up(size, sizeof(word_t));
     env_size = serialize_state(senv, buffer.get(), env_size);
 
-    MemGate env_mem = get_mem(ENV_START, ENV_SIZE, MemGate::W).activate();
+    auto [estart, esize] = _tile->desc().env_space();
+    MemGate env_mem = get_mem(estart, esize, MemGate::W).activate();
 
     /* write entire runtime stuff */
     env_mem.write(buffer.get(), env_size, sizeof(senv));
@@ -222,17 +223,17 @@ void ChildActivity::do_exec(int argc, const char *const *argv, const char *const
 }
 
 size_t ChildActivity::serialize_state(Env &senv, char *buffer, size_t offset) {
-    senv.mounts_addr = ENV_SPACE_START + offset;
+    senv.mounts_addr = ENV_SPACE_START(tile_desc()) + offset;
     senv.mounts_len =
         Activity::own().mounts()->serialize(*this, buffer + offset, ENV_SPACE_SIZE - offset);
     offset = Math::round_up(offset + static_cast<size_t>(senv.mounts_len), sizeof(word_t));
 
-    senv.fds_addr = ENV_SPACE_START + offset;
+    senv.fds_addr = ENV_SPACE_START(tile_desc()) + offset;
     senv.fds_len =
         Activity::own().files()->serialize(*this, buffer + offset, ENV_SPACE_SIZE - offset);
     offset = Math::round_up(offset + static_cast<size_t>(senv.fds_len), sizeof(word_t));
 
-    senv.data_addr = ENV_SPACE_START + offset;
+    senv.data_addr = ENV_SPACE_START(tile_desc()) + offset;
     senv.data_len = sizeof(_data);
     memcpy(buffer + offset, _data, sizeof(_data));
     offset = Math::round_up(offset + static_cast<size_t>(senv.data_len), sizeof(word_t));
@@ -275,7 +276,8 @@ void ChildActivity::load_segment(ElfPh &pheader, char *buffer) {
     if(tile_desc().has_virtmem())
         vthrow(Errors::NOT_SUP, "Exec with VM needs a pager"_cf);
 
-    MemGate mem = get_mem(0, MEM_OFFSET + tile_desc().mem_size(), MemGate::W).activate();
+    MemGate mem =
+        get_mem(0, tile_desc().mem_offset() + tile_desc().mem_size(), MemGate::W).activate();
 
     size_t segoff = pheader.p_vaddr;
     size_t count = pheader.p_filesz;
@@ -355,7 +357,7 @@ size_t ChildActivity::store_arguments(char *begin, char *buffer, int argc,
         if(args + len >= buffer + BUF_SIZE)
             throw Exception(Errors::INV_ARGS);
         strcpy(args, argv[i]);
-        *argptr++ = ENV_SPACE_START + static_cast<size_t>(args - begin);
+        *argptr++ = ENV_SPACE_START(tile_desc()) + static_cast<size_t>(args - begin);
         args += len + 1;
     }
     *argptr++ = 0;

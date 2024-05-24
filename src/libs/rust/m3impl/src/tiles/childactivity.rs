@@ -421,7 +421,8 @@ impl ChildActivity {
         closure: Option<VirtAddr>,
         entry: VirtAddr,
     ) -> Result<(), Error> {
-        let mem = self.get_mem(cfg::ENV_START, cfg::ENV_SIZE as GlobOff, kif::Perm::RW)?;
+        let (env_start, env_size) = env::boot().tile_desc().env_space();
+        let mem = self.get_mem(env_start, env_size as GlobOff, kif::Perm::RW)?;
 
         // build child environment
         let mut cenv = crate::env::Env::default();
@@ -448,8 +449,8 @@ impl ChildActivity {
         }
 
         // write arguments and environment variables
-        let mut addr = cfg::ENV_START + mem::size_of_val(&cenv);
-        let env_off = cfg::ENV_START.as_goff();
+        let mut addr = env_start + mem::size_of_val(&cenv);
+        let env_off = env_start.as_goff();
         cenv.set_argc(args.len());
         cenv.set_argv(env::write_args(args, &mem, &mut addr, env_off)?);
         cenv.set_envp(env::write_args(
@@ -461,7 +462,7 @@ impl ChildActivity {
 
         // serialize files, mounts, and data and write them to the child's memory
         let write_words =
-            |words: &[u64], addr: VirtAddr| mem.write(words, (addr - cfg::ENV_START).as_goff());
+            |words: &[u64], addr: VirtAddr| mem.write(words, (addr - env_start).as_goff());
         self.serialize_files(write_words, &mut cenv, &mut addr)?;
         self.serialize_mounts(write_words, &mut cenv, &mut addr)?;
         self.serialize_data(write_words, &mut cenv, &mut addr)?;

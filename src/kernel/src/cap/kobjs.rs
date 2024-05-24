@@ -15,7 +15,6 @@
 
 use base::build_vmsg;
 use base::cell::{Cell, Ref, RefCell, RefMut, StaticCell};
-use base::cfg;
 use base::env;
 use base::errors::{Code, Error};
 use base::io::LogFlags;
@@ -653,6 +652,7 @@ impl TileObject {
     }
 
     pub fn memory(&self) -> mem::Allocation {
+        let desc = platform::tile_desc(self.tile());
         // on the hw platform we cannot write into the local memory until the core is running.
         // however, we cannot turn on the core until we have properly initialized the memory. thus,
         // we need to write it to the DRAM location that emulates local SPM on the hw platform.
@@ -664,16 +664,16 @@ impl TileObject {
                 },
                 // otherwise we have real SPM
                 Err(e) if e.code() == Code::NoMEP => mem::Allocation::new(
-                    GlobAddr::new_with(self.tile(), cfg::MEM_OFFSET as GlobOff),
-                    platform::tile_desc(self.tile()).mem_size() as GlobOff,
+                    GlobAddr::new_with(self.tile(), desc.mem_offset() as GlobOff),
+                    desc.mem_size() as GlobOff,
                 ),
                 Err(e) => panic!("Unable to read PMPEP0: {}", e),
             }
         }
         else {
             mem::Allocation::new(
-                GlobAddr::new_with(self.tile(), cfg::MEM_OFFSET as GlobOff),
-                platform::tile_desc(self.tile()).mem_size() as GlobOff,
+                GlobAddr::new_with(self.tile(), desc.mem_offset() as GlobOff),
+                desc.mem_size() as GlobOff,
             )
         }
     }

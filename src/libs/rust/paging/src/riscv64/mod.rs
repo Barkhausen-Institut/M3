@@ -15,7 +15,7 @@
 
 use base::cell::LazyStaticCell;
 use base::cfg;
-use base::kif::PageFlags;
+use base::kif::{PageFlags, TileDesc};
 use base::mem::{PhysAddr, PhysAddrRaw, VirtAddr};
 use base::{read_csr, set_csr_bits, write_csr};
 
@@ -94,8 +94,11 @@ impl crate::ArchPaging for RISCV64Paging {
         }
     }
 
-    fn pte_to_phys(pte: MMUPTE) -> PhysAddr {
-        PhysAddr::new_raw(((pte & !Self::MMUFlags::FLAGS.bits()) << 2) as PhysAddrRaw)
+    fn pte_to_phys(tile_desc: TileDesc, pte: MMUPTE) -> PhysAddr {
+        PhysAddr::new_raw(
+            tile_desc,
+            ((pte & !Self::MMUFlags::FLAGS.bits()) << 2) as PhysAddrRaw,
+        )
     }
 
     fn needs_invalidate(_new_flags: Self::MMUFlags, _old_flags: Self::MMUFlags) -> bool {

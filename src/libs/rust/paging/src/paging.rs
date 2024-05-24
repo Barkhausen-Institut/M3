@@ -21,6 +21,7 @@
 use base::cfg;
 use base::errors::Error;
 use base::io::LogFlags;
+use base::kif::TileDesc;
 use base::kif::{PageFlags, PTE};
 use base::libc;
 use base::log;
@@ -52,7 +53,7 @@ pub trait ArchPaging {
     fn build_pte(phys: PhysAddr, perm: Self::MMUFlags, level: usize, leaf: bool) -> MMUPTE;
 
     // Retrieves the physical address from given page table entry
-    fn pte_to_phys(pte: MMUPTE) -> PhysAddr;
+    fn pte_to_phys(tile_desc: TileDesc, pte: MMUPTE) -> PhysAddr;
 
     /// Checks whether the given flag change requires a TLB invalidation
     fn needs_invalidate(new_flags: Self::MMUFlags, old_flags: Self::MMUFlags) -> bool;
@@ -113,15 +114,17 @@ pub trait Allocator {
 
 pub struct AddrSpace<A: Allocator> {
     id: ActId,
+    tile_desc: TileDesc,
     root: MMUPTE,
     alloc: A,
 }
 
 impl<A: Allocator> AddrSpace<A> {
-    pub fn new(id: ActId, root: GlobAddr, alloc: A) -> Self {
-        let phys = root.to_phys(PageFlags::RW).unwrap();
+    pub fn new(id: ActId, root: GlobAddr, tile_desc: TileDesc, alloc: A) -> Self {
+        let phys = root.to_phys(tile_desc, PageFlags::RW).unwrap();
         AddrSpace {
             id,
+            tile_desc,
             root: Paging::build_pte(phys, MMUFlags::empty(), LEVEL_CNT, false),
             alloc,
         }
@@ -140,7 +143,7 @@ impl<A: Allocator> AddrSpace<A> {
     }
 
     pub fn switch_to(&self) {
-        Paging::set_root_pt(self.id, Paging::pte_to_phys(self.root));
+        Paging::set_root_pt(self.id, Paging::pte_to_phys(self.tile_desc, self.root));
     }
 
     pub fn flush_tlb(&self) {
@@ -148,7 +151,7 @@ impl<A: Allocator> AddrSpace<A> {
     }
 
     pub fn init(&self) {
-        let root_phys = Paging::pte_to_phys(self.root);
+        let root_phys = Paging::pte_to_phys(self.tile_desc, self.root);
         let pt_virt = self.alloc.translate_pt(root_phys);
         Self::clear_pt(pt_virt);
     }
@@ -158,7 +161,9 @@ impl<A: Allocator> AddrSpace<A> {
         let perm = Paging::to_mmu_perms(PageFlags::from_bits_truncate(perm));
         let mut pte = self.root;
         for lvl in (0..LEVEL_CNT).rev() {
-            let pt_virt = self.alloc.translate_pt(Paging::pte_to_phys(pte));
+            let pt_virt = self
+                .alloc
+                .translate_pt(Paging::pte_to_phys(self.tile_desc, pte));
             let idx = (virt.as_local() >> (cfg::PAGE_BITS + lvl * LEVEL_BITS)) & LEVEL_MASK;
             let pte_addr = pt_virt + idx * size_of::<MMUPTE>();
 
@@ -167,7 +172,7 @@ impl<A: Allocator> AddrSpace<A> {
 
             let pte_flags = MMUFlags::from_bits_truncate(pte);
             if pte_flags.is_leaf(lvl) || !pte_flags.access_allowed(perm) {
-                let res = Paging::pte_to_phys(pte);
+                let res = Paging::pte_to_phys(self.tile_desc, pte);
                 let flags = MMUFlags::from_bits_truncate(pte);
                 return (res, Paging::to_page_flags(lvl, flags));
             }
@@ -182,7 +187,7 @@ impl<A: Allocator> AddrSpace<A> {
         mut pages: usize,
         perm: PageFlags,
     ) -> Result<(), Error> {
-        let mut phys = global.to_phys(perm)?;
+        let mut phys = global.to_phys(self.tile_desc, perm)?;
 
         log!(
             LogFlags::PgMap,
@@ -211,7 +216,9 @@ impl<A: Allocator> AddrSpace<A> {
         level: usize,
     ) -> Result<(), Error> {
         // determine virtual address for page table
-        let pt_virt = self.alloc.translate_pt(Paging::pte_to_phys(pte));
+        let pt_virt = self
+            .alloc
+            .translate_pt(Paging::pte_to_phys(self.tile_desc, pte));
 
         // start at the corresponding index
         let idx = ((*virt).as_local() >> (cfg::PAGE_BITS + level * LEVEL_BITS)) & LEVEL_MASK;
@@ -333,12 +340,14 @@ impl<A: Allocator> AddrSpace<A> {
     }
 
     fn free_pts_rec(&mut self, pt: MMUPTE, level: usize) {
-        let mut ptes = self.alloc.translate_pt(Paging::pte_to_phys(pt));
+        let mut ptes = self
+            .alloc
+            .translate_pt(Paging::pte_to_phys(self.tile_desc, pt));
         for _ in 0..1 << LEVEL_BITS {
             // safety: as above
             let pte = unsafe { *ptes.as_ptr::<MMUPTE>() };
             if pte != 0 {
-                let pte_phys = Paging::pte_to_phys(pte);
+                let pte_phys = Paging::pte_to_phys(self.tile_desc, pte);
                 // does the PTE refer to a PT?
                 if pte_phys.as_raw() != 0 && !MMUFlags::from_bits_truncate(pte).is_leaf(level) {
                     // there are no PTEs refering to PTs at level 0
@@ -360,7 +369,9 @@ impl<A: Allocator> AddrSpace<A> {
         mut virt: VirtAddr,
         level: usize,
     ) -> Result<(), fmt::Error> {
-        let mut ptes = self.alloc.translate_pt(Paging::pte_to_phys(pt));
+        let mut ptes = self
+            .alloc
+            .translate_pt(Paging::pte_to_phys(self.tile_desc, pt));
         for _ in 0..1 << LEVEL_BITS {
             // safety: as above
             let pte = unsafe { *ptes.as_ptr::<MMUPTE>() };
@@ -381,7 +392,7 @@ impl<A: Allocator> AddrSpace<A> {
 
 impl<A: Allocator> Drop for AddrSpace<A> {
     fn drop(&mut self) {
-        if Paging::pte_to_phys(self.root).as_raw() != 0 {
+        if Paging::pte_to_phys(self.tile_desc, self.root).as_raw() != 0 {
             self.free_pts_rec(self.root, LEVEL_CNT - 1);
 
             // invalidate entire TLB to allow us to reuse the activity id
@@ -393,7 +404,11 @@ impl<A: Allocator> Drop for AddrSpace<A> {
 
 impl<A: Allocator> fmt::Debug for AddrSpace<A> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> Result<(), fmt::Error> {
-        writeln!(f, "Address space @ {}:", Paging::pte_to_phys(self.root))?;
+        writeln!(
+            f,
+            "Address space @ {}:",
+            Paging::pte_to_phys(self.tile_desc, self.root)
+        )?;
         self.print_as_rec(f, self.root, VirtAddr::null(), LEVEL_CNT - 1)
     }
 }

@@ -28,8 +28,9 @@ use crate::helper;
 use crate::quota;
 use crate::sendqueue;
 
-const SIDE_RBUF_ADDR: VirtAddr =
-    VirtAddr::new(cfg::TILEMUX_RBUF_SPACE.as_raw() + cfg::KPEX_RBUF_SIZE as VirtAddrRaw);
+fn side_rbuf_addr() -> VirtAddr {
+    crate::pex_env().tile_desc.rbuf_mux_space().0 + cfg::KPEX_RBUF_SIZE as VirtAddrRaw
+}
 
 fn get_request<'de, R: Deserialize<'de>>(msg: &'static tcu::Message) -> Result<R, Error> {
     let mut de = M3Deserializer::new(msg.as_words());
@@ -38,7 +39,7 @@ fn get_request<'de, R: Deserialize<'de>>(msg: &'static tcu::Message) -> Result<R
 }
 
 fn reply_msg(msg: &'static tcu::Message, reply: &MsgBuf) {
-    let msg_off = tcu::TCU::msg_to_offset(SIDE_RBUF_ADDR, msg);
+    let msg_off = tcu::TCU::msg_to_offset(side_rbuf_addr(), msg);
     tcu::TCU::reply(tcu::TMSIDE_REP, reply, msg_off).unwrap();
 }
 
@@ -114,7 +115,8 @@ fn map(msg: &'static tcu::Message) -> Result<(), Error> {
     );
 
     // ensure that we don't overmap critical areas
-    if r.virt < cfg::TILEMUX_RBUF_SPACE + cfg::TILEMUX_RBUF_SIZE
+    let rbuf_space = crate::pex_env().tile_desc.rbuf_mux_space();
+    if r.virt < rbuf_space.0 + rbuf_space.1
         || r.virt + r.pages * cfg::PAGE_SIZE > cfg::TILE_MEM_BASE
     {
         return Err(Error::new(Code::InvArgs));
@@ -354,7 +356,7 @@ fn handle_sidecalls(mut our: activities::ActivityRef<'_>) {
         }
 
         if let Some(msg_off) = tcu::TCU::fetch_msg(tcu::TMSIDE_REP) {
-            let msg = tcu::TCU::offset_to_msg(SIDE_RBUF_ADDR, msg_off);
+            let msg = tcu::TCU::offset_to_msg(side_rbuf_addr(), msg_off);
             handle_sidecall(msg);
         }
 

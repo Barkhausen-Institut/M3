@@ -21,6 +21,7 @@ use core::ops;
 
 use crate::errors::{Code, Error};
 use crate::io::LogFlags;
+use crate::kif::TileDesc;
 use crate::kif::{PageFlags, Perm};
 use crate::mem::{PhysAddr, PhysAddrRaw};
 use crate::serialize::{Deserialize, Serialize};
@@ -98,8 +99,8 @@ impl GlobAddr {
     /// (EP) that allows the caller to access this memory. Therefore, it walks over all PMP EPs to
     /// check which EP provides access to the address and translates it into the corresponding
     /// physical address.
-    pub fn to_phys(self, access: PageFlags) -> Result<PhysAddr, Error> {
-        self.to_phys_with(access, crate::tcu::TCU::unpack_mem_ep)
+    pub fn to_phys(self, tile_desc: TileDesc, access: PageFlags) -> Result<PhysAddr, Error> {
+        self.to_phys_with(tile_desc, access, crate::tcu::TCU::unpack_mem_ep)
     }
 
     /// Translates this global address to a physical address based on the given function to retrieve
@@ -107,12 +108,17 @@ impl GlobAddr {
     ///
     /// Similarly to `to_phys`, `to_phys_with` translates from this global address to the physical
     /// address, but instead of reading the PMP EPs, it calls `get_ep` for every EP id.
-    pub fn to_phys_with<F>(self, access: PageFlags, get_ep: F) -> Result<PhysAddr, Error>
+    pub fn to_phys_with<F>(
+        self,
+        tile_desc: TileDesc,
+        access: PageFlags,
+        get_ep: F,
+    ) -> Result<PhysAddr, Error>
     where
         F: Fn(EpId) -> Option<(TileId, GlobOff, GlobOff, Perm)>,
     {
         if !self.has_tile() {
-            return Ok(PhysAddr::new_raw(self.raw() as PhysAddrRaw));
+            return Ok(PhysAddr::new_raw(tile_desc, self.raw() as PhysAddrRaw));
         }
 
         // find memory EP that contains the address
@@ -140,7 +146,7 @@ impl GlobAddr {
                         return Err(Error::new(Code::NoPerm));
                     }
 
-                    let phys = PhysAddr::new(ep, (self.offset() - addr) as PhysAddrRaw);
+                    let phys = PhysAddr::new(tile_desc, ep, (self.offset() - addr) as PhysAddrRaw);
                     log!(LogFlags::LibXlate, "Translated {} to {}", self, phys);
                     return Ok(phys);
                 }

@@ -45,9 +45,12 @@ struct PTAllocator {
 
 impl Allocator for PTAllocator {
     fn allocate_pt(&mut self) -> Result<PhysAddr, Error> {
-        assert!(self.cur + cfg::PAGE_SIZE as PhysAddrRaw <= self.max);
+        assert!(self.cur.as_raw() + cfg::PAGE_SIZE as PhysAddrRaw <= self.max.as_raw());
         self.cur += cfg::PAGE_SIZE as PhysAddrRaw;
-        Ok(self.cur - PhysAddr::new_raw(cfg::PAGE_SIZE as PhysAddrRaw))
+        Ok(PhysAddr::new_raw(
+            env::boot().tile_desc(),
+            self.cur.as_raw() - cfg::PAGE_SIZE as PhysAddrRaw,
+        ))
     }
 
     fn translate_pt(&self, phys: PhysAddr) -> VirtAddr {
@@ -68,7 +71,8 @@ static BOOTSTRAP: StaticCell<bool> = StaticCell::new(true);
 static ASPACE: LazyStaticRefCell<AddrSpace<PTAllocator>> = LazyStaticRefCell::default();
 
 pub fn init() {
-    if !env::boot().tile_desc().has_virtmem() {
+    let desc = env::boot().tile_desc();
+    if !desc.has_virtmem() {
         Paging::disable();
         return;
     }
@@ -80,11 +84,11 @@ pub fn init() {
 
     let base = GlobAddr::new_with(mem_tile, mem_base);
     let mut alloc = PTAllocator {
-        cur: PhysAddr::new(0, (mem_size / 2) as PhysAddrRaw),
-        max: PhysAddr::new(0, mem_size as PhysAddrRaw),
+        cur: PhysAddr::new(desc, 0, (mem_size / 2) as PhysAddrRaw),
+        max: PhysAddr::new(desc, 0, mem_size as PhysAddrRaw),
     };
     let root = base + alloc.allocate_pt().unwrap().offset() as GlobOff;
-    let mut aspace = AddrSpace::new(tiles::KERNEL_ID as u64, root, alloc);
+    let mut aspace = AddrSpace::new(tiles::KERNEL_ID as u64, root, desc, alloc);
     aspace.init();
 
     // map TCU
@@ -118,7 +122,8 @@ pub fn init() {
     }
 
     // map env
-    map_to_phys(&mut aspace, base, cfg::ENV_START, cfg::ENV_SIZE, rw);
+    let (env_start, env_size) = desc.env_space();
+    map_to_phys(&mut aspace, base, env_start, env_size, rw);
 
     // map PTs
     let pages = mem_size as usize / cfg::PAGE_SIZE;
@@ -168,7 +173,7 @@ fn map_to_phys(
     size: usize,
     perm: PageFlags,
 ) {
-    let glob = base + (virt.as_goff() - cfg::MEM_OFFSET as GlobOff);
+    let glob = base + (virt.as_goff() - env::boot().tile_desc().mem_offset() as GlobOff);
     aspace
         .map_pages(virt, glob, size / cfg::PAGE_SIZE, perm)
         .unwrap();

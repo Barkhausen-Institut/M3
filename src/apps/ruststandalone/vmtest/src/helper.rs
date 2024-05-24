@@ -122,14 +122,18 @@ pub fn init(name: &str) {
 }
 
 pub fn virt_to_phys(virt: VirtAddr) -> (VirtAddr, PhysAddr) {
-    if !env::boot().tile_desc().has_virtmem() {
-        (virt, virt.as_phys())
+    let tile_desc = env::boot().tile_desc();
+    if !tile_desc.has_virtmem() {
+        (virt, virt.as_phys(tile_desc))
     }
     else {
         let (phys, _flags) = paging::translate(virt, PageFlags::R);
         (
             virt,
-            phys + (virt.as_phys() & PhysAddr::new_raw(cfg::PAGE_MASK as PhysAddrRaw)),
+            PhysAddr::new_raw(
+                tile_desc,
+                phys.as_raw() + (virt.as_local() & cfg::PAGE_MASK) as PhysAddrRaw,
+            ),
         )
     }
 }

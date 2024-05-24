@@ -1,9 +1,9 @@
 use m3::errors::Error;
 use m3::io::LogFlags;
+use m3::log;
 use m3::mem::VirtAddr;
 use m3::tiles::{Activity, ActivityArgs, ChildActivity, Tile};
 use m3::time::{CycleDuration, CycleInstant, Duration};
-use m3::{cfg, log};
 
 #[macro_export]
 macro_rules! create_data {
@@ -38,6 +38,6 @@ pub fn buffer_addr() -> VirtAddr {
         VirtAddr::new(0x3000_0000)
     }
     else {
-        VirtAddr::from(cfg::MEM_OFFSET + tile_desc.mem_size() / 2)
+        VirtAddr::from(tile_desc.mem_offset() + tile_desc.mem_size() / 2)
     }
 }
