@@ -113,7 +113,7 @@ class M3Env(Env):
             elif isa.startswith('riscv'):
                 abi = 'ilp32' if isa == 'riscv32' else 'lp64'
                 arch = 'rv32i' if isa == 'riscv32' else 'rv64ima'
-                fullarch = 'rv32imafdc' if isa == 'riscv32' else 'rv64imafdc'
+                fullarch = 'rv32imafd' if isa == 'riscv32' else 'rv64imafdc'
                 if isa == 'riscv64':
                     harch = arch + 'fdc'
                     sarch = arch + 'c'
