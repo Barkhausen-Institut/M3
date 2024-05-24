@@ -38,6 +38,9 @@ pub trait CPUOps {
     /// The function assumes that the address is 8-byte aligned and refers to accessible memory.
     unsafe fn write8b(addr: *mut u64, val: u64);
 
+    /// Sequentially consistent memory barrier
+    fn memory_barrier();
+
     /// Returns the stack pointer
     fn stack_pointer() -> VirtAddr;
 

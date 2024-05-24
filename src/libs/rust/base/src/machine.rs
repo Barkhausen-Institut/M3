@@ -58,6 +58,7 @@ pub fn write(buf: &[u8]) -> Result<usize, Error> {
     };
     #[cfg(not(feature = "linux"))]
     {
+        use crate::cpu::{CPUOps, CPU};
         if env::boot().platform == env::Platform::Gem5 {
             unsafe {
                 let file = b"stdout\0";
@@ -65,7 +66,7 @@ pub fn write(buf: &[u8]) -> Result<usize, Error> {
                 // without this it might end up in the store buffer, where gem5 doesn't see it.
                 // note that the fence is only effective together with the volatile reads below
                 // because it just controls ordering of memory accesses and not instructions.
-                core::sync::atomic::fence(core::sync::atomic::Ordering::SeqCst);
+                CPU::memory_barrier();
                 // touch the string first to cause a page fault, if required. gem5 assumes that it's mapped
                 let _b = file.as_ptr().read_volatile();
                 let _b = file.as_ptr().add(6).read_volatile();
@@ -99,7 +100,10 @@ pub unsafe fn flush_cache() {
         }
     }
 
-    #[cfg(any(feature = "hw", feature = "hw22", feature = "hw23"))]
+    #[cfg(all(
+        not(target_arch = "riscv32"),
+        any(feature = "hw", feature = "hw22", feature = "hw23")
+    ))]
     unsafe {
         core::arch::asm!("fence.i");
     }
@@ -120,3 +124,4 @@ pub fn shutdown() -> ! {
     }
     unreachable!();
 }
+

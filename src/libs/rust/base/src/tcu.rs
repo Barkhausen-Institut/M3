@@ -26,7 +26,6 @@ use core::cmp;
 use core::fmt;
 use core::intrinsics;
 use core::slice;
-use core::sync::atomic;
 
 use num_enum::{IntoPrimitive, TryFromPrimitive};
 
@@ -597,7 +596,7 @@ impl TCU {
         let res = Self::perform_transfer(ep, VirtAddr::from(data), size, off, CmdOpCode::Read);
         // ensure that the CPU is not reading the read data before the TCU is finished
         // note that x86 needs SeqCst here, because the Acquire/Release fence is implemented empty
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         res
     }
 
@@ -627,7 +626,7 @@ impl TCU {
     #[inline(always)]
     pub fn write(ep: EpId, data: *const u8, size: usize, off: GlobOff) -> Result<(), Error> {
         // ensure that the TCU is not reading the data before the CPU has written everything
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         Self::perform_transfer(ep, VirtAddr::from(data), size, off, CmdOpCode::Write)
     }
 
@@ -788,7 +787,7 @@ impl TCU {
     #[inline(always)]
     pub fn ack_msg(ep: EpId, msg_off: usize) -> Result<(), Error> {
         // ensure that we are really done with the message before acking it
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         Self::write_unpriv_reg(
             UnprivReg::Command,
             Self::build_cmd(ep, CmdOpCode::AckMsg, msg_off as Reg),
@@ -981,7 +980,7 @@ impl TCU {
         // save the old value before aborting
         let cmd_reg = Self::read_unpriv_reg(UnprivReg::Command);
         // ensure that we read the command register before the abort has been executed
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         Self::write_priv_reg(PrivReg::PrivCmd, PrivCmdOpCode::AbortCmd.into());
 
         loop {
@@ -1084,7 +1083,7 @@ impl TCU {
         let (arg_addr, cmd_addr) = (virt.as_local(), phys);
 
         Self::write_priv_reg(PrivReg::PrivCmdArg, arg_addr as Reg);
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         let cmd = ((asid as Reg) << 41)
             | (((cmd_addr as Reg) & !(cfg::PAGE_MASK as Reg)) << 9)
             | (tlb_flags << 9)
@@ -1394,7 +1393,7 @@ impl TCU {
             }
         }
         // ensure that all accesses are finished before we try to use the EP
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
     }
 
     /// Returns the MMIO address for the given external register
@@ -1407,3 +1406,4 @@ impl TCU {
         MMIO_EPS_ADDR + (EP_REGS * ep as usize) * mem::size_of::<Reg>()
     }
 }
+

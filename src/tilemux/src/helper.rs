@@ -13,8 +13,7 @@
  * General Public License version 2 for more details.
  */
 
-use core::sync::atomic;
-
+use base::cpu::{CPUOps, CPU};
 use base::machine;
 use base::mem::VirtAddr;
 use base::tcu;
@@ -57,7 +56,7 @@ impl TCUCmdState {
         );
         // always restore the command register, because the previous activity might have an error code
         // in the command register or similar.
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         tcu::TCU::write_unpriv_reg(tcu::UnprivReg::Command, self.cmd_regs[0]);
     }
 }
@@ -79,3 +78,4 @@ impl Drop for TCUGuard {
         self.cmd.restore();
     }
 }
+

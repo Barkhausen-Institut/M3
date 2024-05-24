@@ -23,6 +23,7 @@ mod paging;
 
 use base::cell::StaticCell;
 use base::cfg;
+use base::cpu::{CPUOps, CPU};
 use base::env;
 use base::errors::{Code, Error};
 use base::io::LogFlags;
@@ -36,7 +37,6 @@ use base::util;
 
 use core::intrinsics::transmute;
 use core::ptr;
-use core::sync::atomic;
 
 use isr::{ISRArch, StateArch, ISR};
 
@@ -335,7 +335,7 @@ fn test_foreign_msg() {
         ep: REP1,
     }));
     // ensure that EXPECTED_CU_REQ is set first
-    atomic::fence(atomic::Ordering::SeqCst);
+    CPU::memory_barrier();
 
     // send message
     let buf = MsgBuf::new();
@@ -422,7 +422,7 @@ fn test_pmp_failures() {
             error: Code::NoPMPEP,
         }));
         // ensure that EXPECTED_CU_REQ is set first
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
 
         let addr = virt.as_mut_ptr::<u8>();
         let _val = unsafe { ptr::read_volatile(addr) };
@@ -451,7 +451,7 @@ fn test_pmp_failures() {
         let global = GlobAddr::new_with(MEM_TILE, base_off);
         let size = cfg::PAGE_SIZE;
         paging::map_global(virt, global, size * 2, PageFlags::RW);
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
 
         let addr = virt.as_mut_ptr::<u8>();
 
@@ -472,7 +472,7 @@ fn test_pmp_failures() {
             write: false,
             error: Code::OutOfBounds,
         }));
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         let _val = unsafe { ptr::read_volatile(addr.add(cfg::PAGE_SIZE)) };
 
         while unsafe { ptr::read_volatile(CU_REQS.as_ptr()) } != 1 {}
@@ -486,7 +486,7 @@ fn test_pmp_failures() {
             write: true,
             error: Code::NoPerm,
         }));
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
         unsafe { ptr::write_volatile(addr, 0x77) };
         // flush the cache to trigger a LLC miss
         unsafe { machine::flush_cache() };
@@ -647,3 +647,4 @@ pub extern "C" fn env_run() {
     log!(LogFlags::Info, "Shutting down");
     helper::exit(0);
 }
+

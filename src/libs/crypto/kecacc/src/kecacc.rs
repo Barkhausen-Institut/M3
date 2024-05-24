@@ -16,7 +16,6 @@ use base::{
     cpu::{CPUOps, CPU},
     crypto::{HashAlgorithm, HashType},
 };
-use core::sync::atomic;
 
 const STATE_SIZE: usize = 256;
 
@@ -107,7 +106,7 @@ impl KecAcc {
         // Make sure the accelerator is actually done and has written back
         // its result. Without this computing a SHA3-512 hash on x86_64 returns
         // the previous contents of the buffer instead of the generated hash.
-        atomic::fence(atomic::Ordering::SeqCst);
+        CPU::memory_barrier();
     }
 
     fn start_cmd(&self, cmd: Cmd) {
@@ -145,3 +144,4 @@ impl KecAcc {
         self.start_cmd(Cmd::sponge(CmdType::Squeeze, buf));
     }
 }
+

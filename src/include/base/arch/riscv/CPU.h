@@ -53,7 +53,10 @@ inline void CPU::write8b(uintptr_t addr, uint64_t val) {
     // the command register)
     asm volatile(
         "sw %0, 4(%2)\n"
+    // fence is not supported by PicoRV32
+#    if defined(__gem5__)
         "fence\n"
+#    endif
         "sw %1, 0(%2)\n"
         :
         : "r"(val >> 32), "r"(val & 0xFFFFFFFF), "r"(addr)
@@ -111,7 +114,9 @@ inline void CPU::compute(cycles_t cycles) {
 }
 
 inline void CPU::memory_barrier() {
+#if __riscv_xlen == 64 || defined(__gem5__)
     asm volatile("fence" : : : "memory");
+#endif
 }
 
 inline cycles_t CPU::gem5_debug(uint64_t msg) {

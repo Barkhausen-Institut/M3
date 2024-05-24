@@ -17,6 +17,7 @@
  */
 
 use core::arch::asm;
+use core::sync::atomic;
 
 use crate::arch::CPUOps;
 use crate::mem::VirtAddr;
@@ -72,6 +73,10 @@ impl CPUOps for X86CPU {
             in(reg) addr as usize,
             options(nostack),
         );
+    }
+
+    fn memory_barrier() {
+        atomic::fence(atomic::Ordering::SeqCst);
     }
 
     #[inline(always)]
