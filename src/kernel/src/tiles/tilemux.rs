@@ -290,9 +290,11 @@ impl TileMux {
                 }
 
                 if env::boot().platform == env::Platform::Hw {
-                    // write trampoline to 0x1000_0000 to jump to TileMux's entry point
-                    let trampoline: u64 = 0x0000_0000_0000_306f; // j _start (+0x3000)
-                    ktcu::write_slice(mgate.tile_id(), mgate.offset(), &[trampoline]);
+                    if platform::tile_desc(tile).isa() != TileISA::RISCV32 {
+                        // write trampoline to 0x1000_0000 to jump to TileMux's entry point
+                        let trampoline: u64 = 0x0000_0000_0000_306f; // j _start (+0x3000)
+                        ktcu::write_slice(mgate.tile_id(), mgate.offset(), &[trampoline]);
+                    }
                 }
             }
             else {
