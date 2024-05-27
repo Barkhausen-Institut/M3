@@ -268,7 +268,7 @@ class M3Env(Env):
             deps += env.glob(gen, SourcePath(cr + '/**/*.rs'))
         return deps
 
-    def m3_cargo(self, gen, out):
+    def m3_cargo(self, gen, out, featdeps=[]):
         env = self.clone()
         # better specify the path to the json file, because Rust seems to be picky about the triple
         # name in some cases. For example, it doesn't like riscv32-linux-m3-muslsf for some reason.
@@ -276,6 +276,9 @@ class M3Env(Env):
         tgtspec = os.path.abspath('src/toolchain/rust/' + env['TRIPLE'] + '.json')
         env['CRGFLAGS'] += ['--target', tgtspec]
         env['CRGFLAGS'] += ['-Z build-std=core,alloc,std,panic_abort']
+        for f in rustfeatures:
+            if f.split('/')[0] in featdeps:
+                env['CRGFLAGS'] += ['--features', f]
         env.add_rust_features()
         return env.rust_exe(gen, out, self.rust_deps())
 

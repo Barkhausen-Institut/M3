@@ -12,7 +12,7 @@ def build(gen, env):
     entry = env.asm(gen, out=entry_file[:-2] + '.o', ins=[entry_file])
 
     # build tilemux outside of the workspace to use a different target spec that enables soft-float
-    lib = env.m3_cargo(gen, out='libtilemux.a')
+    lib = env.m3_cargo(gen, out='libtilemux.a', featdeps=['base', 'isr'])
     env.install(gen, outdir=env['RUSTLIBS'], input=lib)
 
     # link it as usual
