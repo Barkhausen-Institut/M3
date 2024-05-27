@@ -13,3 +13,10 @@ lang = { path = "../lang" }
 paging = { path = "../paging" }
 cfg-if = "1.0.0"
 num_enum = { version = "0.6.1", default-features = false }
+
+[features]
+default = []
+gem5 = ["base/gem5"]
+hw = ["base/hw"]
+hw22 = ["base/hw22"]
+hw23 = ["base/hw23"]
