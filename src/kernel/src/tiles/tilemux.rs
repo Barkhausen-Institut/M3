@@ -254,54 +254,58 @@ impl TileMux {
         ep_count: Option<usize>,
         root: bool,
     ) -> Result<(), Error> {
-        let start = mux_mem.is_some();
-
         if tilemng::tilemux(tile).has_activities() {
             return Err(Error::new(Code::InvState));
         }
 
-        log!(
-            LogFlags::KernTiles,
-            "Resetting tile {} (start={})",
-            tile,
-            start
-        );
-
-        {
+        let start = {
             let mut tilemux = tilemng::tilemux(tile);
+
             // reset can only be used in two ways: off -> on and on -> off
-            if (!tilemux.is_initialized() && !start) || (tilemux.is_initialized() && start) {
-                return Err(Error::new(Code::InvArgs));
-            }
+            let start = !tilemux.is_initialized();
+            log!(
+                LogFlags::KernTiles,
+                "Resetting tile {} (start={})",
+                tile,
+                start
+            );
 
             // should we start and therefore initialize the tile?
-            if let (Some(mux_mem), ep_count) = (mux_mem, ep_count) {
+            if start {
                 tilemux.init_state(ep_count);
                 tilemux.shutdown = false;
 
-                let mgate = match mux_mem {
-                    GateObject::Mem(ref mg) => mg.clone(),
-                    _ => unreachable!(),
-                };
-
-                // use the given memory gate for the first PMP EP (for the multiplexer)
-                if platform::tile_desc(tile).has_virtmem() {
-                    tilemux.configure_pmp_ep(0, mux_mem)?;
-                }
-
-                if env::boot().platform == env::Platform::Hw {
-                    if platform::tile_desc(tile).isa() != TileISA::RISCV32 {
-                        // write trampoline to 0x1000_0000 to jump to TileMux's entry point
-                        let trampoline: u64 = 0x0000_0000_0000_306f; // j _start (+0x3000)
-                        ktcu::write_slice(mgate.tile_id(), mgate.offset(), &[trampoline]);
+                if platform::tile_desc(tile).is_programmable() {
+                    // here we need a multiplexer and therefore memory
+                    if mux_mem.is_none() {
+                        return Err(Error::new(Code::InvArgs));
                     }
-                }
-                else if platform::tile_desc(tile).isa() == TileISA::RISCV32 {
-                    let trampoline: [u32; 2] = [
-                        0x0001_22b7, // lui t0, 0x12 = 0x12000
-                        0x0000_8282, // jr  t0
-                    ];
-                    ktcu::write_slice(mgate.tile_id(), mgate.offset(), &trampoline);
+
+                    let mux_mem = mux_mem.unwrap();
+                    let mgate = match mux_mem {
+                        GateObject::Mem(ref mg) => mg.clone(),
+                        _ => unreachable!(),
+                    };
+
+                    // use the given memory gate for the first PMP EP (for the multiplexer)
+                    if platform::tile_desc(tile).has_virtmem() {
+                        tilemux.configure_pmp_ep(0, mux_mem)?;
+                    }
+
+                    if env::boot().platform == env::Platform::Hw {
+                        if platform::tile_desc(tile).isa() != TileISA::RISCV32 {
+                            // write trampoline to 0x1000_0000 to jump to TileMux's entry point
+                            let trampoline: u64 = 0x0000_0000_0000_306f; // j _start (+0x3000)
+                            ktcu::write_slice(mgate.tile_id(), mgate.offset(), &[trampoline]);
+                        }
+                    }
+                    else if platform::tile_desc(tile).isa() == TileISA::RISCV32 {
+                        let trampoline: [u32; 2] = [
+                            0x0001_22b7, // lui t0, 0x12 = 0x12000
+                            0x0000_8282, // jr  t0
+                        ];
+                        ktcu::write_slice(mgate.tile_id(), mgate.offset(), &trampoline);
+                    }
                 }
             }
             else {
@@ -313,7 +317,8 @@ impl TileMux {
                     Self::shutdown_async(tilemux).unwrap();
                 }
             }
-        }
+            start
+        };
 
         // reset the tile; start it if mux_mem is some; stop it otherwise
         ktcu::reset_tile(tile, start)?;

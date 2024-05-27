@@ -551,45 +551,51 @@ pub trait Child {
 
         let cfg = self.cfg();
         let idx = cfg.get_tile_idx(desc)?;
-        let mux = cfg.tile_mux(idx);
         let mut tile_usage = res.tiles().find(desc)?;
+        let desc = tile_usage.tile_obj().desc();
 
         if init {
-            if mux.is_none() {
-                return Err(Error::new(Code::InvArgs));
-            }
+            if desc.is_programmable() {
+                let mux = cfg.tile_mux(idx);
+                if mux.is_none() {
+                    return Err(Error::new(Code::InvArgs));
+                }
 
-            tile_usage.state_mut().load_mux(
-                mux.unwrap(),
-                cfg::FIXED_TILEMUX_MEM,
-                // TODO make that customizable
-                cfg::DEF_EP_COUNT,
-                None,
-                None,
-                |size| match self.alloc_local(size as GlobOff, Perm::RWX) {
-                    Ok((mem, alloc)) => Ok((mem.activate()?, Some(alloc))),
-                    Err(e) => {
-                        log!(
-                            LogFlags::Error,
-                            "Unable to allocate {}b for multiplexer",
-                            size
-                        );
-                        Err(e)
+                tile_usage.state_mut().load_mux(
+                    mux.unwrap(),
+                    cfg::FIXED_TILEMUX_MEM,
+                    // TODO make that customizable
+                    cfg::DEF_EP_COUNT,
+                    None,
+                    None,
+                    |size| match self.alloc_local(size as GlobOff, Perm::RWX) {
+                        Ok((mem, alloc)) => Ok((mem.activate()?, Some(alloc))),
+                        Err(e) => {
+                            log!(
+                                LogFlags::Error,
+                                "Unable to allocate {}b for multiplexer",
+                                size
+                            );
+                            Err(e)
+                        },
                     },
-                },
-                |name| match starter.get_bootmod(name) {
-                    Ok(mem) => Ok(mem),
-                    Err(e) => {
-                        log!(
-                            LogFlags::Error,
-                            "Unable to get boot module {}: {:?}",
-                            name,
-                            e
-                        );
-                        Err(e)
+                    |name| match starter.get_bootmod(name) {
+                        Ok(mem) => Ok(mem),
+                        Err(e) => {
+                            log!(
+                                LogFlags::Error,
+                                "Unable to get boot module {}: {:?}",
+                                name,
+                                e
+                            );
+                            Err(e)
+                        },
                     },
-                },
-            )?;
+                )?;
+            }
+            else {
+                tile_usage.state_mut().start(None, cfg::DEF_EP_COUNT)?;
+            }
         }
 
         if inherit_pmp {
@@ -603,7 +609,6 @@ pub trait Child {
         self.delegate(tile_usage.tile_obj().sel(), sel)?;
 
         let tile_id = tile_usage.tile_id();
-        let desc = tile_usage.tile_obj().desc();
         res.tiles().add_user(&tile_usage);
         self.res_mut().tiles.push((tile_usage, idx, sel));
         cfg.alloc_tile(idx);

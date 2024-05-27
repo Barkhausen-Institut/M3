@@ -13,6 +13,7 @@
  * General Public License version 2 for more details.
  */
 
+use m3::cap::Selector;
 use m3::cell::{Cell, Ref, RefCell, RefMut};
 use m3::cfg;
 use m3::col::Vec;
@@ -45,8 +46,15 @@ struct TileMem {
     alloc: Option<Allocation>,
 }
 
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+enum State {
+    On,
+    Off,
+}
+
 #[derive(Debug)]
 pub struct TileState {
+    state: State,
     tile: Rc<Tile>,
     next_pmp_ep: EpId,
     pmp_regions: Vec<(MemCap, usize)>,
@@ -75,6 +83,7 @@ impl<'a> Read for MuxBootMod<'a> {
 impl TileState {
     fn new(tile: Rc<Tile>) -> Self {
         Self {
+            state: State::Off,
             tile,
             next_pmp_ep: FIRST_FREE_PMP_EP,
             pmp_regions: Vec::new(),
@@ -152,7 +161,7 @@ impl TileState {
         A: FnMut(usize) -> Result<(MemGate, Option<Allocation>), Error>,
         M: FnMut(&str) -> Result<MemGate, Error>,
     {
-        if self.mux.is_some() {
+        if self.state == State::On {
             return Ok(());
         }
 
@@ -166,18 +175,12 @@ impl TileState {
         let mux_elf = get_mod(name)?;
         let mem_region = mux.mem.region()?;
 
-        let (desired_eps, avail_eps) = match self.tile.desc().has_internal_eps() {
-            false => (Some(ep_count), ep_count),
-            true => (None, self.tile.ep_count()?),
-        };
-
         log!(
             LogFlags::ResMngTiles,
-            "Loading multiplexer '{}' to ({}, {}M) with EPs (#{}) for {}",
+            "Loading multiplexer '{}' to ({}, {}M) for {}",
             name,
             mem_region.0,
             mem_region.1 / (1024 * 1024),
-            avail_eps,
             self.tile.id(),
         );
 
@@ -299,7 +302,7 @@ impl TileState {
             (self.tile.desc().env_space().0 - self.tile.desc().mem_offset()).as_goff(),
         )?;
 
-        syscalls::tile_reset(self.tile.sel(), mux.mem.sel(), desired_eps)?;
+        self.start(Some(mux.mem.sel()), ep_count)?;
 
         self.mux = Some(mux);
         Ok(())
@@ -309,13 +312,53 @@ impl TileState {
     where
         F: FnOnce(Allocation),
     {
-        // reset the tile before we drop the MemGate for its PMP EP
+        if self.state == State::Off {
+            return Ok(());
+        }
+
+        self.stop()?;
+
         if let Some(mux) = self.mux.take() {
-            syscalls::tile_reset(self.tile.sel(), INVALID_SEL, None)?;
             if let Some(alloc) = mux.alloc {
                 free(alloc);
             }
         }
+
+        Ok(())
+    }
+
+    pub fn start(&mut self, mem: Option<Selector>, ep_count: usize) -> Result<(), Error> {
+        let (desired_eps, avail_eps) = match self.tile.desc().has_internal_eps() {
+            false => (Some(ep_count), ep_count),
+            true => (None, self.tile.ep_count()?),
+        };
+
+        log!(
+            LogFlags::ResMngTiles,
+            "Starting tile {} with EPs (#{})",
+            self.tile.id(),
+            avail_eps,
+        );
+
+        syscalls::tile_reset(
+            self.tile.sel(),
+            match mem {
+                Some(mem) => mem,
+                None => INVALID_SEL,
+            },
+            desired_eps,
+        )?;
+
+        self.state = State::On;
+        Ok(())
+    }
+
+    fn stop(&mut self) -> Result<(), Error> {
+        log!(LogFlags::ResMngTiles, "Stopping tile {}", self.tile.id(),);
+
+        // reset the tile before we drop the MemGate for its PMP EP
+        syscalls::tile_reset(self.tile.sel(), INVALID_SEL, None)?;
+        self.state = State::Off;
         Ok(())
     }
 }
