@@ -117,7 +117,7 @@ generate_m3lx_deps() {
     # determine initrd size
     initrd_size=$(stat --printf="%s" "$initrd")
     # round up to page size
-    initrd_size=$(python -c "print('{}'.format(($initrd_size + 0xFFF) & 0xFFFFF000))")
+    initrd_size=$(python3 -c "print('{}'.format(($initrd_size + 0xFFF) & 0xFFFFF000))")
 
     # generate DTBs
     dtbs=$(xmllint --xpath './/dom[@dtb]/@dtb' "$1" | sed -e 's/dtb="\(.*\)"/\1/g' | sort | uniq)
@@ -138,7 +138,7 @@ generate_m3lx_deps() {
             *K) mem_size=$(("${mem_size%K*}" * 1024)) ;;
         esac
         # ensure that it's a power of two. otherwise we can't configure RISC-V's PMP properly
-        if [ "$(python -c "print('{}'.format(($mem_size & ($mem_size - 1) == 0)))")" != "True" ]; then
+        if [ "$(python3 -c "print('{}'.format(($mem_size & ($mem_size - 1) == 0)))")" != "True" ]; then
             echo "The memory size ($mem_size) for Linux needs to be a power of two!" >&2 && exit 1
         fi
 
