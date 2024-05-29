@@ -188,16 +188,16 @@ def main():
 
     # check TCU versions
     for tile in fpga_inst.pmTiles:
-        vmajor, _, _ = tile.tcu_version()
-        if vmajor != args.version:
+        version = tile.tcu_version()
+        if version[0] != args.version:
             print("Tile %s has TCU major version %d, but expected %d" %
-                  (tile.name, vmajor, args.version))
+                  (tile.name, version[0], args.version))
             return
 
     mods = [] if args.mod is None else args.mod
     pmp_size = 16 * 1024 * 1024 if args.vm else 64 * 1024 * 1024
 
-    ld = loader.Loader(args.version, pmp_size, args.vm)
+    ld = loader.Loader(version, pmp_size, args.vm)
 
     # disable NoC ARQ for program upload
     fpga_inst.set_arq_enable(False)

@@ -23,7 +23,7 @@ PMP_ADDR = SERIAL_ADDR + SERIAL_SIZE
 
 
 class Loader:
-    def __init__(self, tcu_version: int, pmp_size: int, vm: bool):
+    def __init__(self, tcu_version: (int, int, int), pmp_size: int, vm: bool):
         self.tcu_version = tcu_version
         self.pmp_size = pmp_size
         self.vm = vm
@@ -213,11 +213,11 @@ class Loader:
         if not self.vm and (desc & ((1 << 4) << 11)) == 0:
             # mem size | TileAttr::IMEM
             desc |= ((self.pmp_size >> 12) << 28) | ((1 << 4) << 11)
-        if self.tcu_version < 3:
+        if self.tcu_version[0] < 3:
             desc |= (1 << 5) << 11  # IEPS
 
         # TODO manually set RV32 until the HW reports that correctly
-        if tile_idx == 3 or tile_idx == 4:
+        if self.tcu_version == (2, 0, 1) and (tile_idx == 3 or tile_idx == 4):
             desc &= ~(0x1FF << 6)
             desc |= 2 << 6
 
