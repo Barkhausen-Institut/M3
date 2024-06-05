@@ -28,3 +28,14 @@ def build(gen, env):
             varAddr=False,
             libs=libs
         )
+
+    env.m3_exe(
+        gen,
+        out='uarttest',
+        ins=[env_obj, 'uart/uarttest.cc'],
+        libs=libs,
+        dir=None,
+        ldscript='baremetal',
+        varAddr=False,
+        NoSup=True
+    )

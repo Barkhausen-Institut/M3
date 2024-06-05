@@ -1,0 +1,11 @@
+<config>
+    <env>M3_HW_VM=0</env>
+    <kernel args="tilemux" />
+    <kernel args="tilemux" />
+    <kernel args="tilemux" />
+    <kernel args="tilemux" />
+    <kernel args="tilemux" />
+    <kernel args="tilemux" />
+    <kernel args="uarttest" />
+    <kernel args="tilemux" />
+</config>
