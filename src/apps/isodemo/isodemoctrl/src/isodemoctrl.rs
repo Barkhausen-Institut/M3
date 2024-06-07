@@ -228,7 +228,11 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
 
         // child requests
         Ok(Command::GamePlay(val)) => {
-            if (val % 10) == 1 {
+            if val == 1000 {
+                child_request(state, GAME, ChildReq::Play(1000));
+            } else if val == 1001 {
+                child_request(state, GAME, ChildReq::Play(1001));
+            } else if (val % 10) == 1 {
                 log!("human is playing{}", "");
                 child_request(state, GAME, ChildReq::Play(val));
             } else {
@@ -261,6 +265,7 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
             let game_running = state.child_exists(GAME);
             let bot_left_running = state.child_exists(BOT_LEFT);
             let bot_right_running = state.child_exists(BOT_RIGHT);
+            let mut game_log_length = 0;
             let mut game_board = 0;
             let mut game_log_0 = 0;
             let mut game_log_1 = 0;
@@ -274,14 +279,27 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
             if state.child_exists(GAME) {
                 game_board = child_request(state, GAME, ChildReq::GetBoard);
                 game_log_0 = child_request(state, GAME, ChildReq::GetLog(0));
+                if game_log_0 > 0 {game_log_length = 1;}
                 game_log_1 = child_request(state, GAME, ChildReq::GetLog(1));
+                if game_log_1 > 0 {game_log_length = 2;}
                 game_log_2 = child_request(state, GAME, ChildReq::GetLog(2));
+                if game_log_2 > 0 {game_log_length = 3;}
                 game_log_3 = child_request(state, GAME, ChildReq::GetLog(3));
+                if game_log_3 > 0 {game_log_length = 4;}
                 game_log_4 = child_request(state, GAME, ChildReq::GetLog(4));
+                if game_log_4 > 0 {game_log_length = 5;}
                 game_log_5 = child_request(state, GAME, ChildReq::GetLog(5));
+                if game_log_5 > 0 {game_log_length = 6;}
                 game_log_6 = child_request(state, GAME, ChildReq::GetLog(6));
+                if game_log_6 > 0 {game_log_length = 7;}
                 game_log_7 = child_request(state, GAME, ChildReq::GetLog(7));
+                if game_log_7 > 0 {game_log_length = 8;}
                 game_log_8 = child_request(state, GAME, ChildReq::GetLog(8));
+                if game_log_8 > 0 {game_log_length = 9;}
+            }
+            let mut next_player = "human";
+            if game_log_length % 2 == 1 {
+                next_player = "bot";
             }
             response!(
                 concat!(
@@ -290,6 +308,7 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
                     "\"gameRunning\": {}, ",
                     "\"botLeftRunning\": {}, ",
                     "\"botRightRunning\": {}, ",
+                    "\"nextPlayer\": \"{}\", ",
                     "\"gameLog\": [{}, {}, {}, {}, {}, {}, {}, {}, {}]",
                     "}}"
                 ),
@@ -297,6 +316,7 @@ fn handle_command(state: &mut State, line: &str, cmd: Result<Command, Error>) ->
                 game_running,
                 bot_left_running,
                 bot_right_running,
+                next_player,
                 game_log_0,
                 game_log_1,
                 game_log_2,

@@ -67,6 +67,22 @@ pub fn main() -> Result<(), Error> {
     )
     .unwrap();
 
+    const UART_BASE: *mut u32 = 0x0400_0000 as *mut u32;
+    const UART_TXDATA: *mut u32 = 0x0400_0000 as *mut u32;
+    const UART_RXDATA: *mut u32 = 0x0400_0004 as *mut u32;
+    const UART_TXCTRL: *mut u32 = 0x0400_0008 as *mut u32;
+    const UART_RXCTRL: *mut u32 = 0x0400_000C as *mut u32;
+    const UART_IE: *mut u32 = 0x0400_0010 as *mut u32;
+    const UART_IP: *mut u32 = 0x0400_0014 as *mut u32;
+    const UART_DIV: *mut u32 = 0x0400_0018 as *mut u32;
+
+    // enable UART
+    unsafe {
+        UART_TXCTRL.write_volatile(1);
+        UART_RXCTRL.write_volatile(1);
+        UART_DIV.write_volatile(694);  // 80_000_000 Hz / (115200 baud - 1)
+    }
+
     let val = [0; 9];
     unsafe {
         core::ptr::copy_nonoverlapping(val.as_ptr(), virt.as_mut_ptr(), val.len());
@@ -92,32 +108,42 @@ pub fn main() -> Result<(), Error> {
                 ChildReply::new_with_val(Code::Success, game_log[val as usize])
             },
             ChildReq::Play(val) => {
-                const UART_BASE: *mut u32 = 0x0400_0000 as *mut u32;
-                const UART_TXDATA: *mut u32 = 0x0400_0000 as *mut u32;
-                const UART_RXDATA: *mut u32 = 0x0400_0004 as *mut u32;
-                const UART_TXCTRL: *mut u32 = 0x0400_0008 as *mut u32;
-                const UART_RXCTRL: *mut u32 = 0x0400_000C as *mut u32;
-                const UART_IE: *mut u32 = 0x0400_0010 as *mut u32;
-                const UART_IP: *mut u32 = 0x0400_0014 as *mut u32;
-                const UART_DIV: *mut u32 = 0x0400_0018 as *mut u32;
-
-                unsafe {
-                    UART_TXCTRL.write_volatile(1);
-                    UART_RXCTRL.write_volatile(1);
-                    UART_DIV.write_volatile(694);
-
-                    UART_TXDATA.write_volatile(85);
-                }
-                log!("serial_test: {:?}", 85);
 
                 // 0b .. .. .. .. .. .. .. 22 21 20 12 11 10 02 01 00
                 // with 00..22: 0-none, 1-blue, 2-green, 3-red
 
-                let row = val / 100 % 10;
-                let col = val / 10 % 10;
+                let mut row = val / 100 % 10;
+                let mut col = val / 10 % 10;
                 let mut player = val % 10;
+
+                let mut step_success = true;
+
+                if val == 1001 {
+                    step_success = false;
+                    unsafe {
+                        while UART_RXDATA.read_volatile() & (1 << 31) == 0 {}
+                    }
+                }
+
+                if val == 1000 {
+                    unsafe {
+                        let physical_input = (UART_RXDATA.read_volatile()) as i32;
+                        if (physical_input >= 48) & (physical_input <= 56) {  // valid input '0' .. '8'
+                            row = 2 - (physical_input - 48) / 3;
+                            col = 2 - (physical_input - 48) % 3;
+                            player = 1;
+                        } else {
+                            step_success = false;
+                        }
+                        while UART_RXDATA.read_volatile() & (1 << 31) == 0 {}
+                    }
+                }
+
+                if row < 0 || row > 2 || col < 0 || col > 2 {
+                    step_success = false;
+                }
+
                 let mut step_player = "human";
-                let mut step_success = false;
                 if player == 2 {
                     step_player = "botLeft";
                     player = -1;
@@ -130,33 +156,61 @@ pub fn main() -> Result<(), Error> {
                 log!("play row: {}", row);
                 log!("play col: {}", col);
 
-                // // check if its players turn
-                if player == last_player {
-                    player = 0;
-                    log!("move rejected: other players turn{}", "");
+                // check if its players turn
+                let mut game_log_length: i32 = 0;
+                for i in 0..9 {
+                    if game_log[i] > 0 {
+                        game_log_length += 1;
+                    }
                 }
-                // let mut bias = 0;
-                // for field in 0..9 {
-                //     if get_field_owner(field, game_log[0]) == 1 {
-                //         bias = bias + 1;
-                //     }
-                //     if get_field_owner(field,game_log[0]) == -1 {
-                //         bias = bias - 1;
-                //     }
-                // }
-                //if (player == 1) & (bias > 0) {
-                //    player = 0;
-                //    log!("move rejected: it's not humans turn{}", "");
-                // }
-                // if (player == -1) & (bias <= 0) {
-                //     player = 0;
-                //     log!("move rejected: it's not bots turn{}", "");
-                // }
+
+                if step_success & ((((player % 3) + 3) % 3 % 2) == (game_log_length % 2)) {
+                    let mut next_player = "human";
+                    if last_player == 1 {
+                        next_player = "bot";
+                    }
+                    step_success = false;
+                    log!("move rejected: other players turn{}", "");
+
+                    unsafe {
+                        UART_TXDATA.write_volatile(85);
+                        log!("serial_test: {:?}", 85);
+                    }
+
+                    response!(
+                        concat!(
+                            "step: {{ ",
+                            "\"player\": \"{}\", ",
+                            "\"success\": {}, ",
+                            "\"cheat\": {}, ",
+                            "\"rejectReason\": \"wrongTurn\", ",
+                            "\"nextPlayer\": \"{}\"",
+                            "}}"
+                        ),
+                        step_player,
+                        step_success,
+                        false,
+                        next_player
+                    );
+                }
 
                 // check if field already played
-                if get_row_col_owner(row, col, game_log[0]) != 0 {
-                    player = 0;
+                if step_success && (get_row_col_owner(row, col, game_log[0]) != 0) {
+                    step_success = false;
                     log!("move rejected: field already owned{}", "");
+                    response!(
+                        concat!(
+                            "step: {{ ",
+                            "\"player\": \"{}\", ",
+                            "\"success\": {}, ",
+                            "\"cheat\": {}, ",
+                            "\"rejectReason\": \"fieldOccupied\"",
+                            "}}"
+                        ),
+                        step_player,
+                        step_success,
+                        false
+                    );
                 }
 
                 // check if game already ended
@@ -167,13 +221,41 @@ pub fn main() -> Result<(), Error> {
                     let col_sum = get_row_col_owner(0, straight, game_log[0])
                         + get_row_col_owner(1, straight, game_log[0])
                         + get_row_col_owner(2, straight, game_log[0]);
-                    if (row_sum == 3) | (col_sum == 3) {
-                        player = 0;
+                    if step_success & ((row_sum == 3) | (col_sum == 3)) {
+                        step_success = false;
                         log!("move rejected: game already won by human{}", "");
-                    }
-                    if (row_sum == -3) | (col_sum == -3) {
-                        player = 0;
+                        response!(
+                            concat!(
+                                "step: {{ ",
+                                "\"player\": \"{}\", ",
+                                "\"success\": {}, ",
+                                "\"cheat\": {}, ",
+                                "\"rejectReason\": \"gameEnded\", ",
+                                "\"winner\": \"human\"",
+                                "}}"
+                            ),
+                            step_player,
+                            step_success,
+                            false
+                        );
+                        }
+                    if step_success & ((row_sum == -3) | (col_sum == -3)) {
+                        step_success = false;
                         log!("move rejected: game already won by bot{}", "");
+                        response!(
+                            concat!(
+                                "step: {{ ",
+                                "\"player\": \"{}\", ",
+                                "\"success\": {}, ",
+                                "\"cheat\": {}, ",
+                                "\"rejectReason\": \"gameEnded\", ",
+                                "\"winner\": \"bot\"",
+                                "}}"
+                            ),
+                            step_player,
+                            step_success,
+                            false
+                        );
                     }
                 }
                 let diag_sum_down = get_row_col_owner(0, 0, game_log[0])
@@ -183,16 +265,47 @@ pub fn main() -> Result<(), Error> {
                 let diag_sum_up = get_row_col_owner(0, 2, game_log[0])
                     + get_row_col_owner(1, 1, game_log[0])
                     + get_row_col_owner(2, 0, game_log[0]);
-                if (diag_sum_down == 3) | (diag_sum_up == 3) {
+
+                if step_success & ((diag_sum_down == 3) | (diag_sum_up == 3)) {
+                    step_success = false;
                     log!("move rejected: game already won by human{}", "");
+                    response!(
+                        concat!(
+                            "step: {{ ",
+                            "\"player\": \"{}\", ",
+                            "\"success\": {}, ",
+                            "\"cheat\": {}, ",
+                            "\"rejectReason\": \"gameEnded\", ",
+                            "\"winner\": \"human\"",
+                            "}}"
+                        ),
+                        step_player,
+                        step_success,
+                        false
+                    );
                 }
-                if (diag_sum_down == -3) | (diag_sum_up == -3) {
+
+                if step_success & ((diag_sum_down == -3) | (diag_sum_up == -3)) {
+                    step_success = false;
                     log!("move rejected: game already won by bot{}", "");
+                    response!(
+                        concat!(
+                            "step: {{ ",
+                            "\"player\": \"{}\", ",
+                            "\"success\": {}, ",
+                            "\"cheat\": {}, ",
+                            "\"rejectReason\": \"gameEnded\", ",
+                            "\"winner\": \"bot\"",
+                            "}}"
+                        ),
+                        step_player,
+                        step_success,
+                        false
+                    );
                 }
 
                 // play the move if valid
-                if player != 0 {
-                    step_success = true;
+                if step_success == true {
                     let mut player_value = 0x1;
                     last_player = 1;
                     if player == -1 {
@@ -208,20 +321,20 @@ pub fn main() -> Result<(), Error> {
                     game_log[2] = game_log[1];
                     game_log[1] = game_log[0];
                     game_log[0] = game_log[0] | (player_value << (2 * (col + 3 * row)));
-                }
 
-                response!(
-                    concat!(
-                        "step: {{ ",
-                        "\"player\": \"{}\", ",
-                        "\"success\": {}, ",
-                        "\"cheat\": {}",
-                        "}}"
-                    ),
-                    step_player,
-                    step_success,
-                    false
-                );
+                    response!(
+                        concat!(
+                            "step: {{ ",
+                            "\"player\": \"{}\", ",
+                            "\"success\": {}, ",
+                            "\"cheat\": {}",
+                            "}}"
+                        ),
+                        step_player,
+                        step_success,
+                        false
+                    );
+                }
 
                 ChildReply::new(Code::Success)
             },
