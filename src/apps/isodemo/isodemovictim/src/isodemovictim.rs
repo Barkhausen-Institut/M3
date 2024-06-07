@@ -24,7 +24,7 @@ use m3::com::{recv_msg, RecvGate};
 use m3::env;
 use m3::errors::{Code, Error};
 use m3::kif::Perm;
-use m3::mem::VirtAddr;
+use m3::mem::{PhysAddr, VirtAddr};
 use m3::tiles::Activity;
 use m3::vec::Vec;
 use m3::{cfg, reply_vmsg};
@@ -58,6 +58,15 @@ pub fn main() -> Result<(), Error> {
         .map_anon(virt, cfg::PAGE_SIZE, Perm::RW, MapFlags::PRIVATE)
         .expect("Unable to map anon memory");
 
+    // map UART
+    m3::tmif::map(
+        VirtAddr::new(0x0400_0000),
+        PhysAddr::new_raw(0x0400_0000),
+        1,
+        m3::kif::Perm::RW,
+    )
+    .unwrap();
+
     let val = [0; 9];
     unsafe {
         core::ptr::copy_nonoverlapping(val.as_ptr(), virt.as_mut_ptr(), val.len());
@@ -79,27 +88,27 @@ pub fn main() -> Result<(), Error> {
         let cmd: ChildReq = msg.pop().unwrap();
         let reply = match cmd {
             ChildReq::GetBoard => ChildReply::new_with_val(Code::Success, game_log[0]),
-            ChildReq::GetLog(val) => ChildReply::new_with_val(Code::Success, game_log[val as usize]),
+            ChildReq::GetLog(val) => {
+                ChildReply::new_with_val(Code::Success, game_log[val as usize])
+            },
             ChildReq::Play(val) => {
+                const UART_BASE: *mut u32 = 0x0400_0000 as *mut u32;
+                const UART_TXDATA: *mut u32 = 0x0400_0000 as *mut u32;
+                const UART_RXDATA: *mut u32 = 0x0400_0004 as *mut u32;
+                const UART_TXCTRL: *mut u32 = 0x0400_0008 as *mut u32;
+                const UART_RXCTRL: *mut u32 = 0x0400_000C as *mut u32;
+                const UART_IE: *mut u32 = 0x0400_0010 as *mut u32;
+                const UART_IP: *mut u32 = 0x0400_0014 as *mut u32;
+                const UART_DIV: *mut u32 = 0x0400_0018 as *mut u32;
 
+                unsafe {
+                    UART_TXCTRL.write_volatile(1);
+                    UART_RXCTRL.write_volatile(1);
+                    UART_DIV.write_volatile(694);
 
-                // const UART_BASE: *mut u32 = 0x0400_0000 as *mut u32;
-                // const UART_TXDATA: *mut u32 = 0x0400_0000 as *mut u32;
-                // const UART_RXDATA: *mut u32 = 0x0400_0004 as *mut u32;
-                // const UART_TXCTRL: *mut u32 = 0x0400_0008 as *mut u32;
-                // const UART_RXCTRL: *mut u32 = 0x0400_000C as *mut u32;
-                // const UART_IE: *mut u32 = 0x0400_0010 as *mut u32;
-                // const UART_IP: *mut u32 = 0x0400_0014 as *mut u32;
-                // const UART_DIV: *mut u32 = 0x0400_0018 as *mut u32;
-                //
-                // unsafe {
-                //     UART_TXCTRL.write_volatile(1);
-                //     UART_RXCTRL.write_volatile(1);
-                //     UART_DIV.write_volatile(694);
-                //
-                //     UART_TXDATA.write_volatile(85);
-                // }
-                // log!("serial_test: {:?}", 85);
+                    UART_TXDATA.write_volatile(85);
+                }
+                log!("serial_test: {:?}", 85);
 
                 // 0b .. .. .. .. .. .. .. 22 21 20 12 11 10 02 01 00
                 // with 00..22: 0-none, 1-blue, 2-green, 3-red
@@ -121,28 +130,28 @@ pub fn main() -> Result<(), Error> {
                 log!("play row: {}", row);
                 log!("play col: {}", col);
 
-               // // check if its players turn
+                // // check if its players turn
                 if player == last_player {
                     player = 0;
                     log!("move rejected: other players turn{}", "");
                 }
-               // let mut bias = 0;
-               // for field in 0..9 {
-               //     if get_field_owner(field, game_log[0]) == 1 {
-               //         bias = bias + 1;
-               //     }
-               //     if get_field_owner(field,game_log[0]) == -1 {
-               //         bias = bias - 1;
-               //     }
-               // }
+                // let mut bias = 0;
+                // for field in 0..9 {
+                //     if get_field_owner(field, game_log[0]) == 1 {
+                //         bias = bias + 1;
+                //     }
+                //     if get_field_owner(field,game_log[0]) == -1 {
+                //         bias = bias - 1;
+                //     }
+                // }
                 //if (player == 1) & (bias > 0) {
                 //    player = 0;
                 //    log!("move rejected: it's not humans turn{}", "");
-               // }
-               // if (player == -1) & (bias <= 0) {
-               //     player = 0;
-               //     log!("move rejected: it's not bots turn{}", "");
-               // }
+                // }
+                // if (player == -1) & (bias <= 0) {
+                //     player = 0;
+                //     log!("move rejected: it's not bots turn{}", "");
+                // }
 
                 // check if field already played
                 if get_row_col_owner(row, col, game_log[0]) != 0 {
@@ -153,11 +162,11 @@ pub fn main() -> Result<(), Error> {
                 // check if game already ended
                 for straight in 0..3 {
                     let row_sum = get_row_col_owner(straight, 0, game_log[0])
-                                    + get_row_col_owner(straight, 1, game_log[0])
-                                    + get_row_col_owner(straight, 2, game_log[0]);
+                        + get_row_col_owner(straight, 1, game_log[0])
+                        + get_row_col_owner(straight, 2, game_log[0]);
                     let col_sum = get_row_col_owner(0, straight, game_log[0])
-                                    + get_row_col_owner(1, straight, game_log[0])
-                                    + get_row_col_owner(2, straight, game_log[0]);
+                        + get_row_col_owner(1, straight, game_log[0])
+                        + get_row_col_owner(2, straight, game_log[0]);
                     if (row_sum == 3) | (col_sum == 3) {
                         player = 0;
                         log!("move rejected: game already won by human{}", "");
@@ -168,12 +177,12 @@ pub fn main() -> Result<(), Error> {
                     }
                 }
                 let diag_sum_down = get_row_col_owner(0, 0, game_log[0])
-                                        + get_row_col_owner(1, 1, game_log[0])
-                                        + get_row_col_owner(2, 2, game_log[0]);
+                    + get_row_col_owner(1, 1, game_log[0])
+                    + get_row_col_owner(2, 2, game_log[0]);
 
                 let diag_sum_up = get_row_col_owner(0, 2, game_log[0])
-                                    + get_row_col_owner(1, 1, game_log[0])
-                                    + get_row_col_owner(2, 0, game_log[0]);
+                    + get_row_col_owner(1, 1, game_log[0])
+                    + get_row_col_owner(2, 0, game_log[0]);
                 if (diag_sum_down == 3) | (diag_sum_up == 3) {
                     log!("move rejected: game already won by human{}", "");
                 }
