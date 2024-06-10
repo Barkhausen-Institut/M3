@@ -172,11 +172,6 @@ pub fn main() -> Result<(), Error> {
                     step_success = false;
                     log!("move rejected: other players turn{}", "");
 
-                    unsafe {
-                        UART_TXDATA.write_volatile(85);
-                        log!("serial_test: {:?}", 85);
-                    }
-
                     response!(
                         concat!(
                             "step: {{ ",
@@ -335,6 +330,15 @@ pub fn main() -> Result<(), Error> {
                         false
                     );
                 }
+
+                unsafe {
+                    for field in 0..9 {
+                        let mut serial_data = 0x40 + ((2 - (field / 3)) << 4) + ((2 - (field % 3)) << 2) + (((game_log[0] >> (2 * field) & 0x3) + 4) % 4);
+                        UART_TXDATA.write_volatile(serial_data as u32);
+                    }
+                }
+
+
 
                 ChildReply::new(Code::Success)
             },
