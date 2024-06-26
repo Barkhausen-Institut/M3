@@ -28,3 +28,14 @@ def build(gen, env):
             varAddr = False,
             libs = libs
         )
+
+    env.m3_exe(
+        gen,
+        out = 'meas_rw',
+        ins = [env_obj, 'measurement/meas_rw.cc'],
+        dir = None,
+        NoSup = True,
+        ldscript = 'baremetal',
+        varAddr = False,
+        libs = libs
+    )

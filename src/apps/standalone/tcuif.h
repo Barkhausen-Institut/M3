@@ -123,6 +123,11 @@ public:
         return perform_ext_cmd(tile, cmd, unread);
     }
 
+    //time in nsec from TCU reg
+    static uint64_t nanotime() {
+        return m3::TCU::nanotime();
+    }
+
 private:
     static m3::Errors::Code perform_ext_cmd(m3::TileId tile, reg_t cmd,
                                             uint32_t *unread = nullptr) {

@@ -1,0 +1,6 @@
+<config>
+    <kernel args="tilemux" />
+    <kernel args="meas_rw" />
+    <kernel args="meas_rw" />
+    <kernel args="meas_rw" />
+</config>

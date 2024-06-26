@@ -373,7 +373,7 @@ private:
         return get_error();
     }
 
-    uint64_t nanotime() const {
+    static uint64_t nanotime() {
         return read_reg(UnprivRegs::CUR_TIME);
     }
 
