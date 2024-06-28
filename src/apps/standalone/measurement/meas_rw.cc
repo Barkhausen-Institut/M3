@@ -45,7 +45,7 @@ static constexpr size_t ITER_MAX  = 500000;
 static constexpr goff_t DRAM_OFF = 0x10000000;
 
 TileId local_tile;
-TileId remote_tile;
+TileId remote_tile = TILE_IDS[Tile::T0]; //take T0 as remote
 goff_t remote_addr;
 
 #if (MEAS_DATA_SIZE == 32)
@@ -124,10 +124,7 @@ int main() {
         return 0;
     }
 
-    //take T0 as remote
     size_t local_idx = tile_idx(local_tile).unwrap();
-    remote_tile = TILE_IDS[Tile::T0];
-    //remote_addr = local_idx*DRAM_OFF;
     remote_addr = DRAM_OFF + local_idx*0x00100000;
 
     logln("This is {}. Run measurement with {}, addr {:#x}.\n"_cf, local_tile, remote_tile, remote_addr);
