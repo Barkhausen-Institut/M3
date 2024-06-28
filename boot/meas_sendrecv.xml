@@ -1,0 +1,6 @@
+<config>
+    <kernel args="meas_receiver" />
+    <kernel args="meas_sender" />
+    <kernel args="meas_sender" />
+    <kernel args="meas_sender" />
+</config>

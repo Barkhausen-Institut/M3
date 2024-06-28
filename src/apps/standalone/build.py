@@ -29,13 +29,14 @@ def build(gen, env):
             libs = libs
         )
 
-    env.m3_exe(
-        gen,
-        out = 'meas_rw',
-        ins = [env_obj, 'measurement/meas_rw.cc'],
-        dir = None,
-        NoSup = True,
-        ldscript = 'baremetal',
-        varAddr = False,
-        libs = libs
-    )
+    for s in ['rw', 'sender', 'receiver']:
+        env.m3_exe(
+            gen,
+            out = 'meas_' + s,
+            ins = [env_obj, 'measurement/meas_' + s + '.cc'],
+            dir = None,
+            NoSup = True,
+            ldscript = 'baremetal',
+            varAddr = False,
+            libs = libs
+        )
