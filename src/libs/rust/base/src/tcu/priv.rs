@@ -265,9 +265,13 @@ impl TCU {
     /// Sets the timer to fire in `delay_ns` nanoseconds if `delay_ns` is nonzero. Otherwise, unsets
     /// the timer.
     pub fn set_timer(delay_ns: u64) -> Result<(), Error> {
+        let delay = match env!("M3_TARGET") {
+            "hw" => delay_ns / 10,
+            _ => delay_ns,
+        };
         Self::write_priv_reg(
             PrivReg::PrivCmd,
-            Self::build_priv_cmd(PrivCmdOpCode::SetTimer, delay_ns),
+            Self::build_priv_cmd(PrivCmdOpCode::SetTimer, delay),
         );
         Self::get_priv_error()
     }

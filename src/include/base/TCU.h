@@ -458,7 +458,7 @@ private:
     }
 
     uint64_t nanotime() const {
-        return read_reg(UnprivRegs::CUR_TIME);
+        return read_reg(UnprivRegs::CUR_TIME) * 10;
     }
 
     void sleep() {

@@ -478,7 +478,11 @@ impl TCU {
     /// Returns the time in nanoseconds since boot
     #[inline(always)]
     pub(crate) fn nanotime() -> u64 {
-        Self::read_unpriv_reg(UnprivReg::CurTime)
+        let time = Self::read_unpriv_reg(UnprivReg::CurTime);
+        match env!("M3_TARGET") {
+            "hw" => time * 10,
+            _ => time,
+        }
     }
 
     /// Puts the CU to sleep until the CU is woken up (e.g., by a message reception).
