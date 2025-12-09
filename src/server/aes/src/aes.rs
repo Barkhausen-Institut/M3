@@ -34,8 +34,8 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 const SPM_SIZE: GlobOff = 4096;
 
 static TILE: LazyStaticRefCell<Rc<Tile>> = LazyStaticRefCell::default();
-static MAX_CLIENTS: StaticCell<u64> = StaticCell::new(0);
-static CLIENTS: StaticCell<u64> = StaticCell::new(0);
+static MAX_CLIENTS: StaticCell<usize> = StaticCell::new(0);
+static CLIENTS: StaticCell<usize> = StaticCell::new(0);
 static SEM: LazyStaticRefCell<Semaphore> = LazyStaticRefCell::default();
 
 #[derive(Copy, Clone, Debug, IntoPrimitive, TryFromPrimitive, Serialize_repr, Deserialize_repr)]
@@ -83,8 +83,9 @@ impl AESSession {
 
 #[no_mangle]
 pub fn main() -> Result<(), Error> {
-    let clients: u64 = env::args().nth(1).unwrap().parse().unwrap();
-    let tee = env::args().nth(2).unwrap() == "1";
+    let clients: usize = env::args().nth(1).unwrap().parse().unwrap();
+    let regs: usize = env::args().nth(2).unwrap().parse().unwrap();
+    let tee = env::args().nth(3).unwrap() == "1";
 
     MAX_CLIENTS.set(clients);
     SEM.set(Semaphore::attach("start").unwrap());
@@ -106,17 +107,19 @@ pub fn main() -> Result<(), Error> {
 
     if tee && tcu::EXREG_REGS > 0 {
         // allocate all but the ones need for the mem benchs
-        for _ in 0..tcu::EXREG_REGS - 4 {
-            aes_cap
-                .make_exclusive(&aes_tile, Activity::own().tile(), false)
-                .expect("make exclusive");
+        for _ in 0..(tcu::EXREG_REGS - clients).min(regs) {
+            if let Err(e) = aes_cap.make_exclusive(&aes_tile, Activity::own().tile(), false) {
+                m3::println!("Unable to add SPM exreg: {}", e);
+                break;
+            }
         }
 
-        // same for DRAM
-        for _ in 0..8 {
-            dummy_mcap
-                .make_exclusive(&dummy_mtile, Activity::own().tile(), false)
-                .expect("make exclusive");
+        // same for DRAM (4 are used by the kernel for EP regions)
+        for _ in 0..(tcu::EXREG_REGS - 4 - clients).min(regs) {
+            if let Err(e) = dummy_mcap.make_exclusive(&dummy_mtile, Activity::own().tile(), false) {
+                m3::println!("Unable to add DRAM exreg: {}", e);
+                break;
+            }
         }
     }
 
