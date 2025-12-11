@@ -194,7 +194,7 @@ fn set_region(idxtile: &rot::IndexedTile, idx: usize, reg: [u64; 2]) {
 
 #[cfg(any(M3_TARGET = "gem5", M3_TARGET = "hw"))]
 fn set_count(idxtile: &rot::IndexedTile, count: usize) {
-    let value = (2 << 48)
+    let value = (2 << 40)
         | (count as tcu::Reg) << 32
         | TCU::tileid_to_nocid(env::boot().tile_id()) as tcu::Reg;
     idxtile
