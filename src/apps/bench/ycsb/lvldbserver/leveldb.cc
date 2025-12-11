@@ -143,7 +143,7 @@ int main(int argc, char **argv) {
 
         println("Server Side:"_cf);
         exec->print_stats(opcounter);
-        if(i > warmup)
+        if(i >= warmup)
             res.push(end.duration_since(start));
     }
 
