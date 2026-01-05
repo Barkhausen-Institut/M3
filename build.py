@@ -47,7 +47,7 @@ class M3Env(Env):
         # cross compiler defines
         rustabi = 'musl'
         cross = isa + '-buildroot-linux-musl-'
-        crossdir = os.path.abspath('build/cross-' + isa + '/host')
+        crossdir = 'build/cross-' + isa + '/host'
         crossver = '14.3.0'
         env['CROSS'] = cross
         env['CROSSDIR'] = crossdir

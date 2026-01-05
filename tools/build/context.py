@@ -40,7 +40,7 @@ class Context:
 
         # various paths
         self.root = Path(__file__).resolve().parent.parent.parent
-        self.build_dir = self.root / f"build/{self.target}-{self.isa}-{self.build}"
+        self.build_dir = Path("build") / f"{self.target}-{self.isa}-{self.build}"
         self.bin_dir = self.build_dir / "bin"
         self.tool_dir = self.build_dir / "toolsbin"
         self.out_dir = Path(str(os.getenv("M3_OUT")))
