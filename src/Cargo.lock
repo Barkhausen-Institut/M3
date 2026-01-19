@@ -383,6 +383,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "ipcrecv"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
+name = "ipcsend"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "isr"
 version = "0.1.0"
 dependencies = [

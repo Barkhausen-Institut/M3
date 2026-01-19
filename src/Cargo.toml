@@ -30,6 +30,8 @@ members = [
     "apps/msgchan/msgchansnd",
     "apps/netechoserver",
     "apps/ping",
+    "apps/ipc/ipcrecv",
+    "apps/ipc/ipcsend",
     "apps/raser",
     "apps/rasertest",
     "apps/repeater",

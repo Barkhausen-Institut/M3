@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<config>
+    <kernel args="kernel"/>
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="ipcsend">
+                    <!-- Give this program a send gate with some credits. -->
+                </app>
+            </dom>
+            <dom>
+                <app args="ipcrecv" daemon="1">
+                    <!-- Give this program a receive gate with enough message size and buffer slots. -->
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>
