@@ -704,6 +704,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "rdfile"
+version = "0.1.0"
+dependencies = [
+ "m3",
+]
+
+[[package]]
 name = "repeater"
 version = "0.1.0"
 dependencies = [

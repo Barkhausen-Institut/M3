@@ -24,6 +24,7 @@ dirs = [
     'queue',
     'raser',
     'rasertest',
+    'rdfile',
     'repeater',
     'resmngtest',
     'rusthello',
