@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "apps/acceldemo",
     "apps/acceltest",
     "apps/bench/aesstream",
     "apps/bench/chancreate",
