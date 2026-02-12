@@ -1,4 +1,5 @@
 dirs = [
+    'acceldemo',
     'acceltest',
     'allocator',
     'bench',

@@ -1,0 +1,13 @@
+[package]
+name = "acceldemo"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/acceldemo.rs"
+crate-type = ["staticlib"]
+
+[dependencies]
+m3 = { path = "../../libs/rust/m3" }
+pipecli = { path = "../../libs/rust/pipecli" }
+accel = { path = "../../libs/rust/accel" }

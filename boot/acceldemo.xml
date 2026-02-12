@@ -1,0 +1,19 @@
+<?xml version="1.0"?>
+<config>
+    <kernel args="kernel"/>
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="pipes" daemon="1">
+                    <serv name="pipes"/>
+                </app>
+            </dom>
+            <dom>
+                <app args="acceldemo Uryyb Jbeyq! Guvf vf n qrzbafgengvba sbe gur nppryrengbe NCV bs Z&#xB3;. Unccl cebtenzzvat!">
+                    <sess name="pipes"/>
+                    <!-- Give this program access to the rot13 tile. -->
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

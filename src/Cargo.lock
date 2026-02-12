@@ -11,6 +11,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "acceldemo"
+version = "0.1.0"
+dependencies = [
+ "accel",
+ "m3",
+ "pipecli",
+]
+
+[[package]]
 name = "acceltest"
 version = "0.1.0"
 dependencies = [
