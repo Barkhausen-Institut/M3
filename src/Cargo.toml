@@ -48,6 +48,8 @@ members = [
     "apps/rustunittests/rustdestrtests",
     "apps/rustunittests/rustmisctests",
     "apps/rustunittests/rustvfstests",
+    "apps/sessions/client",
+    "apps/sessions/server",
     "apps/spammer",
     "apps/straccmux",
     "apps/teetest",

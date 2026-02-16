@@ -1,0 +1,18 @@
+<?xml version="1.0"?>
+<config>
+    <kernel args="kernel"/>
+    <dom>
+        <app args="root">
+            <dom>
+                <app args="sessionsserver" daemon="1">
+                    <serv name="sessions"/>
+                </app>
+            </dom>
+            <dom>
+                <app args="sessionsclient">
+                    <sess name="sessions"/>
+                </app>
+            </dom>
+        </app>
+    </dom>
+</config>

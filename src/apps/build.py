@@ -33,6 +33,7 @@ dirs = [
     'ruststandalone',
     'ruststdtest',
     'rustunittests',
+    'sessions',
     'shell',
     'spammer',
     'standalone',
