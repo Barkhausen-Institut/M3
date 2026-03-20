@@ -1,5 +1,5 @@
 [build]
-target = "riscv64-linux-m3-musl"
+target = "toolchain/rust/riscv64-linux-m3-musl.json"
 
 # rustflags specified in [build] are overridden by the target-specific rustflags
 [target.'cfg(all())']
@@ -15,3 +15,6 @@ rustflags = ["-Cinstrument-coverage", "-Zno-profiler-runtime"]
 # custom targets/toolchains.
 [target.'cfg(target_pointer_width = "64")']
 rustflags = ["--cfg", "curve25519_dalek_bits=\"64\""]
+
+[unstable]
+build-std = ["core", "alloc", "std", "panic_abort"]
